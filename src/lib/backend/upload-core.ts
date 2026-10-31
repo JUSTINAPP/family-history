@@ -110,15 +110,34 @@ export async function persistUpload(
     sha256: f.sha256,
     role: String(roles[i] || "image").slice(0, 40),
   }));
-  const { data: id, error } = await client.rpc("begin_ingestion", {
-    p_archive_id: archiveId,
-    p_capture_id: captureId,
-    p_title: String(form.get("title") || "New archive item").slice(0, 300),
-    p_kind: kind,
-    p_context: context,
-    p_quick: quick,
-    p_files: manifest,
-  });
+  const batchId = String(form.get("batchId") || "");
+  if (
+    batchId &&
+    (!UUID_PATTERN.test(batchId) ||
+      prepared.length !== 1 ||
+      kind !== "Photograph" ||
+      context.trim())
+  )
+    throw new BackendError(
+      400,
+      "Bulk import saves one photograph per item, with context kept on its batch.",
+    );
+  const { data: id, error } = batchId
+    ? await client.rpc("begin_batch_photograph", {
+        p_archive_id: archiveId,
+        p_batch_id: batchId,
+        p_capture_id: captureId,
+        p_file: manifest[0],
+      })
+    : await client.rpc("begin_ingestion", {
+        p_archive_id: archiveId,
+        p_capture_id: captureId,
+        p_title: String(form.get("title") || "New archive item").slice(0, 300),
+        p_kind: kind,
+        p_context: context,
+        p_quick: quick,
+        p_files: manifest,
+      });
   if (error || typeof id !== "string")
     throw new BackendError(
       error?.code === "42501" ? 403 : 503,

@@ -1,7 +1,7 @@
 import { defineConfig } from "@playwright/test";
 export default defineConfig({
   testDir: "./tests",
-  testIgnore: ["**/live-auth.spec.ts"],
+  testIgnore: ["**/live-auth.spec.ts", "**/visibility-browser.spec.ts"],
   fullyParallel: true,
   retries: 0,
   workers: 2,

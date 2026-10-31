@@ -1,5 +1,9 @@
 # Supabase foundation
 
+**Bulk-photograph correction (current):** Production inspection confirmed two originals grouped under one item. Capture now explicitly distinguishes one item’s views from separate photographs, with durable import batches and separate batch context. Apply only new migration **007** for bulk; it works without audio migration 006. Existing production sources are unchanged. See [workflow, audit and deployment](../docs/bulk-photograph-import.md).
+
+**Audio follow-up (current):** Real microphone/file recording, attached voice recollections and standalone oral histories are implemented locally. Migration 005 is already applied. Apply **only migration 006**, manually, before deploying audio. See [audio setup, permissions and smoke tests](../docs/audio-recordings.md). No remote SQL/data changes were made in this pass. Earlier references to demo-only voice describe the retained prototype.
+
 The first four ordered migrations implement the persistent archive foundation, private Storage, RLS and narrow authenticated RPC writes. They contain no fictional archive people/items, admin email or passwords. `create_archive` bootstraps a fresh archive and its authenticated caller's Admin membership atomically.
 
 Read [setup](../docs/supabase-setup.md) before applying. The remote project is reachable, but no migration has been applied remotely in this session. The publishable key cannot perform schema administration; apply through the SQL Editor or your authenticated CLI/database access. No destructive remote operations were attempted.

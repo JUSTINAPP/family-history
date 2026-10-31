@@ -1,4 +1,5 @@
 "use client";
+import { useImportSelection } from "./import-selection";
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -50,6 +51,8 @@ const emptyVoice: VoiceValue = {
 };
 export function Capture() {
   const workspace = useWorkspace();
+  const importSelection = useImportSelection();
+  const [groupedPhotograph, setGroupedPhotograph] = useState(false);
   const { people } = useCatalogue();
   const router = useRouter();
   const [files, setFiles] = useState<SourceFile[]>([]);
@@ -115,6 +118,12 @@ export function Capture() {
   }
   async function save(view: boolean) {
     if (!files.length) return;
+    if (kind === "Photograph" && files.length > 1 && !groupedPhotograph) {
+      setError(
+        "Choose separate photographs or views of one item before saving.",
+      );
+      return;
+    }
     setSaving(true);
     setError("");
     try {
@@ -151,6 +160,7 @@ export function Capture() {
       }
       setSavedId(id);
       setFiles([]);
+      setGroupedPhotograph(false);
       setActiveImage(0);
       setWritten("");
       setVoice(emptyVoice);
@@ -209,6 +219,19 @@ export function Capture() {
         aria-label="Upload existing images"
         onChange={(e) => add(e.target.files)}
       />
+      <nav className="import-actions" aria-label="Add to archive options">
+        <span aria-current="page">Add one item</span>
+        <Link className="text-link" href="/add/bulk?workflow=import">
+          Bulk import photographs ↗
+        </Link>
+        <Link className="text-link" href="/add/voice">
+          Voice recording ↗
+        </Link>
+      </nav>
+      <p className="help-line">
+        Keep pages, front/back or several views of one item together here.
+        Import separate photographs through Bulk import photographs.
+      </p>
       <div className="capture-heading">
         <div>
           <p className="eyebrow">A LITTLE MORE OF OUR STORY</p>
@@ -236,6 +259,11 @@ export function Capture() {
           </label>
         </div>
       </div>
+      <p>
+        <Link href="/add/voice" className="text-link">
+          Voice recording ↗
+        </Link>
+      </p>
       {savedId && !files.length && (
         <div className="saved-inline" role="status">
           <Check size={19} />
@@ -253,6 +281,52 @@ export function Capture() {
           </div>
           <Link href={`/add/saved/${savedId}`}>View item ↗</Link>
         </div>
+      )}
+      {kind === "Photograph" && files.length > 1 && !groupedPhotograph && (
+        <section
+          className="notice"
+          aria-label="How should these photographs be kept?"
+        >
+          <h2>Separate photographs, or views of one photograph?</h2>
+          <p>
+            Separate photographs each get their own place in the archive. Front
+            and back can stay together as one item.
+          </p>
+          <div className="import-actions">
+            <button
+              className="button"
+              onClick={() => {
+                importSelection.stage(
+                  workspace.archive.id,
+                  files.map((source) => source.file),
+                );
+                router.push("/add/bulk?workflow=import");
+              }}
+            >
+              Import as separate photographs
+            </button>
+            <button
+              className="subtle-button"
+              onClick={() => {
+                setGroupedPhotograph(true);
+                setError("");
+              }}
+            >
+              Keep together as one item
+            </button>
+          </div>
+        </section>
+      )}
+      {kind === "Photograph" && files.length > 1 && groupedPhotograph && (
+        <p className="help-line">
+          These {files.length} views will be saved as one item.{" "}
+          <button
+            className="subtle-button"
+            onClick={() => setGroupedPhotograph(false)}
+          >
+            Change this choice
+          </button>
+        </p>
       )}
       {!files.length ? (
         <>
@@ -488,7 +562,18 @@ export function Capture() {
                 </button>
               </div>
               <div hidden={mode !== "voice"}>
-                <VoiceRecollection key={session} onChange={setVoice} />
+                {workspace.mode === "demo" ? (
+                  <VoiceRecollection key={session} onChange={setVoice} />
+                ) : (
+                  <p className="notice">
+                    Save the photograph first, then choose Add a voice
+                    recollection on its item page. You can also{" "}
+                    <Link href="/add/voice">
+                      make a standalone voice recording
+                    </Link>
+                    .
+                  </p>
+                )}
               </div>
               <div hidden={mode !== "text"} className="written-recollection">
                 <label className="field">
@@ -668,7 +753,12 @@ export function Capture() {
             </div>
             <button
               className="button button-light"
-              disabled={saving}
+              disabled={
+                saving ||
+                (kind === "Photograph" &&
+                  files.length > 1 &&
+                  !groupedPhotograph)
+              }
               onClick={() => save(true)}
             >
               Save & view
@@ -676,7 +766,12 @@ export function Capture() {
             </button>
             <button
               className="button"
-              disabled={saving}
+              disabled={
+                saving ||
+                (kind === "Photograph" &&
+                  files.length > 1 &&
+                  !groupedPhotograph)
+              }
               onClick={() => save(false)}
             >
               Save & next

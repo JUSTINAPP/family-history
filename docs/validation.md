@@ -1,3 +1,48 @@
+# Saved-item discoverability — current validation
+
+The existing production item with two originals remains unchanged. The real app now uses paged RLS-visible catalogue queries, independent item lookup and resilient optional-resource loading. No new migration, production data change or automatic split was introduced.
+
+- Lint and TypeScript checks pass; production build passes.
+- The full regression suite passes **70 tests**, preserving photograph, HEIC, bulk, catalogue, audio and written-recollection coverage and adding visibility/pagination cases.
+- `npm run test:visibility`: the authenticated real-data application path passes against an isolated synthetic Auth/PostgREST/Storage fixture. It verifies **1,007 visible rows despite a 127-row API cap**, null/empty metadata, failed previews, two original downloads on one item, edit/recollection controls, reload, sign-out/sign-in with a different default archive, View everything count equality and detail access during an independent catalogue outage. No real account/project or original was used.
+- The disposable PostgreSQL suite retains **99 passing checks** for existing migrations/RLS/permissions/source preservation, plus **72 passing checks** with audio 006 initially absent. No policy was weakened or storage made public.
+- **4 production authentication-boundary tests pass**. The production build now lists saved-item and Explore routes as dynamic per-request routes; no private item slugs are statically generated.
+
+Early integration attempts exposed optional-resource GET backoff delaying detail rendering and a dependency on next-catalogue availability blocking the edit page. These were fixed rather than hidden behind longer browser-test waits. The test's selectors were also aligned with the existing sign-in form. Optional requests now fail independently and the final authenticated flow passes.
+
+A final repeated run exposed a synthetic-audio fixture timing issue: its elapsed timer could reach one second before the encoder produced any data. The fixture now retains its Web Audio producer and waits for an actual dataavailable chunk before Pause/Stop; production recording code is unchanged.
+
+Hosted production HTTP behaviour and physical Safari/iPhone still need the [no-reupload smoke test](saved-item-discoverability.md). The agent did not independently access the user's private production session or inspect its failing request trace; production facts are those supplied by the user's database inspection. [Combined commit manifest](visibility-commit-manifest.md).
+
+# Bulk photograph ingestion correction — current
+
+- The user confirmed from production database inspection that **two original-file rows belong to one archive item**. The grouping explains the single Explore entry. The agent did not independently inspect/download the current private Storage objects, execute the read-only audit remotely, or generate a production HEIC derivative. No existing item/source was moved, deleted, split or re-uploaded.
+- Lint and strict TypeScript pass. Production build passes with import history, persisted progress, batch-scoped galleries and catalogue context saving.
+- **66 regression tests pass**, retaining the previous photograph/HEIC/audio/written-recollection suites. New checks cover 2 and 20 separate import calls, file transfer from the capture intention prompt, explicit front/back grouping, metadata-free completion and two Explore entries, batch-context separation, reload/reselection matching and mobile accessibility.
+- **99 disposable PostgreSQL checks pass** across migrations 001–007. New cases create twenty independent ready items and originals, assert zero automatically copied recollections, enforce expected batch count, preserve grouped letter/photo files, verify per-archive and Contributor/Editor gates, verify atomic/idempotent catalogue words, select the next uncatalogued photograph, and read complete scoped galleries without requiring a derived preview.
+- **72 checks pass without audio 006 initially installed**: a fresh disposable database executes 001–005 and 007, runs the relevant suite, then successfully applies 006 afterwards. These are local-only migrations, not reruns on production. 007 is independent of 006.
+- **4 production-mode authentication tests pass** locally, including private import history/progress, scoped Explore, existing source/audio/preview routes and cross-origin write rejection.
+- A first new grouped-source browser assertion expected two list containers, while the UI correctly contains two download links inside one container. It was corrected to check both original filenames. All subsequent regression checks pass.
+
+The bulk pass leaves migrations 001–006, real originals, existing audio work and Git staging untouched. Migration 007 is new and has not been applied remotely. Physical iPhone/Safari, large hosted uploads, interrupted real-network resume and the actual existing HEIC derivative remain deployment smoke-test tasks. Source/data integrity is protected in local tests; the current physical production objects are not claimed independently audited from row metadata alone.
+
+See [confirmed finding, workflow, recovery and deployment order](bulk-photograph-import.md) and the [combined commit manifest](bulk-import-commit-manifest.md).
+
+# Archival audio — current validation
+
+- Lint and strict TypeScript checks passed.
+- Production build passed with voice capture, recording metadata edits, authenticated audio finalisation and private playback alongside the existing HEIC/bulk/catalogue routes.
+- **60 regression tests passed**: the previous 52 remain, plus five audio upload/validation/range checks and three browser recording/upload/permission/accessibility checks. The browser recorder test feeds a synthetic Web Audio stream into the actual MediaRecorder; Record, elapsed time, Pause/Resume, Stop, local playback/bytes, Delete and zero uploads before explicit Save are exercised. No real microphone or hosted test upload was used.
+- **82 disposable PostgreSQL checks passed**, executing migrations 001–006 only in a fresh local test database. New cases cover attached audio, metadata-free standalone oral histories, idempotent receipts, private Storage reads, role/owner edits, same-archive links, Editor changes, archive/restore visibility, original immutability, speaker credits without profile email exposure, audio-context hiding and preservation of separate written recollections. New tables have ENABLE/FORCE RLS and explicit grants.
+- **4 production authentication tests passed** on localhost:4200, including voice and recording-edit route protection, anonymous audio-finalisation rejection, cross-origin rejection and existing private-file/preview boundaries.
+- Migrations **001–005 were not modified**. Migration 006 has **not** been applied remotely. No remote data/Storage mutation, Git staging, commit, push or deployment occurred. The pre-existing `next-env.d.ts` change was excluded from the commit manifest.
+
+The first Chromium synthetic-device attempt stalled in the macOS microphone-permission path. The final recorder test injects an in-browser synthetic stream, avoiding device permission/real audio access while still using the real encoder and controls. A denial assertion was narrowed to the application's alert to avoid Next's separate route-announcer alert. The final suite passes.
+
+Physical iPhone/Safari, actual hardware microphones, background/screen-lock/phone-call behaviour, imported M4A/MP3 variants, large hosted uploads, signed-link expiry/renewal and production Vercel/Supabase playback still require the [audio deployment smoke test](audio-recordings.md). Local tests cannot prove hosted end-to-end capture. Audio remains in its original codec; unsupported players can download the master. Signed URLs expire after ten minutes and can outlive revocation until that expiry.
+
+Exact combined file list and actual starting Git state: [audio commit manifest](audio-commit-manifest.md).
+
 # HEIC / bulk import / catalogue editing — 31 October 2026 (current)
 
 This follow-up supersedes earlier statements that bulk/preview processing is unconnected or that the live archive has not been created. The user has confirmed the live archive exists. No remote database or Storage changes were performed in this pass.

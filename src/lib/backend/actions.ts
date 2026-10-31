@@ -146,17 +146,40 @@ export async function catalogueItemAction(
   try {
     const { client } = await requireSession();
     const read = (name: string) => String(form.get(name) || "").trim();
-    const { error } = await client.rpc("catalogue_item", {
+    let { error } = await client.rpc("save_catalogue_context", {
       p_archive_id: archiveId,
       p_item_id: itemId,
-      p_title: read("title"),
-      p_kind: read("kind"),
-      p_notes: read("notes"),
-      p_people: read("people"),
-      p_date: read("date"),
-      p_precision: read("precision"),
-      p_place: read("place"),
+      p_write_id: read("writeId"),
+      p_recollection: read("newRecollection"),
+      p_details: {
+        title: read("title"),
+        kind: read("kind"),
+        notes: read("notes"),
+        people: read("people"),
+        date: read("date"),
+        precision: read("precision"),
+        place: read("place"),
+      },
     });
+    if (error && ["PGRST202", "42883"].includes(error.code)) {
+      if (read("newRecollection"))
+        return {
+          error:
+            "Your words are still on this page. Save this recollection from the item page, or finish the catalogue setup first.",
+        };
+      const fallback = await client.rpc("catalogue_item", {
+        p_archive_id: archiveId,
+        p_item_id: itemId,
+        p_title: read("title"),
+        p_kind: read("kind"),
+        p_notes: read("notes"),
+        p_people: read("people"),
+        p_date: read("date"),
+        p_precision: read("precision"),
+        p_place: read("place"),
+      });
+      error = fallback.error;
+    }
     if (error)
       return {
         error:

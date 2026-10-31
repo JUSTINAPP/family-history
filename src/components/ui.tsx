@@ -47,24 +47,42 @@ export function ItemCard({
 }) {
   return (
     <article className={`item-card item-${item.aspect}`}>
-      <Link href={`/archive/${item.slug}`} className="item-image-link">
-        <ArchiveImage src={item.image} alt={item.alt} />
-        <span className="image-arrow">
+      <div className="item-image-link">
+        <ArchiveImage
+          src={item.image}
+          alt={item.alt}
+          href={item.href || `/archive/${item.slug}`}
+          originalPreserved={item.sourcePreserved}
+        />
+        <span className="image-arrow" style={{ pointerEvents: "none" }}>
           <ArrowUpRight size={20} />
         </span>
-        {item.kind === "Letter" && <span className="image-label">3 pages</span>}
-      </Link>
+        {item.sourceCount && item.sourceCount > 1 ? (
+          <span className="image-label">
+            {item.sourceCount} {item.kind === "Letter" ? "pages" : "originals"}
+          </span>
+        ) : item.kind === "Letter" && !item.href ? (
+          <span className="image-label">3 pages</span>
+        ) : null}
+      </div>
       <div className="card-caption">
         <span className="caption-number">
           {String(index + 1).padStart(2, "0")}
         </span>
         <div>
-          <Link href={`/archive/${item.slug}`}>
+          <Link prefetch={false} href={item.href || `/archive/${item.slug}`}>
             <h3>{item.title}</h3>
           </Link>
           <p>
             {item.kind} <span>·</span> {item.date}
           </p>
+          {item.ingestionStatus && item.ingestionStatus !== "ready" && (
+            <p className="help-line">
+              {item.sourcePreserved
+                ? "Original preserved · receipt incomplete"
+                : "Original receipt pending"}
+            </p>
+          )}
         </div>
       </div>
     </article>

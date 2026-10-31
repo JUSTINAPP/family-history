@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { catalogueItemAction } from "@/lib/backend/actions";
@@ -17,26 +17,38 @@ interface EditableItem {
 export function ItemEditor({
   item,
   nextId,
+  batchId,
 }: {
   item: EditableItem;
   nextId?: string;
+  batchId?: string;
 }) {
   const router = useRouter();
+  const operation = useRef<{ signature: string; id: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   async function save(form: HTMLFormElement, next: boolean) {
     setBusy(true);
     setMessage("");
     try {
-      const result = await catalogueItemAction(
-        item.archive_id,
-        item.id,
-        new FormData(form),
-      );
+      const data = new FormData(form);
+      const signature = JSON.stringify(Array.from(data.entries()));
+      if (!operation.current || operation.current.signature !== signature)
+        operation.current = { signature, id: crypto.randomUUID() };
+      data.set("writeId", operation.current.id);
+      const result = await catalogueItemAction(item.archive_id, item.id, data);
       if (result.error) setMessage(result.error);
       else {
         setMessage("Changes saved. Original files unchanged.");
-        if (next && nextId) router.push(`/archive/${nextId}/edit`);
+        operation.current = null;
+        const words = form.elements.namedItem(
+          "newRecollection",
+        ) as HTMLTextAreaElement | null;
+        if (words) words.value = "";
+        if (next && nextId)
+          router.push(
+            `/archive/${nextId}/edit${batchId ? `?batch=${batchId}` : ""}`,
+          );
         router.refresh();
       }
     } catch {
@@ -131,6 +143,14 @@ export function ItemEditor({
           rows={5}
         />
       </label>
+      <label className="field">
+        <span>Add a recollection (optional)</span>
+        <textarea
+          name="newRecollection"
+          maxLength={20000}
+          placeholder="In your own words. Kept separately from catalogue details."
+        />
+      </label>
       <p className="help-line">
         These are reported catalogue details. Recollections remain separate,
         attributed accounts on the item page. Saving changes records who edited
@@ -141,6 +161,7 @@ export function ItemEditor({
           {message}
         </p>
       )}
+      {batchId && !nextId && <p className="help-line">This is the last uncatalogued photograph you can edit in this import.</p>}
       <div className="import-actions">
         <button className="button" disabled={busy} type="submit">
           {busy ? "Saving…" : "Save changes"}
@@ -155,6 +176,7 @@ export function ItemEditor({
             Save & next uncatalogued ↗
           </button>
         )}
+        {batchId && <Link className="text-link" href={`/explore?archive=${item.archive_id}&batch=${batchId}`}>View this import ↗</Link>}
         <Link className="text-link" href={`/archive/${item.id}`}>
           Back to item
         </Link>

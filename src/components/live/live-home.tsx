@@ -19,9 +19,21 @@ export async function LiveHome() {
       <section style={{ padding: "15px 0 50px" }}>
         <div className="section-top baseline">
           <h2 className="section-title">Recently added.</h2>
-          <TextLink href="/explore">View everything</TextLink>
+          <a
+            className="text-link"
+            href={`/explore?archive=${workspace.archive.id}`}
+          >
+            View everything ↗
+          </a>
         </div>
-        {workspace.catalogue.length ? (
+        {!workspace.catalogueAvailable ? (
+          <p className="notice">
+            The item list could not load. Saved items have not been removed.{" "}
+            <a href={`/explore?archive=${workspace.archive.id}`}>
+              Retry View everything ↗
+            </a>
+          </p>
+        ) : workspace.catalogue.length ? (
           <div className="recent-grid">
             {workspace.catalogue.slice(0, 4).map((item, i) => (
               <ItemCard key={item.id} item={item} index={i} />

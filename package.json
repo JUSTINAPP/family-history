@@ -12,13 +12,15 @@
     "test:db": "node scripts/test-database.mjs",
     "check:backend": "node scripts/check-supabase.mjs",
     "test:auth": "playwright test --config playwright.live.config.ts",
-    "postinstall": "node scripts/prepare-preview-codec.mjs"
+    "postinstall": "node scripts/prepare-preview-codec.mjs",
+    "test:visibility": "node scripts/test-visibility.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.118.0",
     "libheif-js": "^1.23.5",
     "lucide-react": "1.65.0",
+    "music-metadata": "^12.3.3",
     "next": "16.4.3",
     "react": "19.3.1",
     "react-dom": "19.3.1",

@@ -38,7 +38,7 @@ export async function SessionLayout({
   }
   let snapshot;
   try {
-    snapshot = await loadWorkspace();
+    snapshot = await loadWorkspace({ catalogue: false });
   } catch (error) {
     return (
       <PublicChrome>
@@ -70,7 +70,10 @@ export async function SessionLayout({
       </PublicChrome>
     );
   return (
-    <LiveWorkspaceProvider key={snapshot.archive.id} snapshot={snapshot}>
+    <LiveWorkspaceProvider
+      key={`${snapshot.archive.id}:${snapshot.catalogueBatchId || "all"}`}
+      snapshot={snapshot}
+    >
       <Header />
       <main id="main">{children}</main>
       <Footer />

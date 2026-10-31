@@ -6,6 +6,7 @@ import assert from "node:assert/strict";
 const directory = await mkdtemp(join(tmpdir(), "archive-postgres-"));
 let db = new PGlite(directory);
 let checks = 0;
+const withAudio = process.env.TEST_WITHOUT_AUDIO !== "true";
 const q = (sql, params = []) => db.query(sql, params);
 async function denied(sql, params = []) {
   await assert.rejects(() => q(sql, params));
@@ -34,7 +35,9 @@ try {
  create table storage.objects(id uuid primary key default gen_random_uuid(),bucket_id text references storage.buckets(id),name text,metadata jsonb,unique(bucket_id,name));
  alter table storage.objects enable row level security;grant select,insert,update,delete on storage.objects to authenticated;`);
   for (const file of (await readdir("supabase/migrations"))
-    .filter((f) => f.endsWith(".sql"))
+    .filter(
+      (f) => f.endsWith(".sql") && (withAudio || !f.includes("0006_audio")),
+    )
     .sort()) {
     await db.exec(await readFile(`supabase/migrations/${file}`, "utf8"));
     console.log("Validated migration:", file);
@@ -408,6 +411,521 @@ try {
     "insert into public.archive_memberships(archive_id,profile_id,role,linked_person_id) values($1,$2,$3,$4)",
     [b, users[2], "viewer", person],
   );
+  if (withAudio) {
+    // Audio: own contribution/edit rules, immutable sources, private links and reversible archiving.
+    const audioFile = JSON.stringify({
+      name: "voice.m4a",
+      mimeType: "audio/mp4",
+      size: 32,
+      sha256: "d".repeat(64),
+      durationMs: 2500,
+      originalMime: "audio/mp4",
+    });
+    const audioBegin =
+      "select public.begin_audio_recording($1,$2,$3,$4::jsonb,$5::jsonb,$6::uuid[],$7::uuid[]) id";
+    const audioCapture = "30000000-0000-4000-8000-000000000001";
+    await asUser(users[2]);
+    await denied(audioBegin, [a, audioCapture, item, audioFile, "{}", [], []]); // Commenter cannot create audio.
+    await asUser(users[3]);
+    const recording = (
+      await q(audioBegin, [a, audioCapture, item, audioFile, "{}", [], []])
+    ).rows[0].id;
+    assert.equal(
+      (await q(audioBegin, [a, audioCapture, item, audioFile, "{}", [], []]))
+        .rows[0].id,
+      recording,
+    );
+    checks++;
+    await asOwner();
+    await q(
+      "update public.profiles set display_name='Test contributor' where id=$1",
+      [users[3]],
+    );
+    await asUser(users[3]);
+    const audioRecollection = (
+      await q(
+        "select recollection_id from public.recollection_audio where id=$1",
+        [recording],
+      )
+    ).rows[0].recollection_id;
+    const audioSource = (
+      await q(
+        "select f.* from public.archive_item_files f join public.recollection_audio r on r.original_file_id=f.id where r.id=$1",
+        [recording],
+      )
+    ).rows[0];
+    assert.equal(audioSource.purpose, "audio_original");
+    assert.equal(audioSource.bucket_id, "archive-audio");
+    assert.equal(audioSource.item_id, item);
+    checks++;
+    await denied("select public.complete_audio_recording($1,2500)", [
+      recording,
+    ]);
+    await q(
+      "insert into storage.objects(bucket_id,name,metadata) values($1,$2,$3::jsonb)",
+      [
+        audioSource.bucket_id,
+        audioSource.storage_path,
+        JSON.stringify({ size: 32, mimetype: "audio/mp4" }),
+      ],
+    );
+    assert.equal(
+      (
+        await q("select public.complete_audio_recording($1,2500) id", [
+          recording,
+        ])
+      ).rows[0].id,
+      item,
+    );
+    checks++;
+    await q("select public.complete_audio_recording($1,2500)", [recording]);
+    const audioEdit =
+      "select public.edit_audio_recording($1,$2::jsonb,$3::uuid[],$4::uuid[])";
+    await q(audioEdit, [
+      recording,
+      JSON.stringify({
+        title: "A memory",
+        speaker: "Janice",
+        speakerPersonId: person,
+        description: "Some context",
+        tags: ["interview"],
+      }),
+      [person],
+      [imported[0]],
+    ]);
+    checks++;
+    assert.equal(
+      (
+        await q(
+          "select count(*)::int n from public.audio_item_links where recording_id=$1",
+          [recording],
+        )
+      ).rows[0].n,
+      1,
+    );
+    checks++;
+    await denied("select public.archive_audio_recording($1,true)", [recording]);
+    await denied(audioEdit, [recording, "{}", [], [b]]); // An archive UUID is not a related item.
+    await denied("update public.recollection_audio set title=$1 where id=$2", [
+      "forged",
+      recording,
+    ]);
+    await asUser(users[0]);
+    await denied(audioEdit, [
+      recording,
+      JSON.stringify({
+        speakerPersonId: "10000000-0000-4000-8000-000000000099",
+      }),
+      [],
+      [],
+    ]);
+    await asOwner();
+    await q(
+      "insert into public.archive_memberships(archive_id,profile_id,role) values($1,$2,'contributor')",
+      [a, users[1]],
+    );
+    await asUser(users[1]);
+    await denied(audioEdit, [recording, "{}", [], []]); // Another Contributor cannot edit the recording.
+    await asOwner();
+    await q(
+      "update public.archive_memberships set status='removed' where archive_id=$1 and profile_id=$2",
+      [a, users[1]],
+    );
+    await asUser(users[1]);
+    assert.equal(
+      (
+        await q("select count(*)::int n from storage.objects where name=$1", [
+          audioSource.storage_path,
+        ])
+      ).rows[0].n,
+      0,
+    );
+    checks++;
+    await asUser(users[2]);
+    assert.equal(
+      (
+        await q("select count(*)::int n from storage.objects where name=$1", [
+          audioSource.storage_path,
+        ])
+      ).rows[0].n,
+      1,
+    );
+    checks++;
+    assert.equal(
+      (
+        await q(
+          "select display_name from public.audio_attribution($1) where recording_id=$2",
+          [a, recording],
+        )
+      ).rows[0].display_name,
+      "Test contributor",
+    );
+    checks++;
+    await denied(audioEdit, [recording, "{}", [], []]);
+    await asUser(users[4]);
+    await q(audioEdit, [
+      recording,
+      JSON.stringify({ title: "Editor context" }),
+      [],
+      [],
+    ]);
+    checks++;
+    await q("select public.archive_audio_recording($1,true)", [recording]);
+    await asUser(users[2]);
+    assert.equal(
+      (
+        await q(
+          "select count(*)::int n from public.recollection_audio where id=$1",
+          [recording],
+        )
+      ).rows[0].n,
+      0,
+    );
+    checks++;
+    assert.equal(
+      (
+        await q("select count(*)::int n from storage.objects where name=$1", [
+          audioSource.storage_path,
+        ])
+      ).rows[0].n,
+      0,
+    );
+    checks++;
+    assert.equal(
+      (
+        await q(
+          "select count(*)::int n from public.recollections where id=$1",
+          [audioRecollection],
+        )
+      ).rows[0].n,
+      0,
+    );
+    checks++;
+    assert.equal(
+      (
+        await q(
+          "select count(*)::int n from public.recollections where item_id=$1 and original_text='A contributor recollection'",
+          [item],
+        )
+      ).rows[0].n,
+      1,
+    );
+    checks++;
+    await asUser(users[4]);
+    await q("select public.archive_audio_recording($1,false)", [recording]);
+    await asUser(users[3]);
+    const oral = (
+      await q(audioBegin, [
+        a,
+        "30000000-0000-4000-8000-000000000002",
+        null,
+        audioFile,
+        "{}",
+        [],
+        [item],
+      ])
+    ).rows[0].id;
+    const oralFile = (
+      await q(
+        "select f.* from public.archive_item_files f join public.recollection_audio r on r.original_file_id=f.id where r.id=$1",
+        [oral],
+      )
+    ).rows[0];
+    await q(
+      "insert into storage.objects(bucket_id,name,metadata) values($1,$2,$3::jsonb)",
+      [
+        oralFile.bucket_id,
+        oralFile.storage_path,
+        JSON.stringify({ size: 32, mimetype: "audio/mp4" }),
+      ],
+    );
+    const oralItem = (
+      await q("select public.complete_audio_recording($1,null) id", [oral])
+    ).rows[0].id;
+    const oralRow = (
+      await q("select * from public.archive_items where id=$1", [oralItem])
+    ).rows[0];
+    assert.equal(oralRow.kind, "Audio");
+    assert.equal(oralRow.ingestion_status, "ready");
+    assert.equal(oralRow.title, "Voice recording");
+    checks++;
+    assert.equal(
+      (
+        await q(
+          "select duration_ms from public.recollection_audio where id=$1",
+          [oral],
+        )
+      ).rows[0].duration_ms,
+      2500,
+    );
+    checks++;
+    await denied(audioBegin, [
+      a,
+      "30000000-0000-4000-8000-000000000003",
+      null,
+      JSON.stringify({
+        name: "bad.svg",
+        mimeType: "image/svg+xml",
+        size: 1,
+        sha256: "e".repeat(64),
+      }),
+      "{}",
+      [],
+      [],
+    ]);
+    assert.equal(
+      (
+        await q(
+          "with changed as (update storage.objects set metadata='{}' where name=$1 returning *) select count(*)::int n from changed",
+          [oralFile.storage_path],
+        )
+      ).rows[0].n,
+      0,
+    );
+    checks++;
+    assert.equal(
+      (
+        await q(
+          "with changed as (delete from storage.objects where name=$1 returning *) select count(*)::int n from changed",
+          [oralFile.storage_path],
+        )
+      ).rows[0].n,
+      0,
+    );
+    checks++;
+    await asUser(users[4]);
+    await q("select public.archive_audio_recording($1,true)", [oral]);
+    await asUser(users[2]);
+    assert.equal(
+      (
+        await q(
+          "select count(*)::int n from public.archive_items where id=$1",
+          [oralItem],
+        )
+      ).rows[0].n,
+      0,
+    );
+    checks++;
+    await asUser(users[4]);
+    await q("select public.archive_audio_recording($1,false)", [oral]);
+    assert.equal(
+      (
+        await q("select sha256 from public.archive_item_files where id=$1", [
+          oralFile.id,
+        ])
+      ).rows[0].sha256,
+      "d".repeat(64),
+    );
+    checks++;
+  }
+  // Explicit photograph batches: 20 sources -> 20 independent objects, never shared recollections.
+  await asUser(users[3]);
+  const batchId = "50000000-0000-4000-8000-000000000001";
+  await q("select public.create_import_batch($1,$2,'Photo box',20)", [
+    a,
+    batchId,
+  ]);
+  const batchSources = [];
+  for (let i = 0; i < 20; i++) {
+    const captureKey = `50000000-0000-4000-8000-${String(i + 100).padStart(12, "0")}`;
+    const id = (
+      await q("select public.begin_batch_photograph($1,$2,$3,$4::jsonb) id", [
+        a,
+        batchId,
+        captureKey,
+        JSON.parse(manifest)[0],
+      ])
+    ).rows[0].id;
+    assert.equal(
+      (
+        await q("select public.begin_batch_photograph($1,$2,$3,$4::jsonb) id", [
+          a,
+          batchId,
+          captureKey,
+          JSON.parse(manifest)[0],
+        ])
+      ).rows[0].id,
+      id,
+    );
+    const source = (
+      await q(
+        "select * from public.archive_item_files where item_id=$1 and purpose='original'",
+        [id],
+      )
+    ).rows[0];
+    await q(
+      "insert into storage.objects(bucket_id,name,metadata) values($1,$2,$3::jsonb)",
+      [
+        source.bucket_id,
+        source.storage_path,
+        JSON.stringify({ size: 12, mimetype: "image/png" }),
+      ],
+    );
+    await q("select public.complete_ingestion($1,$2)", [a, id]);
+    batchSources.push(id);
+  }
+  assert.equal(new Set(batchSources).size, 20);
+  checks++;
+  assert.equal(
+    (
+      await q(
+        "select count(*)::int n from public.import_batch_items where batch_id=$1",
+        [batchId],
+      )
+    ).rows[0].n,
+    20,
+  );
+  checks++;
+  assert.equal(
+    (
+      await q(
+        "select count(*)::int n from public.recollections where item_id=any($1::uuid[])",
+        [batchSources],
+      )
+    ).rows[0].n,
+    0,
+  );
+  checks++;
+  assert.equal(
+    (
+      await q(
+        "select count(*)::int n from public.archive_items where id=any($1::uuid[]) and ingestion_status='ready' and catalogued_at is null and notes='' and people_text=''",
+        [batchSources],
+      )
+    ).rows[0].n,
+    20,
+  );
+  checks++;
+  await denied(
+    "select public.begin_batch_photograph($1,$2,gen_random_uuid(),$3::jsonb)",
+    [a, batchId, JSON.parse(manifest)[0]],
+  );
+  const writeId = "50000000-0000-4000-8000-000000000999";
+  const details = JSON.stringify({
+    title: "Photograph later catalogued",
+    kind: "Photograph",
+    notes: "Notes",
+    precision: "year",
+    date: "1965",
+    people: "Janice",
+    place: "India",
+  });
+  await q(
+    "select public.save_catalogue_context($1,$2,$3::jsonb,'My own recollection',$4)",
+    [a, batchSources[0], details, writeId],
+  );
+  await q(
+    "select public.save_catalogue_context($1,$2,$3::jsonb,'My own recollection',$4)",
+    [a, batchSources[0], details, writeId],
+  );
+  assert.equal(
+    (
+      await q(
+        "select count(*)::int n from public.recollections where item_id=$1",
+        [batchSources[0]],
+      )
+    ).rows[0].n,
+    1,
+  );
+  checks++;
+  assert.equal(
+    (
+      await q(
+        "select count(*)::int n from public.archive_items where id=any($1::uuid[]) and catalogued_at is null",
+        [batchSources],
+      )
+    ).rows[0].n,
+    19,
+  );
+  checks++;
+  const nextPhoto = (
+    await q(
+      "select i.id from public.archive_items i join public.import_batch_items l on l.item_id=i.id where l.batch_id=$1 and i.catalogued_at is null and i.ingestion_status='ready' order by i.created_at,i.id limit 1",
+      [batchId],
+    )
+  ).rows[0].id;
+  assert.notEqual(nextPhoto, batchSources[0]);
+  checks++;
+  assert.equal(
+    (
+      await q("select public.next_uncatalogued_photograph($1,$2,$3) id", [
+        a,
+        batchSources[0],
+        batchId,
+      ])
+    ).rows[0].id,
+    nextPhoto,
+  );
+  checks++;
+  assert.equal(
+    (
+      await q(
+        "select count(*)::int n from public.list_import_photographs($1,$2)",
+        [a, batchId],
+      )
+    ).rows[0].n,
+    20,
+  );
+  checks++;
+  assert.equal(
+    (
+      await q(
+        "select count(*)::int n from public.list_import_originals($1,$2)",
+        [a, batchId],
+      )
+    ).rows[0].n,
+    20,
+  );
+  checks++;
+
+  const groupFile = JSON.parse(manifest)[0];
+  for (const kind of ["Letter", "Photograph"]) {
+    const grouped = (
+      await q(
+        "select public.begin_ingestion($1,gen_random_uuid(),'One grouped item',$2,'','{}',$3::jsonb) id",
+        [
+          a,
+          kind,
+          JSON.stringify([groupFile, { ...groupFile, name: "back.png" }]),
+        ],
+      )
+    ).rows[0].id;
+    assert.equal(
+      (
+        await q(
+          "select count(*)::int n from public.archive_item_files where item_id=$1",
+          [grouped],
+        )
+      ).rows[0].n,
+      2,
+    );
+    checks++;
+  }
+  await asUser(users[2]);
+  await denied(
+    "select public.create_import_batch($1,gen_random_uuid(),'x',2)",
+    [a],
+  );
+  await denied(
+    "select public.begin_batch_photograph($1,$2,gen_random_uuid(),$3::jsonb)",
+    [a, batchId, groupFile],
+  );
+  await asUser(users[1]);
+  assert.equal(
+    (
+      await q("select count(*)::int n from public.import_batches where id=$1", [
+        batchId,
+      ])
+    ).rows[0].n,
+    0,
+  );
+  checks++;
+  await asUser(users[4]);
+  await q(
+    "select public.save_catalogue_context($1,$2,$3::jsonb,'',gen_random_uuid())",
+    [a, batchSources[1], details],
+  );
+  checks++;
   await asUser(users[0]);
   const owner = (
     await q("select owner_membership_id from public.archives where id=$1", [a])
@@ -448,8 +966,20 @@ try {
   const rls = await q(
     "select count(*)::int as n from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind='r' and c.relrowsecurity and c.relforcerowsecurity",
   );
-  assert.equal(rls.rows[0].n, 16);
+  assert.equal(rls.rows[0].n, withAudio ? 20 : 18);
   checks++;
+  if (!withAudio) {
+    await db.exec(
+      await readFile(
+        "supabase/migrations/202610310006_audio_recordings.sql",
+        "utf8",
+      ),
+    );
+    checks++;
+    console.log(
+      "Audio migration 006 also applies after independent migration 007.",
+    );
+  }
   await db.close();
   db = new PGlite(directory);
   const after = (

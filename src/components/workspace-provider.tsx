@@ -42,6 +42,9 @@ export interface Workspace {
   profileId: string;
   profileName: string;
   profileEmail: string;
+  catalogueAvailable?: boolean;
+  catalogueCount?: number | null;
+  resourceWarnings?: string[];
   catalogue: import("@/lib/types").ArchiveItem[];
   historicalPeople: import("@/lib/types").Person[];
   capturedCount: number;

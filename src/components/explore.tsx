@@ -4,10 +4,19 @@ import { useSearchParams } from "next/navigation";
 import { Search, X, ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 import { transcriptionPages } from "@/lib/data";
+import { useWorkspace } from "./workspace-provider";
 import { useCatalogue } from "./catalogue";
 import { PageIntro, ItemCard } from "./ui";
-const kinds = ["All", "Photographs", "Letters", "Objects", "Documents"];
+const kinds = [
+  "All",
+  "Photographs",
+  "Letters",
+  "Objects",
+  "Documents",
+  "Audio",
+];
 const typeMap: Record<string, string> = {
+  Audio: "Audio",
   Photographs: "Photograph",
   Letters: "Letter",
   Objects: "Object",
@@ -15,6 +24,7 @@ const typeMap: Record<string, string> = {
 };
 export function Explore() {
   const { items, people, places } = useCatalogue();
+  const workspace = useWorkspace();
   const params = useSearchParams();
   const [q, setQ] = useState(params.get("q") || "");
   const [type, setType] = useState(params.get("type") || "All");
@@ -33,6 +43,7 @@ export function Explore() {
       .map((slug) => people.find((p) => p.slug === slug)?.name || "")
       .join(" ");
     return (
+      (!params.get("batch") || item.importBatchId === params.get("batch")) &&
       (type === "All" || item.kind === type) &&
       (!q ||
         `${item.title} ${item.reportedPeople || ""} ${item.notes} ${item.place} ${item.date} ${item.collection} ${item.tags.join(" ")} ${names} ${item.kind === "Letter" ? transcriptionPages.join(" ") : ""}`
@@ -70,8 +81,39 @@ export function Explore() {
     setFamily("");
   }
   const group = params.get("group");
+  if (workspace.mode === "live" && workspace.catalogueAvailable === false)
+    return (
+      <div className="page-shell">
+        <PageIntro
+          eyebrow="YOUR ARCHIVE"
+          title="The archive list could not load."
+          description="Your saved items have not been removed. Retry to load the complete list."
+        />
+        <a className="button" href={`/explore?archive=${workspace.archive.id}`}>
+          Retry View everything
+        </a>
+      </div>
+    );
+
   return (
     <div className="page-shell">
+      {params.get("batch") && (
+        <p className="notice">
+          Showing photographs from this import.{" "}
+          <a
+            className="text-link"
+            href={`/explore?archive=${workspace.archive.id}`}
+          >
+            View the whole archive ↗
+          </a>
+        </p>
+      )}
+      {workspace.resourceWarnings?.some((w) => w.startsWith("Some source")) && (
+        <p className="notice">
+          Some previews could not load. Items are still listed and can be
+          opened.
+        </p>
+      )}
       <PageIntro
         eyebrow="THE COLLECTION"
         title="An archive of us."

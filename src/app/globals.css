@@ -4849,3 +4849,7 @@ main {
 .import-list p { flex-basis: 100%; }
 .catalogue-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 24px; }
 @media (max-width: 600px) { .catalogue-grid { grid-template-columns: 1fr; } .import-previews { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.audio-preview audio, .audio-recording audio { width: 100%; max-width: 100%; margin: 16px 0; }
+.audio-recording { border-top: 1px solid var(--line, #d8d3c9); padding: 24px 0; overflow-wrap: anywhere; }
+.audio-metadata { margin: 24px 0; }
+.audio-metadata summary { cursor: pointer; padding: 12px 0; }

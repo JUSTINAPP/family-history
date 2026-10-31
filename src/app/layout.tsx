@@ -1,3 +1,4 @@
+import { ImportSelectionProvider } from "@/components/import-selection";
 import { initialArchive } from "@/lib/demo-workspace";
 import type { Metadata } from "next";
 import { Header, Footer } from "@/components/header";
@@ -25,15 +26,17 @@ export default function RootLayout({
   return (
     <html lang="en-AU" data-scroll-behavior="smooth">
       <body>
-        {isDemoMode() ? (
-          <WorkspaceProvider>
-            <Header />
-            <main id="main">{children}</main>
-            <Footer />
-          </WorkspaceProvider>
-        ) : (
-          <SessionLayout>{children}</SessionLayout>
-        )}
+        <ImportSelectionProvider>
+          {isDemoMode() ? (
+            <WorkspaceProvider>
+              <Header />
+              <main id="main">{children}</main>
+              <Footer />
+            </WorkspaceProvider>
+          ) : (
+            <SessionLayout>{children}</SessionLayout>
+          )}
+        </ImportSelectionProvider>
       </body>
     </html>
   );

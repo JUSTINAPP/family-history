@@ -22,7 +22,10 @@ export function LiveWorkspaceProvider({
   snapshot: LiveSnapshot;
   children: React.ReactNode;
 }) {
-  const [data, setData] = useState(snapshot);
+  const [fresh, setFresh] = useState<{
+    base: LiveSnapshot;
+    value: LiveSnapshot;
+  } | null>(null);
   const urls = useRef<string[]>([]);
   useEffect(
     () => () => urls.current.forEach((url) => URL.revokeObjectURL(url)),
@@ -30,24 +33,40 @@ export function LiveWorkspaceProvider({
   );
   const router = useRouter();
   const attempt = useRef<{ signature: string; id: string } | null>(null);
-  // A server refresh may carry changed people/settings. Prefer that snapshot unless a capture just refreshed the local adapter.
-  const current =
-    data.archive.id === snapshot.archive.id &&
-    data.catalogue.length > snapshot.catalogue.length
-      ? data
-      : snapshot;
+  // A new server snapshot always replaces an older optimistic refresh, even when its count is smaller.
+  const current = fresh?.base === snapshot ? fresh.value : snapshot;
+  useEffect(() => {
+    if (snapshot.catalogueLoaded) return;
+    let active = true;
+    void fetch(`/api/v1/workspace?archive=${snapshot.archive.id}`, {
+      cache: "no-store",
+    })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("unavailable");
+        const value = await response.json();
+        if (active && value?.archive.id === snapshot.archive.id)
+          setFresh({ base: snapshot, value });
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [snapshot]);
   const role =
     current.members.find(
       (m) => m.profileId === current.profileId && m.status === "active",
     )?.role || "viewer";
   async function refresh() {
-    const response = await fetch("/api/v1/workspace", { cache: "no-store" });
+    const response = await fetch(
+      `/api/v1/workspace?archive=${current.archive.id}`,
+      { cache: "no-store" },
+    );
     if (!response.ok)
       throw new Error(
         "Your item was saved, but the archive could not refresh. Reload to view it.",
       );
     const updated = await response.json();
-    if (updated) setData(updated);
+    if (updated) setFresh({ base: snapshot, value: updated });
     router.refresh();
   }
   async function saveCapture(input: NewCapture) {
@@ -103,6 +122,9 @@ export function LiveWorkspaceProvider({
     archive: current.archive,
     archives: current.archives,
     catalogue: current.catalogue,
+    catalogueAvailable: current.catalogueAvailable,
+    catalogueCount: current.catalogueCount,
+    resourceWarnings: current.resourceWarnings,
     historicalPeople: current.people,
     capturedCount: current.catalogue.length,
     role,

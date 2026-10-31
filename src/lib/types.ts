@@ -1,6 +1,6 @@
 export type UUID = string;
 export type ItemKind =
-  "Photograph" | "Letter" | "Object" | "Document" | "Other";
+  "Photograph" | "Letter" | "Object" | "Document" | "Other" | "Audio";
 export type EvidenceStatus =
   "verified" | "family_reported" | "ai_suggested" | "uncertain";
 export type MemberRole =
@@ -26,6 +26,11 @@ export interface ArchiveFile {
   checksum?: string;
 }
 export interface ArchiveItem {
+  ingestionStatus?: string;
+  sourcePreserved?: boolean;
+  sourceCount?: number;
+  importBatchId?: string;
+  href?: string;
   archiveId: UUID;
   id: UUID;
   slug: string;

@@ -3,10 +3,7 @@ import { LiveItem } from "@/components/live/live-item";
 import { notFound } from "next/navigation";
 import { items } from "@/lib/data";
 import { ItemDetail } from "@/components/item-detail";
-export function generateStaticParams() {
-  if (!isDemoMode()) return [];
-  return items.map((i) => ({ slug: i.slug }));
-}
+export const dynamic = "force-dynamic";
 export async function generateMetadata({
   params,
 }: {

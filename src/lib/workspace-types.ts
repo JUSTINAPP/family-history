@@ -28,6 +28,7 @@ export interface Suggestion {
   origin: "demo_interpretation";
 }
 export interface CapturedItem {
+  importBatchId?: string;
   id: UUID;
   archiveId: UUID;
   kind: CaptureKind;

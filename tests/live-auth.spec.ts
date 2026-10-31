@@ -9,7 +9,12 @@ test("private routes fail closed without an authenticated session", async ({
   for (const route of [
     "/",
     "/explore",
+    "/explore?batch=50000000-0000-4000-8000-000000000001",
+    "/imports",
+    "/imports/50000000-0000-4000-8000-000000000001",
     "/add",
+    "/add/voice",
+    "/audio/40000000-0000-4000-8000-000000000001/edit",
     "/admin",
     "/admin/members",
     "/people",
@@ -41,6 +46,16 @@ test("private APIs do not accept anonymous uploads or disclose source records", 
   expect(
     (
       await request.post(previewPath, {
+        headers: { Origin: "https://untrusted.example" },
+      })
+    ).status(),
+  ).toBe(403);
+  const audioComplete =
+    "/api/v1/audio/40000000-0000-4000-8000-000000000001/complete";
+  expect((await request.post(audioComplete)).status()).toBe(401);
+  expect(
+    (
+      await request.post(audioComplete, {
         headers: { Origin: "https://untrusted.example" },
       })
     ).status(),

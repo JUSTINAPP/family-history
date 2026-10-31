@@ -90,7 +90,7 @@ test("bulk import creates one metadata-free item per file and retries only failu
   expect([...state.values()].every((e) => e.status === "saved")).toBe(true);
 });
 
-test("optional batch words are kept as recollection rather than mandatory metadata", async () => {
+test("batch context stays separate from individual metadata and recollections", async () => {
   const file = new File([new Uint8Array([1])], "a.jpg");
   await importPhotographs(
     {} as SupabaseClient,
@@ -99,8 +99,8 @@ test("optional batch words are kept as recollection rather than mandatory metada
     "Janice’s photo box",
     () => {},
     async (_client, form) => {
-      expect(form.get("context")).toBe("Janice’s photo box");
-      expect(form.get("title")).toBe("a");
+      expect(form.get("context")).toBe("");
+      expect(form.get("title")).toBe("Photograph, still to be catalogued");
       expect(JSON.parse(String(form.get("quick")))).toEqual({
         precision: "unknown",
       });

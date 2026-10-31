@@ -1,5 +1,11 @@
 # The Allen & Cork Archive
 
+**Discoverability fix (current):** All RLS-permitted archive rows are listed with paginated reads; preview, metadata and optional-service failures do not hide saved items or block their detail routes. No new migration is needed for this fix. See [trace, tests and deployment smoke test](docs/saved-item-discoverability.md).
+
+**Bulk-photograph correction (current):** Production inspection confirmed two originals grouped under one item. Capture now explicitly distinguishes one item’s views from separate photographs, with durable import batches and separate batch context. Apply only new migration **007** for bulk; it works without audio migration 006. Existing production sources are unchanged. See [workflow, audit and deployment](docs/bulk-photograph-import.md).
+
+**Audio follow-up (current):** Real microphone/file recording, attached voice recollections and standalone oral histories are implemented locally. Migration 005 is already applied. Apply **only migration 006**, manually, before deploying audio. See [audio setup, permissions and smoke tests](docs/audio-recordings.md). No remote SQL/data changes were made in this pass. Earlier references to demo-only voice describe the retained prototype.
+
 **Current follow-up:** The live archive has been created (confirmed by the user). Private HEIC display previews, real bulk import and catalogue editing are now implemented locally. Apply **only migration 005** to the existing project; do not rerun first-install SQL. See [preview, bulk and cataloguing setup](docs/preview-bulk-cataloguing.md) for current behaviour, deployment and limits. Earlier foundation status below is historical where it says the hosted schema is absent or bulk/preview processing is deferred.
 
 A private archive with an editorial visual system and an initial Supabase backend foundation. Archive is the top-level concept; one account can own or join several archives with independently assigned membership roles. Historical People remain separate from authenticated Members.

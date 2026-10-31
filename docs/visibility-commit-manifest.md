@@ -1,0 +1,95 @@
+# Current working-tree commit manifest — saved-item discoverability
+
+The earlier preview foundation is already in HEAD; audio and bulk work from previous passes remain in this working tree. This visibility correction preserves them. Nothing was staged, committed, reset, stashed, pushed or deployed. Review shared-file changes together rather than discarding existing audio/bulk work.
+
+## Current changed/new files to review
+
+- `README.md`
+- `docs/architecture.md`
+- `docs/audio-commit-manifest.md`
+- `docs/audio-recordings.md`
+- `docs/bulk-import-commit-manifest.md`
+- `docs/bulk-photograph-import.md`
+- `docs/data-model.md`
+- `docs/ingestion-pipeline.md`
+- `docs/permissions.md`
+- `docs/saved-item-discoverability.md`
+- `docs/supabase-setup.md`
+- `docs/validation.md`
+- `docs/visibility-commit-manifest.md`
+- `package-lock.json`
+- `package.json`
+- `playwright.config.ts`
+- `playwright.visibility.config.ts`
+- `public/images/audio-recording.svg`
+- `scripts/audit-photograph-originals.sql`
+- `scripts/test-database.mjs`
+- `scripts/test-visibility.mjs`
+- `src/app/add/bulk/page.tsx`
+- `src/app/add/saved/[id]/page.tsx`
+- `src/app/add/voice/page.tsx`
+- `src/app/api/v1/audio/[id]/complete/route.ts`
+- `src/app/api/v1/files/[id]/route.ts`
+- `src/app/api/v1/workspace/route.ts`
+- `src/app/archive/[slug]/edit/page.tsx`
+- `src/app/archive/[slug]/page.tsx`
+- `src/app/audio/[id]/edit/page.tsx`
+- `src/app/explore/page.tsx`
+- `src/app/globals.css`
+- `src/app/imports/[id]/page.tsx`
+- `src/app/imports/page.tsx`
+- `src/app/layout.tsx`
+- `src/components/archive-image.tsx`
+- `src/components/audio/audio-capture.tsx`
+- `src/components/audio/metadata-fields.tsx`
+- `src/components/audio/private-player.tsx`
+- `src/components/audio/recorder.tsx`
+- `src/components/audio/recording-editor.tsx`
+- `src/components/audio/recordings.tsx`
+- `src/components/capture.tsx`
+- `src/components/catalogue.ts`
+- `src/components/explore.tsx`
+- `src/components/import-selection.tsx`
+- `src/components/live/bulk-import.tsx`
+- `src/components/live/item-editor.tsx`
+- `src/components/live/live-home.tsx`
+- `src/components/live/live-item.tsx`
+- `src/components/live/live-workspace.tsx`
+- `src/components/live/session-layout.tsx`
+- `src/components/ui.tsx`
+- `src/components/workspace-provider.tsx`
+- `src/lib/audio/actions.ts`
+- `src/lib/audio/range.ts`
+- `src/lib/audio/repository.ts`
+- `src/lib/audio/server-validation.ts`
+- `src/lib/audio/upload.ts`
+- `src/lib/audio/validation.ts`
+- `src/lib/backend/actions.ts`
+- `src/lib/backend/catalogue.ts`
+- `src/lib/backend/repository.ts`
+- `src/lib/backend/upload-core.ts`
+- `src/lib/bulk-import.ts`
+- `src/lib/bulk-resume.ts`
+- `src/lib/import-batches.ts`
+- `src/lib/types.ts`
+- `src/lib/workspace-types.ts`
+- `src/proxy.ts`
+- `supabase/README.md`
+- `supabase/migrations/202610310006_audio_recordings.sql`
+- `supabase/migrations/202611010007_photograph_import_batches.sql`
+- `tests/audio-browser.spec.ts`
+- `tests/audio.spec.ts`
+- `tests/bulk-intention.spec.ts`
+- `tests/fixtures/visibility-server.mjs`
+- `tests/live-auth.spec.ts`
+- `tests/preview-bulk.spec.ts`
+- `tests/visibility-browser.spec.ts`
+- `tests/visibility.spec.ts`
+
+## Schema and deployment
+
+- **This discoverability fix creates no migration.** Migrations 001–007 are unchanged in this pass. Core View everything/detail no longer depends on optional audio/batch schema availability.
+- Existing `202610310006_audio_recordings.sql` remains the separate audio milestone. Existing `202611010007_photograph_import_batches.sql` remains the separate bulk milestone. Their remote application status is not assumed; review/apply them separately when intentionally deploying those features. Do not rerun installed migrations or apply pending SQL blindly.
+- Exclude `next-env.d.ts`, `.env.local`, generated build/type/test outputs and generated `public/codecs/`. No new secrets are needed.
+- `npm run test:visibility` uses only a synthetic loopback Auth/PostgREST/Storage service; it does not seed or contact a Supabase project. Its keys/users/password are fixture-only protocol test data.
+- [Trace and no-reupload production smoke test](saved-item-discoverability.md).
