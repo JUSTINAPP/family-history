@@ -137,3 +137,58 @@ export async function addRecollectionAction(
     return safeError(error).message;
   }
 }
+
+export async function catalogueItemAction(
+  archiveId: string,
+  itemId: string,
+  form: FormData,
+) {
+  try {
+    const { client } = await requireSession();
+    const read = (name: string) => String(form.get(name) || "").trim();
+    const { error } = await client.rpc("catalogue_item", {
+      p_archive_id: archiveId,
+      p_item_id: itemId,
+      p_title: read("title"),
+      p_kind: read("kind"),
+      p_notes: read("notes"),
+      p_people: read("people"),
+      p_date: read("date"),
+      p_precision: read("precision"),
+      p_place: read("place"),
+    });
+    if (error)
+      return {
+        error:
+          "Changes were not saved. Check your archive access and that the latest migration is applied.",
+      };
+    revalidatePath("/", "layout");
+    return { saved: true };
+  } catch (error) {
+    return { error: safeError(error).message };
+  }
+}
+
+export async function suggestIdentificationAction(
+  archiveId: string,
+  itemId: string,
+  name: string,
+) {
+  try {
+    if (!name.trim() || name.trim().length > 200)
+      return "Enter a name or identification up to 200 characters.";
+    const { client } = await requireArchiveRole(archiveId, "commenter");
+    const { error } = await client.rpc("propose_identification", {
+      p_archive_id: archiveId,
+      p_item_id: itemId,
+      p_person_id: null,
+      p_name: name.trim(),
+    });
+    if (error)
+      return "The identification could not be saved. Please try again.";
+    revalidatePath("/", "layout");
+    return null;
+  } catch (error) {
+    return safeError(error).message;
+  }
+}

@@ -1,5 +1,7 @@
 # Proposed Supabase / PostgreSQL data model
 
+**Current follow-up:** The live archive has been created (confirmed by the user). Private HEIC display previews, real bulk import and catalogue editing are now implemented locally. Apply **only migration 005** to the existing project; do not rerun first-install SQL. See [preview, bulk and cataloguing setup](preview-bulk-cataloguing.md) for current behaviour, deployment and limits. Earlier foundation status below is historical where it says the hosted schema is absent or bulk/preview processing is deferred.
+
 ## Executable foundation (current)
 
 The authoritative minimum schema for this stage is the four SQL files under supabase/migrations, not the full future-model table inventory below. Implemented tables: profiles, archives, archive_memberships, invitations, people, archive_items, archive_item_files, recollections, recollection_audio, transcriptions, metadata_suggestions, comments, identifications, processing_jobs, activity_log and provenance. All use UUIDs; archive-owned rows and same-archive pointers use archive_id and composite foreign keys. Account profiles remain global; historical People never imply membership.
@@ -142,3 +144,7 @@ The following are archive-owned: archive_items, archive_item_files (including or
 Every read/write requires active membership in the row’s archive. With `members_only`, apply that membership’s role matrix. With `owner_only`, additionally require the caller’s active membership ID to equal owner_membership_id; other memberships remain stored but cannot access historical content. The owner remains Admin. Writes require both privacy access and the archive-scoped role/column/RPC policy. Derivative signing, originals, audio, search, export and processing endpoints use the same checks.
 
 The archive default role applies only to newly prepared invitations. Changing it does not grant/change any existing member’s permissions, nor grant access without invitation redemption. Public access is not an option. Test owner-only denial for other active members, independent roles across multiple archives, cross-archive file/cover/person/owner references, and membership revocation. UI role previews and editable privacy settings remain mocked and cannot replace executed RLS.
+
+## Preview/catalogue follow-up (migration 005)
+
+`archive_items.last_edited_by` and `catalogued_at` record catalogue work; `updated_at` records edit time. Provenance stores before/after reported metadata. The purpose-aware `(item_id,page_order,purpose)` constraint allows source and display to share a page; a unique display-parent index makes retries idempotent. `parent_original_id` uses the existing archive/item composite FK. Originals keep their existing immutable record/hash/path; display rows are independently reserved/stored. `catalogue_item` allows Editors and Contributors editing their own unverified material; attributed recollections stay append-only.

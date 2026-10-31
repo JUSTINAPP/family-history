@@ -1,0 +1,1 @@
+`preview.heic` is a synthetic 48×32 red field created locally for decoder tests, not a family photograph. Generated with Sharp PNG → macOS `sips -s format heic`; no external image licence is needed. Its bytes are never seeded or uploaded into Supabase. Tests verify the JPEG remains red, the dimensions, and preservation of the source checksum.

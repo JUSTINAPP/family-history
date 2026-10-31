@@ -21,7 +21,7 @@ export function validateFiles(files: File[]): {
     accepted: sized,
     error:
       sized.length !== files.length
-        ? "Some files were skipped. Choose JPEG, PNG, WebP or HEIC images up to 30 MB each. HEIC previews depend on your browser; the original file is retained."
+        ? "Some files were skipped. Choose JPEG, PNG, WebP or HEIC images up to 30 MB each. HEIC previews are prepared separately; the original file is retained."
         : "",
   };
 }

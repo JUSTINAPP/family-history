@@ -126,9 +126,9 @@ export async function loadWorkspace(): Promise<LiveSnapshot | null> {
     place: i.reported_place || "Place not yet known",
     people: [],
     reportedPeople: i.people_text,
-    collection: "Uncatalogued",
+    collection: i.catalogued_at ? "Catalogued" : "Uncatalogued",
     image: files.find((f) => f.item_id === i.id)
-      ? `/api/v1/files/${files.find((f) => f.item_id === i.id)!.id}`
+      ? `/api/v1/previews/${files.find((f) => f.item_id === i.id && f.purpose === "original")?.id || files.find((f) => f.item_id === i.id)!.id}`
       : "/images/empty-archive.svg",
     alt: i.title,
     aspect: i.kind === "Letter" ? "portrait" : "landscape",
@@ -223,7 +223,7 @@ export async function loadItem(id: string) {
     .eq("ingestion_status", "ready")
     .maybeSingle();
   if (error || !item) return null;
-  const [files, recollections, comments] = await Promise.all([
+  const [files, recollections, comments, identifications] = await Promise.all([
     client
       .from("archive_item_files")
       .select("*")
@@ -243,6 +243,12 @@ export async function loadItem(id: string) {
       .eq("archive_id", snapshot.archive.id)
       .eq("item_id", id)
       .order("created_at"),
+    client
+      .from("identifications")
+      .select("*")
+      .eq("archive_id", snapshot.archive.id)
+      .eq("item_id", id)
+      .order("created_at"),
   ]);
   return {
     snapshot,
@@ -250,5 +256,6 @@ export async function loadItem(id: string) {
     files: files.data || [],
     recollections: recollections.data || [],
     comments: comments.data || [],
+    identifications: identifications.data || [],
   };
 }

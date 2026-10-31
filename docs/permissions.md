@@ -1,5 +1,7 @@
 # Archive permissions
 
+**Current follow-up:** The live archive has been created (confirmed by the user). Private HEIC display previews, real bulk import and catalogue editing are now implemented locally. Apply **only migration 005** to the existing project; do not rerun first-install SQL. See [preview, bulk and cataloguing setup](preview-bulk-cataloguing.md) for current behaviour, deployment and limits. Earlier foundation status below is historical where it says the hosted schema is absent or bulk/preview processing is deferred.
+
 ## Enforced foundation (current)
 
 In real mode, the database is the permission authority: private-schema SECURITY DEFINER helpers resolve active membership and privacy, and RLS filters archive tables/Storage. Sensitive records have no direct authenticated INSERT/UPDATE/DELETE grants; reviewed public RPCs check roles and stamp auth.uid(). Viewer reads; Commenter may add recollections/comments/identification proposals; Contributor may reserve/upload/finalise own source items; Editor may create people/update catalogue/review transcription; Admin may update archive settings and existing memberships. owner_only additionally restricts access to the owner's membership. Owner demotion/suspension/removal is rejected inside a serialised membership transaction.
@@ -47,3 +49,7 @@ Test anonymous reads, two-archive isolation, every role/write path, forged archi
 Privacy is archive-scoped: Invited members only (`members_only`) uses active membership and that archive’s role; Only the owner (`owner_only`) additionally restricts historical access to the owner’s active membership. Neither mode is public. Memberships and provenance are retained when the owner narrows privacy. The switcher’s accessible-archive helper applies this distinction, but real content confidentiality still requires backend RLS and private Storage. The single-archive prototype does not enforce security on public demo fixtures.
 
 Default permissions initialise a **new invitation’s** role, not a profile-wide role and not a bulk update of existing members. Ownership references an active Admin membership in the same archive. A profile can own multiple archives and be a Viewer elsewhere. Linked historical Person records remain optional and archive-local.
+
+## Preview/catalogue follow-up (005)
+
+`catalogue_item` permits active Contributors to describe their own unverified items and Editors/Admins to describe any accessible ready item. Verified records require an Editor; changing catalogue assertions returns them to reported status. Viewers/Commenters cannot edit catalogue fields. `reserve_display` / `complete_display` permit Editors or the original active Contributor to prepare/recover derived previews. Reserved derived bytes can be read by that actor or an Editor for safe retry; this does not widen original-file reads. Storage has no ordinary client UPDATE/DELETE policy. Recollections and identification suggestions retain their separate Commenter minimum.

@@ -19,7 +19,8 @@ import {
   MapPin,
   Shapes,
 } from "lucide-react";
-import { ArchiveImage, PageIntro } from "./ui";
+import { LocalSourcePreview } from "./local-source-preview";
+import { PageIntro } from "./ui";
 import { VoiceRecollection, type VoiceValue } from "./voice-recollection";
 import { SuggestionPreview } from "./suggestion-preview";
 import { useWorkspace } from "./workspace-provider";
@@ -325,8 +326,9 @@ export function Capture() {
               aria-label="Captured material"
             >
               <div className="capture-main-image">
-                <ArchiveImage
-                  src={active.url}
+                <LocalSourcePreview
+                  file={active.file}
+                  url={active.url}
                   alt={`Original local preview of ${active.originalName}`}
                 />
                 <span className="material-label">
@@ -344,7 +346,11 @@ export function Capture() {
                       aria-label={`Preview image ${i + 1}`}
                       onClick={() => setActiveImage(i)}
                     >
-                      <ArchiveImage src={file.url} alt="" />
+                      <LocalSourcePreview
+                        file={file.file}
+                        url={file.url}
+                        alt=""
+                      />
                     </button>
                     <div>
                       <label>

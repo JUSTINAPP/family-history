@@ -23,16 +23,23 @@ export function AddRecollection({
         setBusy(true);
         const form = e.currentTarget;
         const data = new FormData(form);
-        const error = await addRecollectionAction(
-          archiveId,
-          itemId,
-          String(data.get("text") || ""),
-        );
-        setError(error || "");
-        setBusy(false);
-        if (!error) {
-          form.reset();
-          router.refresh();
+        try {
+          const error = await addRecollectionAction(
+            archiveId,
+            itemId,
+            String(data.get("text") || ""),
+          );
+          setError(error || "");
+          if (!error) {
+            form.reset();
+            router.refresh();
+          }
+        } catch {
+          setError(
+            "The recollection could not be confirmed. Check your connection and try again.",
+          );
+        } finally {
+          setBusy(false);
         }
       }}
     >

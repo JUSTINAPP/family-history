@@ -11,3 +11,6 @@ test-results/
 .next-test/
 .supabase/
 supabase/.temp/
+
+# Reproducibly copied from installed libheif-js by postinstall.
+public/codecs/

@@ -60,6 +60,6 @@ export async function proxy(request: NextRequest) {
 }
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|images/|fonts/|audio/|favicon.ico).*)",
+    "/((?!_next/static|_next/image|images/|fonts/|audio/|codecs/|heic-preview-worker.js|favicon.ico).*)",
   ],
 };

@@ -6,6 +6,9 @@ import {
   type NewCapture,
   type Workspace,
 } from "../workspace-provider";
+import { prepareDisplay } from "@/lib/preview/client";
+import { browserSupabase } from "@/lib/supabase/client";
+import { persistUpload } from "@/lib/backend/upload-core";
 import type { LiveSnapshot } from "@/lib/backend/repository";
 import {
   saveArchiveAction,
@@ -71,33 +74,19 @@ export function LiveWorkspaceProvider({
     form.set("quick", JSON.stringify(input.quick));
     form.set("roles", JSON.stringify(input.files.map((f) => f.role)));
     input.files.forEach((f) => form.append("files", f.file, f.originalName));
-    let response: Response;
+    let result: { id: string; sourceIds?: string[] };
     try {
-      response = await fetch("/api/v1/ingestions", {
-        method: "POST",
-        body: form,
-      });
-    } catch {
+      result = await persistUpload(browserSupabase(), form);
+    } catch (error) {
       throw new Error(
-        "The network interrupted the upload. Keep your originals and retry this capture; completed files will not be replaced.",
+        error instanceof Error
+          ? error.message
+          : "Upload interrupted. Keep this page open and retry with the same originals.",
       );
     }
-    let result: { id?: string; error?: string };
-    try {
-      result = await response.json();
-    } catch {
-      throw new Error(
-        "Upload confirmation was interrupted. Retry this capture with the same files; preserved originals will not be overwritten.",
-      );
-    }
-    if (!response.ok)
-      throw new Error(
-        result.error || "The upload could not finish. Please retry.",
-      );
-    if (!result.id)
-      throw new Error(
-        "The saved item could not be confirmed. Retry the same capture.",
-      );
+    result.sourceIds?.forEach((id) => {
+      void prepareDisplay(`/api/v1/previews/${id}`).catch(() => {});
+    });
     attempt.current = null;
     try {
       await refresh();

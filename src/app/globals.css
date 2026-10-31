@@ -4837,3 +4837,15 @@ main {
 .auth-panel{padding:0 0 45px}.auth-panel .filter-tabs{margin-bottom:30px}.saved-original img{object-fit:contain!important}.live-connection-note{font-size:11px;line-height:1.8;color:var(--muted)}
 
 .saved-material-layout .help-line{overflow-wrap:anywhere}
+
+/* Import and cataloguing extend the existing form and editorial primitives. */
+.catalogue-form { max-width: 760px; }
+.import-previews { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 24px 0; }
+.import-previews .archive-image { aspect-ratio: 4 / 3; }
+.import-actions { display: flex; gap: 24px; flex-wrap: wrap; align-items: center; margin: 24px 0; }
+.import-list { list-style: none; padding: 0; }
+.import-list li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--line, #d8d3c9); padding: 14px 0; }
+.import-list li > span:first-child { overflow-wrap: anywhere; min-width: 0; }
+.import-list p { flex-basis: 100%; }
+.catalogue-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 24px; }
+@media (max-width: 600px) { .catalogue-grid { grid-template-columns: 1fr; } .import-previews { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

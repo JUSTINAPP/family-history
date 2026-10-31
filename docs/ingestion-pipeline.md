@@ -1,5 +1,7 @@
 # Ingestion and original preservation
 
+**Current follow-up:** The live archive has been created (confirmed by the user). Private HEIC display previews, real bulk import and catalogue editing are now implemented locally. Apply **only migration 005** to the existing project; do not rerun first-install SQL. See [preview, bulk and cataloguing setup](preview-bulk-cataloguing.md) for current behaviour, deployment and limits. Earlier foundation status below is historical where it says the hosted schema is absent or bulk/preview processing is deferred.
+
 ## First persistent upload (current)
 
 Real mode connects the existing capture preview and written context to private Storage/PostgreSQL. Save sends bounded original File bytes, the owning archive UUID and a stable capture UUID. The server verifies the user's Contributor membership, checks actual image signatures/count/size, computes SHA-256, and calls begin_ingestion to reserve UUID-only paths. Files upload without upsert. A retry compares the expected file hashes and can reuse existing matching bytes; mismatched sources cannot overwrite them.

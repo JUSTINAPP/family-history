@@ -9,10 +9,10 @@ export function imageMime(bytes: Uint8Array): string | null {
   const text = (a: number, b: number) =>
     String.fromCharCode(...bytes.slice(a, b));
   if (text(0, 4) === "RIFF" && text(8, 12) === "WEBP") return "image/webp";
-  if (
-    text(4, 8) === "ftyp" &&
-    /heic|heix|hevc|hevx/.test(text(8, Math.min(bytes.length, 40)))
-  )
-    return "image/heic";
+  if (text(4, 8) === "ftyp") {
+    const major = text(8, 12);
+    if (/^(heic|heix|hevc|hevx)$/.test(major)) return "image/heic";
+    if (/^(mif1|msf1)$/.test(major)) return "image/heif";
+  }
   return null;
 }

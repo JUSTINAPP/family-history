@@ -1,8 +1,16 @@
-import { createHash } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { BackendError } from "./errors";
 import { imageMime, MAX_ORIGINAL_BYTES, UUID_PATTERN } from "./validation";
-export async function persistUpload(client: SupabaseClient, form: FormData) {
+async function checksum(bytes: Uint8Array<ArrayBuffer>) {
+  return Array.from(
+    new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)),
+    (b) => b.toString(16).padStart(2, "0"),
+  ).join("");
+}
+export async function persistUpload(
+  client: SupabaseClient,
+  form: FormData,
+): Promise<{ id: string; sourceIds?: string[] }> {
   const archiveId = String(form.get("archiveId") || "");
   const captureId = String(form.get("captureId") || "");
   if (!UUID_PATTERN.test(archiveId) || !UUID_PATTERN.test(captureId))
@@ -39,7 +47,7 @@ export async function persistUpload(client: SupabaseClient, form: FormData) {
     total += source.size;
     if (total > 80 * 1024 * 1024)
       throw new BackendError(400, "Keep each capture below 80 MB.");
-    const bytes = Buffer.from(await source.arrayBuffer());
+    const bytes = new Uint8Array(await source.arrayBuffer());
     const mimeType = imageMime(bytes);
     if (!mimeType)
       throw new BackendError(
@@ -50,7 +58,7 @@ export async function persistUpload(client: SupabaseClient, form: FormData) {
       source,
       bytes,
       mimeType,
-      sha256: createHash("sha256").update(bytes).digest("hex"),
+      sha256: await checksum(bytes),
     });
   }
   let roles: string[] = [];
@@ -121,6 +129,7 @@ export async function persistUpload(client: SupabaseClient, form: FormData) {
     .select("*")
     .eq("archive_id", archiveId)
     .eq("item_id", id)
+    .eq("purpose", "original")
     .order("page_order");
   if (fileError || !files || files.length !== prepared.length)
     throw new BackendError(
@@ -154,9 +163,8 @@ export async function persistUpload(client: SupabaseClient, form: FormData) {
       if (
         readError ||
         !existing ||
-        createHash("sha256")
-          .update(Buffer.from(await existing.arrayBuffer()))
-          .digest("hex") !== expected.sha256
+        (await checksum(new Uint8Array(await existing.arrayBuffer()))) !==
+          expected.sha256
       )
         throw new BackendError(
           503,
@@ -173,5 +181,10 @@ export async function persistUpload(client: SupabaseClient, form: FormData) {
       503,
       "Some originals may already be preserved, but receipt confirmation is incomplete. Retry this capture with the same files.",
     );
-  return { id };
+  return {
+    id,
+    sourceIds: files
+      .filter((file) => file.purpose === "original" || !file.purpose)
+      .map((file) => file.id),
+  };
 }

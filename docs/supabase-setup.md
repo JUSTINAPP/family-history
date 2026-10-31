@@ -1,8 +1,10 @@
 # Supabase setup — persistent backend foundation
 
+**Current follow-up:** The live archive has been created (confirmed by the user). Private HEIC display previews, real bulk import and catalogue editing are now implemented locally. Apply **only migration 005** to the existing project; do not rerun first-install SQL. See [preview, bulk and cataloguing setup](preview-bulk-cataloguing.md) for current behaviour, deployment and limits. Earlier foundation status below is historical where it says the hosted schema is absent or bulk/preview processing is deferred.
+
 ## Current status
 
-SDK/SSR authentication, protected routes, archive bootstrap, memberships, people, item/recollection persistence, private-original uploads and database policies are implemented. The configured Auth endpoint was reached successfully without printing configuration or record data. **The remote database migrations have not been applied.** Four version-controlled migrations passed local PostgreSQL tests. They must be applied before archive queries/uploads can work.
+SDK/SSR authentication, archive bootstrap, memberships, people, items, recollections and private-original uploads are implemented. The user has confirmed the live project is connected and the first archive exists. Migrations 001–004 are the foundation already installed there; **only migration 005 is pending in this development pass**. It has been validated locally and has not been applied remotely by the agent.
 
 No service-role key, database password, account password or AI key is needed in the browser. No fictional people or items are inserted by these migrations. The existing visual prototype is kept in an explicitly separate demo mode.
 
@@ -19,16 +21,19 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<your publishable key>
 
 Normal mode is **real**, requiring Auth. Missing/invalid configuration fails closed to setup/sign-in; database errors do not silently fall back to demo content. After changing environment values, restart `npm run dev`. Use its printed Local URL (the existing local server is on port 4000).
 
-## 2. Apply the migrations — required manual step
+## 2. Fresh installation only — existing archive needs only 005
 
 The publishable key can use Auth and RLS-protected data APIs; it cannot apply DDL. No database password or CLI project link was supplied, so no remote DDL was attempted.
 
-For the newly created project, open **Supabase Dashboard → SQL Editor**. Run these files in order, each once:
+For the existing Allen & Cork project, run only migration 005 as described in [follow-up setup](preview-bulk-cataloguing.md). Do not rerun 001–004.
+
+For a separate, brand-new project only, open **Supabase Dashboard → SQL Editor**. Run these files in order, each once:
 
 1. `supabase/migrations/202610310001_archive_foundation.sql`
 2. `supabase/migrations/202610310002_private_ingestion.sql`
 3. `supabase/migrations/202610310003_role_check.sql`
 4. `supabase/migrations/202610310004_catalogue_updates.sql`
+5. `supabase/migrations/202610310005_previews_and_cataloguing.sql`
 
 Each file is transactional. They add tables/functions/RLS and configure three private buckets. They do not drop tables, delete historical records, seed demo records or create accounts/passwords. Existing Auth users receive profile rows so accounts created before applying SQL also work. If you have already created conflicting tables, inspect the conflict rather than dropping them; these are first-install migrations.
 
@@ -83,17 +88,17 @@ The same account can create other archives through `/archives/new`; membership a
 
 Network failure leaves recoverable database reservations/draft items; ready items alone appear in Explore. The current capture page keeps selected File objects on failure. Reloading clears an unsubmitted selection; it does not delete already preserved storage objects. A persistent offline/reselect/resume inbox is future work. An uploaded-but-unfinalised draft is visible only to its contributor/editors, not ordinary viewers. There is no automatic deletion of abandoned original objects in this stage.
 
-Voice is still a labelled example. It is **not** uploaded or represented as a real audio recollection. The schema/private audio bucket are prepared, but audio capture/upload is not enabled yet. Live bulk ingestion is intentionally deferred; use the single-item/multi-page capture flow.
+Voice is still a labelled example. It is **not** uploaded or represented as a real audio recollection. The schema/private audio bucket are prepared, but audio capture/upload is not enabled yet. Live bulk import now saves each photograph separately at `/add/bulk`.
 
 ## 6. Storage and RLS
 
 - `archive-originals`: untouched image originals; UUID-only archive/item/file paths, no filename-based paths.
-- `archive-derived`: future display/thumbnail/transcription copies. No client writes until a processing worker is reviewed and connected.
+- `archive-derived`: display JPEG copies linked to originals, with reserved INSERT-only writes after migration 005. Thumbnail/transcription copies remain future work.
 - `archive-audio`: future immutable voice originals; not connected to the voice demo.
 
 All buckets are private with file size/type restrictions. Source reservations are created by `begin_ingestion`; Storage INSERT checks active Contributor membership, matching reservation, author and owning archive. There is no authenticated UPDATE/DELETE policy, preventing ordinary clients from upserting, renaming or deleting source bytes. Download uses an authenticated server route and Storage RLS, with private/no-store caching and no shared Next image optimiser. Existing public demo images are unrelated fixtures, not imported source files.
 
-The Node upload endpoint bounds multipart transport to 90 MiB even without Content-Length, sniffs file signatures, bounds source size/count, hashes raw bytes, uploads without upsert and confirms database/Storage receipts. SQL validates stored metadata size/MIME and finalises the item/recollection/job transaction. SHA-256 is calculated by the application over submitted bytes; the database does not itself re-hash Storage objects. Direct mobile/API implementations must follow the same validation/receipt contract. Checksums establish byte integrity, not historical authenticity.
+The retained Node upload endpoint bounds multipart transport to 90 MiB even without Content-Length, sniffs file signatures, bounds source size/count, hashes raw bytes, uploads without upsert and confirms database/Storage receipts. SQL validates stored metadata size/MIME and finalises the item/recollection/job transaction. SHA-256 is calculated by the application over submitted bytes; the database does not itself re-hash Storage objects. Direct mobile/API implementations must follow the same validation/receipt contract. Checksums establish byte integrity, not historical authenticity.
 
 Every archive table enables/FORCEs RLS; only narrow authenticated RPCs can write sensitive records. No service-role credential is used by the application. Definer helpers/RPCs are owned by the trusted migration role and have fixed search paths. Anonymous reads and cross-archive links are denied. See permissions.md for the role matrix and the actual migration/RPC list.
 
@@ -101,7 +106,7 @@ Every archive table enables/FORCEs RLS; only narrow authenticated RPCs can write
 
 Member role/link/suspension/removal changes persist through an Admin-only RPC, while historical contributions remain. Secure invitation records/token storage are prepared, but delivery/redemption is not operational: the live Admin UI explicitly says so. To add a trusted development member before that feature exists, use a reviewed dashboard/SQL operation with the verified Auth user's UUID and desired archive role; never grant access by an unverified email or share a password.
 
-Display jobs are durable but no worker is connected. The app says queued, never pretends images or handwriting were processed. AI transcription/metadata, facial recognition and restoration are off. Full backup export, ownership transfer, cover selection and broader place/story/tree editing remain separate milestones.
+Display jobs are durable and on-demand authenticated conversion now prepares private JPEG previews. There is no distributed/background worker or AI processing. AI transcription/metadata, facial recognition and restoration are off. Full backup export, ownership transfer, cover selection and broader place/story/tree editing remain separate milestones.
 
 ## Local verification
 

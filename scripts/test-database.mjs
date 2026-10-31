@@ -229,6 +229,180 @@ try {
   await asUser(users[2]);
   await q("select public.add_recollection($1,$2,'A new memory')", [a, item]);
   checks++;
+  // Follow-up migration: existing sources receive separate private displays; catalogue later.
+  const catalogue =
+    "select public.catalogue_item($1,$2,'A later caption','Photograph','Later notes','Janice','1965','year','India')";
+  const reserve = "select public.reserve_display($1,$2,100,48,32) as id";
+  await denied(catalogue, [a, item]); // commenter
+  await denied(reserve, [file.id, "b".repeat(64)]);
+  await asUser(users[1]);
+  await denied(catalogue, [a, item]); // foreign archive admin
+  await denied(reserve, [file.id, "b".repeat(64)]);
+  await asUser(users[3]);
+  await q(catalogue, [a, item]);
+  const edited = (
+    await q(
+      "select last_edited_by,catalogued_at,notes from public.archive_items where id=$1",
+      [item],
+    )
+  ).rows[0];
+  assert.equal(edited.last_edited_by, users[3]);
+  assert.ok(edited.catalogued_at);
+  assert.equal(edited.notes, "Later notes");
+  checks++;
+  const history = (
+    await q(
+      "select actor_id,value from public.provenance where item_id=$1 and field_path='catalogue_edit' order by created_at desc limit 1",
+      [item],
+    )
+  ).rows[0];
+  assert.equal(history.actor_id, users[3]);
+  assert.equal(history.value.before.notes, "");
+  assert.equal(history.value.after.notes, "Later notes");
+  checks++;
+
+  const displayId = (await q(reserve, [file.id, "b".repeat(64)])).rows[0].id;
+  assert.equal(
+    (await q(reserve, [file.id, "b".repeat(64)])).rows[0].id,
+    displayId,
+  );
+  checks++;
+  await denied(reserve, [file.id, "c".repeat(64)]); // changed retry never overwrites a display/source
+  await denied("select public.complete_display($1)", [displayId]);
+  const display = (
+    await q("select * from public.archive_item_files where id=$1", [displayId])
+  ).rows[0];
+  assert.equal(display.parent_original_id, file.id);
+  assert.equal(display.bucket_id, "archive-derived");
+  assert.equal(display.page_order, file.page_order);
+  checks++;
+  await q(
+    `insert into storage.objects(bucket_id,name,metadata) values($1,$2,'{"size":100,"mimetype":"image/jpeg"}')`,
+    [display.bucket_id, display.storage_path],
+  );
+  // Recover the contributor's incomplete display receipt as another Editor.
+  await asUser(users[4]);
+  assert.equal(
+    (
+      await q("select count(*)::int n from storage.objects where name=$1", [
+        display.storage_path,
+      ])
+    ).rows[0].n,
+    1,
+  );
+  checks++;
+  await q("select public.complete_display($1)", [displayId]);
+  await q("select public.complete_display($1)", [displayId]);
+  await asUser(users[3]);
+  assert.equal(
+    (
+      await q("select status from public.archive_item_files where id=$1", [
+        displayId,
+      ])
+    ).rows[0].status,
+    "stored",
+  );
+  checks++;
+  assert.equal(
+    (
+      await q(
+        "select original_text from public.recollections where item_id=$1 order by created_at limit 1",
+        [item],
+      )
+    ).rows[0].original_text,
+    "A contributor recollection",
+  );
+  checks++;
+  assert.equal(
+    (
+      await q("select sha256 from public.archive_item_files where id=$1", [
+        file.id,
+      ])
+    ).rows[0].sha256,
+    "a".repeat(64),
+  );
+  checks++;
+  assert.equal(
+    (
+      await q(
+        "with changed as (update storage.objects set metadata='{}' where name=$1 returning *) select count(*)::int n from changed",
+        [file.storage_path],
+      )
+    ).rows[0].n,
+    0,
+  );
+  checks++;
+  assert.equal(
+    (
+      await q(
+        "with changed as (delete from storage.objects where name=$1 returning *) select count(*)::int n from changed",
+        [file.storage_path],
+      )
+    ).rows[0].n,
+    0,
+  );
+  checks++;
+  await asUser(users[2]);
+  assert.equal(
+    (
+      await q("select count(*)::int n from storage.objects where name=$1", [
+        display.storage_path,
+      ])
+    ).rows[0].n,
+    1,
+  );
+  checks++;
+  await denied("select public.complete_display($1)", [displayId]);
+  await asUser(users[0]);
+  const other = (
+    await q(
+      "select public.begin_ingestion($1,gen_random_uuid(),'Other contributor','Photograph','','{}',$2::jsonb) as id",
+      [a, manifest],
+    )
+  ).rows[0].id;
+  await asUser(users[3]);
+  await denied(catalogue, [a, other]);
+  // Three metadata-free photographs become three independently ready browseable objects.
+  const imported = [];
+  for (let index = 0; index < 3; index++) {
+    const fresh = (
+      await q(
+        `select public.begin_ingestion($1,gen_random_uuid(),'Imported photograph','Photograph','','{"precision":"unknown"}',$2::jsonb) as id`,
+        [a, manifest],
+      )
+    ).rows[0].id;
+    const original = (
+      await q("select * from public.archive_item_files where item_id=$1", [
+        fresh,
+      ])
+    ).rows[0];
+    await q(
+      `insert into storage.objects(bucket_id,name,metadata) values($1,$2,'{"size":12,"mimetype":"image/png"}')`,
+      [original.bucket_id, original.storage_path],
+    );
+    await q("select public.complete_ingestion($1,$2)", [a, fresh]);
+    imported.push(fresh);
+  }
+  assert.equal(
+    (
+      await q(
+        "select count(*)::int n from public.archive_items where id=any($1::uuid[]) and ingestion_status='ready' and catalogued_at is null and people_text='' and reported_date='' and reported_place=''",
+        [imported],
+      )
+    ).rows[0].n,
+    3,
+  );
+  checks++;
+  await asUser(users[4]);
+  await q(
+    "select public.update_item_metadata($1,$2,'Verified','','','','verified',$3)",
+    [a, item, file.id],
+  );
+  await asUser(users[3]);
+  await denied(catalogue, [a, item]);
+  await asUser(users[4]);
+  await q(catalogue, [a, item]);
+  checks++;
   await asOwner();
   await denied(
     "insert into public.archive_memberships(archive_id,profile_id,role,linked_person_id) values($1,$2,$3,$4)",

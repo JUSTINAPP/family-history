@@ -7,6 +7,7 @@ export default defineConfig([
   globalIgnores([
     ".next/**",
     ".next-test/**",
+    "public/codecs/**",
     "next-env.d.ts",
     "playwright-report/**",
     "test-results/**",

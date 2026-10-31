@@ -1,3 +1,19 @@
+# HEIC / bulk import / catalogue editing — 31 October 2026 (current)
+
+This follow-up supersedes earlier statements that bulk/preview processing is unconnected or that the live archive has not been created. The user has confirmed the live archive exists. No remote database or Storage changes were performed in this pass.
+
+- Lint and strict TypeScript: passed.
+- Production build: passed, with Node private-preview routes and catalogue editing. Output traces include the standalone preview worker, libheif decoder, Sharp renderer and installed platform codec binaries. Linux/Vercel execution is not proven by a local macOS build.
+- Regression suite: **52 passed** on explicit demo localhost:4100. This retains the original 39 UX checks and 6 existing upload tests, adding real HEIC browser decoding/failure states, deterministic JPEG conversion, EXIF rotation, metadata-free bulk import, stable partial-failure retries and HEIF container validation.
+- Production authentication suite: **4 passed** on localhost:4200. Checks include anonymous private page/API rejection, private preview GET/POST rejection, cross-origin mutation rejection, safe redirects and mobile sign-in accessibility.
+- Disposable PostgreSQL: **54 checks passed** across all five actual migrations. Added checks cover source/display parent linkage and ordering, preview reservation/receipt retry, recovery by a different Editor, read-only source policies, contributor own-item editing, foreign-archive denial, verified-item protection, metadata-free ready items, provenance actor/time and retention of original recollection/hash.
+- The HEIC fixture is a locally generated plain red field, not user material. Both its input checksum and output dimensions/colour are asserted. The existing IMG_6390.HEIC was not downloaded or converted by the agent; its exact orientation/colour and the hosted Supabase/Vercel flow require the deployment smoke test.
+- `.env.local` remains ignored/untracked, with no saved configuration values copied into source/docs/tests. No AI service, remote account, fictional seed, source replacement, Storage deletion, push or deployment was performed.
+
+Only additive follow-up migration **202610310005_previews_and_cataloguing.sql** should be applied to the existing archive. Do not rerun first-install migrations. See [setup and deployment smoke tests](preview-bulk-cataloguing.md) and the [commit manifest](preview-bulk-commit-files.md).
+
+The initial regression rerun caught an outdated test-double query chain after original-purpose filtering was added; the mock now applies named filters, and the final suite passes. Browsers require sandbox permission for Chromium/loopback. No physical iPhone/Safari/HDR display, remote archive session, large real-world batch or Vercel codec runtime was exercised. Failed/unfinished previews leave originals usable and independently preserved. Offline/reload-resumable batches remain future work; retries within the same open batch retain capture IDs.
+
 # Supabase foundation — 31 October 2026 (current)
 
 This section supersedes the earlier prototype-only reports retained below.

@@ -1,10 +1,12 @@
 # Architecture
 
+**Current follow-up:** The live archive has been created (confirmed by the user). Private HEIC display previews, real bulk import and catalogue editing are now implemented locally. Apply **only migration 005** to the existing project; do not rerun first-install SQL. See [preview, bulk and cataloguing setup](preview-bulk-cataloguing.md) for current behaviour, deployment and limits. Earlier foundation status below is historical where it says the hosted schema is absent or bulk/preview processing is deferred.
+
 ## Implemented backend foundation (current)
 
 Real mode now uses Supabase SSR cookie sessions, a Next.js 16 proxy, authenticated archive queries and narrow database RPCs. LiveSnapshot/LiveWorkspaceProvider adapts real data to the existing UI; the old WorkspaceProvider remains explicitly fictional demo-only. The current archive is selected by an HttpOnly cookie, validated through archive membership/RLS on every access. No global user role grants archive access.
 
-Source capture goes through POST /api/v1/ingestions with either the web cookie session or an authenticated Bearer token (the shared boundary for future native clients). Server validation and hashing precede private Storage writes; begin/complete RPCs provide idempotent reservations and atomic item/context/job finalisation. GET /api/v1/files/:id rechecks auth/RLS and returns private/no-store original bytes, bypassing shared Next image optimisation. No service-role key or AI service is used.
+Browser capture/bulk import uses authenticated RPC reservations, direct private Storage uploads and receipt finalisation; POST /api/v1/ingestions remains available with web cookie sessions or native Bearer tokens. Server validation and hashing precede private Storage writes; begin/complete RPCs provide idempotent reservations and atomic item/context/job finalisation. GET /api/v1/files/:id rechecks auth/RLS and returns private/no-store original bytes, bypassing shared Next image optimisation. No service-role key or AI service is used.
 
 The remote Auth endpoint is reachable. Remote schema/Storage policies are not installed yet; four SQL migrations are locally validated. Setup and first-account/archive instructions are in supabase-setup.md. The older design/proposal sections below remain roadmap context and are superseded where they describe this foundation as unconnected. Live routes do not show fictional fixtures. Display workers, invitations, audio and AI remain separate unconnected milestones.
 

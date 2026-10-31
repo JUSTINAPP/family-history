@@ -43,6 +43,7 @@ function backend({
           const manifest = args.p_files as Record<string, unknown>[];
           reserved = manifest.map((m, i) => ({
             id: `file-${i}`,
+            purpose: "original",
             archive_id: archive,
             item_id: item,
             bucket_id: "archive-originals",
@@ -63,13 +64,23 @@ function backend({
       }
       throw new Error("Unexpected RPC");
     },
-    from: () => ({
-      select: () => ({
-        eq: () => ({
-          eq: () => ({ order: async () => ({ data: reserved, error: null }) }),
+    from: () => {
+      const filters: [string, unknown][] = [];
+      const query = {
+        select: () => query,
+        eq: (field: string, value: unknown) => {
+          filters.push([field, value]);
+          return query;
+        },
+        order: async () => ({
+          data: reserved.filter((row) =>
+            filters.every(([field, value]) => row[field] === value),
+          ),
+          error: null,
         }),
-      }),
-    }),
+      };
+      return query;
+    },
     storage: {
       from: () => ({
         upload: async (
