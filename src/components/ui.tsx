@@ -1,0 +1,96 @@
+import { ArchiveImage } from "./archive-image";
+export { ArchiveImage } from "./archive-image";
+import Link from "next/link";
+import { ArrowUpRight, ArrowRight } from "lucide-react";
+import type { ArchiveItem } from "@/lib/types";
+export function Eyebrow({ children }: { children: React.ReactNode }) {
+  return <p className="eyebrow">{children}</p>;
+}
+export function TextLink({
+  href,
+  children,
+  className = "",
+}: {
+  href: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <Link className={`text-link ${className}`} href={href}>
+      {children}
+      <ArrowUpRight size={17} />
+    </Link>
+  );
+}
+export function ButtonLink({
+  href,
+  children,
+  light = false,
+}: {
+  href: string;
+  children: React.ReactNode;
+  light?: boolean;
+}) {
+  return (
+    <Link href={href} className={`button ${light ? "button-light" : ""}`}>
+      {children}
+      <ArrowRight size={17} />
+    </Link>
+  );
+}
+export function ItemCard({
+  item,
+  index = 0,
+}: {
+  item: ArchiveItem;
+  index?: number;
+}) {
+  return (
+    <article className={`item-card item-${item.aspect}`}>
+      <Link href={`/archive/${item.slug}`} className="item-image-link">
+        <ArchiveImage src={item.image} alt={item.alt} />
+        <span className="image-arrow">
+          <ArrowUpRight size={20} />
+        </span>
+        {item.kind === "Letter" && <span className="image-label">3 pages</span>}
+      </Link>
+      <div className="card-caption">
+        <span className="caption-number">
+          {String(index + 1).padStart(2, "0")}
+        </span>
+        <div>
+          <Link href={`/archive/${item.slug}`}>
+            <h3>{item.title}</h3>
+          </Link>
+          <p>
+            {item.kind} <span>·</span> {item.date}
+          </p>
+        </div>
+      </div>
+    </article>
+  );
+}
+export function PageIntro({
+  eyebrow,
+  title,
+  description,
+  children,
+}: {
+  eyebrow: string;
+  title: string;
+  description: string;
+  children?: React.ReactNode;
+}) {
+  return (
+    <section className="page-intro">
+      <Eyebrow>{eyebrow}</Eyebrow>
+      <div className="intro-row">
+        <div>
+          <h1>{title}</h1>
+          <p className="intro-description">{description}</p>
+        </div>
+        {children}
+      </div>
+    </section>
+  );
+}

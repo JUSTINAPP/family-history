@@ -1,0 +1,225 @@
+"use client";
+import { useState, useRef, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
+import { Search, X, ArrowUpRight } from "lucide-react";
+import Link from "next/link";
+import { transcriptionPages } from "@/lib/data";
+import { useCatalogue } from "./catalogue";
+import { PageIntro, ItemCard } from "./ui";
+const kinds = ["All", "Photographs", "Letters", "Objects", "Documents"];
+const typeMap: Record<string, string> = {
+  Photographs: "Photograph",
+  Letters: "Letter",
+  Objects: "Object",
+  Documents: "Document",
+};
+export function Explore() {
+  const { items, people, places } = useCatalogue();
+  const params = useSearchParams();
+  const [q, setQ] = useState(params.get("q") || "");
+  const [type, setType] = useState(params.get("type") || "All");
+  const [person, setPerson] = useState("");
+  const [date, setDate] = useState("");
+  const [place, setPlace] = useState(params.get("place") || "");
+  const [collection, setCollection] = useState("");
+  const [unidentified, setUnidentified] = useState(params.has("unidentified"));
+  const [family, setFamily] = useState("");
+  const input = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (params.has("focus")) input.current?.focus();
+  }, [params]);
+  const filtered = items.filter((item) => {
+    const names = item.people
+      .map((slug) => people.find((p) => p.slug === slug)?.name || "")
+      .join(" ");
+    return (
+      (type === "All" || item.kind === type) &&
+      (!q ||
+        `${item.title} ${item.reportedPeople || ""} ${item.notes} ${item.place} ${item.date} ${item.collection} ${item.tags.join(" ")} ${names} ${item.kind === "Letter" ? transcriptionPages.join(" ") : ""}`
+          .toLowerCase()
+          .includes(q.toLowerCase())) &&
+      (!person ||
+        item.people.includes(person) ||
+        (!!item.reportedPeople &&
+          item.reportedPeople
+            .toLowerCase()
+            .includes(
+              people.find((p) => p.slug === person)?.name.toLowerCase() ||
+                "__unmatched__",
+            ))) &&
+      (!date || Math.floor((item.year || 0) / 10) * 10 === Number(date)) &&
+      (!place || item.place === place) &&
+      (!collection || item.collection === collection) &&
+      (!unidentified ||
+        item.tags.includes("Unidentified") ||
+        item.people.includes("unknown-at-the-picnic")) &&
+      (!family ||
+        item.people.some((p) =>
+          family === "Allen" ? p.includes("allen") : p.includes("wilson"),
+        ))
+    );
+  });
+  function reset() {
+    setQ("");
+    setType("All");
+    setPerson("");
+    setDate("");
+    setPlace("");
+    setCollection("");
+    setUnidentified(false);
+    setFamily("");
+  }
+  const group = params.get("group");
+  return (
+    <div className="page-shell">
+      <PageIntro
+        eyebrow="THE COLLECTION"
+        title="An archive of us."
+        description="The big days. The ordinary afternoons. The things we thought to keep."
+      />
+      <div className="archive-controls">
+        <div className="search-field">
+          <Search size={20} />
+          <input
+            ref={input}
+            aria-label="Search the archive"
+            type="search"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="A name, a place, a little detail…"
+          />
+          {q && (
+            <button aria-label="Clear search" onClick={() => setQ("")}>
+              <X size={17} />
+            </button>
+          )}
+        </div>
+        <span className="search-count" aria-live="polite">
+          {filtered.length} items to discover
+        </span>
+      </div>
+      {group && (
+        <div className="notice">
+          <strong>Explore by {group}</strong>
+          <p className="help-line">
+            {group === "years"
+              ? "Choose a decade to find moments from that time."
+              : group === "families"
+                ? "Follow connections to the Allen and Wilson families."
+                : "Gathered material, connected by a common thread."}
+          </p>
+          {group === "families" && (
+            <div className="small-actions">
+              {["Allen", "Wilson"].map((f) => (
+                <button
+                  aria-pressed={family === f}
+                  key={f}
+                  onClick={() => setFamily(family === f ? "" : f)}
+                >
+                  {f} family {family === f ? "✓" : ""}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+      <div className="filter-tabs" aria-label="Item type">
+        {kinds.map((k) => (
+          <button
+            key={k}
+            className={type === (typeMap[k] || k) ? "selected" : ""}
+            aria-pressed={type === (typeMap[k] || k)}
+            onClick={() => setType(typeMap[k] || k)}
+          >
+            {k}
+          </button>
+        ))}
+      </div>
+      <div className="filter-row">
+        <div className="filter-selects">
+          <label className="select-filter">
+            <span className="sr-only">People</span>
+            <select value={person} onChange={(e) => setPerson(e.target.value)}>
+              <option value="">People</option>
+              {people.map((p) => (
+                <option value={p.slug} key={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="select-filter">
+            <span className="sr-only">Date</span>
+            <select value={date} onChange={(e) => setDate(e.target.value)}>
+              <option value="">Date</option>
+              {[1920, 1930, 1950, 1960].map((y) => (
+                <option key={y} value={y}>
+                  {y}s
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="select-filter">
+            <span className="sr-only">Place</span>
+            <select value={place} onChange={(e) => setPlace(e.target.value)}>
+              <option value="">Place</option>
+              {places.map((p) => (
+                <option key={p.slug} value={p.name}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="select-filter">
+            <span className="sr-only">Collection</span>
+            <select
+              value={collection}
+              onChange={(e) => setCollection(e.target.value)}
+            >
+              <option value="">Collection</option>
+              {[...new Set(items.map((i) => i.collection))].map((c) => (
+                <option key={c}>{c}</option>
+              ))}
+            </select>
+          </label>
+          {unidentified && (
+            <button
+              className="select-filter"
+              onClick={() => setUnidentified(false)}
+            >
+              Unidentified <X size={12} />
+            </button>
+          )}
+        </div>
+        <button className="reset-button" onClick={reset}>
+          Clear filters
+        </button>
+      </div>
+      {filtered.length ? (
+        <div className="masonry">
+          {filtered.map((item, i) => (
+            <ItemCard key={item.id} item={item} index={i} />
+          ))}
+        </div>
+      ) : (
+        <div className="empty-state">
+          <h2>Still waiting to be found.</h2>
+          <p>
+            No items match these details. Try another word, or give the filters
+            a little room.
+          </p>
+          <button className="button button-light" onClick={reset}>
+            Show the whole collection
+          </button>
+        </div>
+      )}
+      <div className="home-divider" style={{ margin: "30px 0 0" }}>
+        <span>You’ve reached the end of this little collection.</span>
+        <Link href="/add" style={{ display: "flex", gap: 10 }}>
+          Help it grow
+          <ArrowUpRight size={15} />
+        </Link>
+      </div>
+    </div>
+  );
+}
