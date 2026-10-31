@@ -1,5 +1,9 @@
 # Proposed Supabase / PostgreSQL data model
 
+**HEIC production-build repair:** The server worker now receives a typed source envelope that survives Turbopack bundling. Additive migration 008 records per-original preview attempts/failures; originals and private Storage remain unchanged. See [diagnosis, verification limits and manual deployment smoke test](hosted-heic-previews.md).
+
+Migration 008 adds `preview_attempts`: one row per `original_file_id`, with `archive_id`, `item_id`, current attempt UUID, status, stage, attempt count, error code and timestamps. Same-archive foreign keys and item-readable RLS protect diagnostics. Narrow RPCs enforce the existing source-specific Contributor/Editor gate; clients have no direct write grant. The attempt token prevents stale completion, while `processing_jobs` remains the aggregate item status. These are processing observations, separate from historical evidence and immutable master receipts. Each `purpose=display` file still links to its own `parent_original_id`, including multiple originals on one item.
+
 **Discoverability fix (current):** All RLS-permitted archive rows are listed with paginated reads; preview, metadata and optional-service failures do not hide saved items or block their detail routes. No new migration is needed for this fix. See [trace, tests and deployment smoke test](saved-item-discoverability.md).
 
 **Bulk-photograph correction (current):** Production inspection confirmed two originals grouped under one item. Capture now explicitly distinguishes one item’s views from separate photographs, with durable import batches and separate batch context. Apply only new migration **007** for bulk; it works without audio migration 006. Existing production sources are unchanged. See [workflow, audit and deployment](bulk-photograph-import.md).

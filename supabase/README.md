@@ -1,5 +1,7 @@
 # Supabase foundation
 
+**HEIC preview repair:** New additive migration **008** records per-original attempts and processing failures. It depends on the existing 001–005 preview foundation and is independent of optional 006/007. Do not rerun earlier migrations. See [manual deployment and no-reupload smoke test](../docs/hosted-heic-previews.md).
+
 **Bulk-photograph correction (current):** Production inspection confirmed two originals grouped under one item. Capture now explicitly distinguishes one item’s views from separate photographs, with durable import batches and separate batch context. Apply only new migration **007** for bulk; it works without audio migration 006. Existing production sources are unchanged. See [workflow, audit and deployment](../docs/bulk-photograph-import.md).
 
 **Audio follow-up (current):** Real microphone/file recording, attached voice recollections and standalone oral histories are implemented locally. Migration 005 is already applied. Apply **only migration 006**, manually, before deploying audio. See [audio setup, permissions and smoke tests](../docs/audio-recordings.md). No remote SQL/data changes were made in this pass. Earlier references to demo-only voice describe the retained prototype.

@@ -3,8 +3,9 @@
 const { parentPort, workerData } = require("node:worker_threads");
 const sharp = require("sharp");
 const codec = require("libheif-js/wasm-bundle");
+let stage = "decode";
 (async () => {
-  const source = Buffer.from(workerData);
+  const source = Buffer.from(workerData.source);
   let pipeline;
   if (source.toString("ascii", 4, 8) === "ftyp") {
     await codec.ready;
@@ -38,6 +39,7 @@ const codec = require("libheif-js/wasm-bundle");
   } else {
     pipeline = sharp(source, { limitInputPixels: 60000000 }).autoOrient();
   }
+  stage = "render";
   const result = await pipeline
     .resize({
       width: 2400,
@@ -48,9 +50,16 @@ const codec = require("libheif-js/wasm-bundle");
     .flatten({ background: "#ffffff" })
     .jpeg({ quality: 85, mozjpeg: false })
     .toBuffer({ resolveWithObject: true });
+  if (result.data.length > 10 * 1024 * 1024) throw Error("display_size_limit");
   parentPort.postMessage({
     bytes: result.data,
     width: result.info.width,
     height: result.info.height,
   });
-})().catch(() => parentPort.postMessage({ error: "preview_failed" }));
+})().catch((error) =>
+  parentPort.postMessage({
+    error: ["pixel_limit", "display_size_limit"].includes(error.message)
+      ? error.message
+      : `${stage}_failed`,
+  }),
+);

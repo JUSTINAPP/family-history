@@ -84,6 +84,9 @@ export function ArchiveImage({
             </Link>
           )}
           {derived && message && (
+            <small>{message}</small>
+          )}
+          {derived && message && (
             <button
               type="button"
               className="subtle-button"

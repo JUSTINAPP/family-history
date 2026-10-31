@@ -36,6 +36,50 @@ test("JPEG EXIF orientation is applied to a display copy only", async () => {
   expect((await sharp(preview.bytes).metadata()).orientation).toBeUndefined();
 });
 
+test("HEIF container rotation is applied exactly once without changing the source", async () => {
+  const source = await readFile("tests/fixtures/preview.heic");
+  const rotation = source.indexOf("irot");
+  expect(rotation).toBeGreaterThan(0);
+  // The genuine HEIF fixture contains an associated irot property. Change only
+  // this test-local copy to request a 90° container rotation (encoded pixels stay 48×32).
+  source[rotation + 4] = 1;
+  const before = createHash("sha256").update(source).digest("hex");
+  const preview = await convertPreview(source);
+  expect([preview.width, preview.height]).toEqual([32, 48]);
+  expect((await sharp(preview.bytes).metadata()).orientation).toBeUndefined();
+  expect(createHash("sha256").update(source).digest("hex")).toBe(before);
+});
+
+test("PNG and WebP keep their original hashes and produce browser-compatible display copies", async () => {
+  for (const format of ["png", "webp"] as const) {
+    const original = await sharp({
+      create: {
+        width: 41,
+        height: 29,
+        channels: 4,
+        background: { r: 30, g: 70, b: 210, alpha: 0.5 },
+      },
+    })
+      .toFormat(format)
+      .toBuffer();
+    const before = createHash("sha256").update(original).digest("hex");
+    const preview = await convertPreview(original);
+    expect((await sharp(preview.bytes).metadata()).format).toBe("jpeg");
+    expect([preview.width, preview.height]).toEqual([41, 29]);
+    expect(createHash("sha256").update(original).digest("hex")).toBe(before);
+  }
+});
+
+test("decoder failures retain their useful error code and leave input bytes unchanged", async () => {
+  const bytes = Buffer.from("damaged HEIC bytes");
+  const before = Buffer.from(bytes);
+  await expect(convertPreview(bytes)).rejects.toMatchObject({
+    code: "render_failed",
+    status: 422,
+  });
+  expect(bytes).toEqual(before);
+});
+
 test("bulk import creates one metadata-free item per file and retries only failures with stable capture IDs", async () => {
   const entries: ImportEntry[] = ["one.jpg", "two.heic", "three.png"].map(
     (name, index) => ({

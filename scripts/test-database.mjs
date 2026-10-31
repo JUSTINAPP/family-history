@@ -270,7 +270,13 @@ try {
     displayId,
   );
   checks++;
-  await denied(reserve, [file.id, "c".repeat(64)]); // changed retry never overwrites a display/source
+  // An empty derived reservation may follow improved conversion; no stored bytes can change.
+  assert.equal(
+    (await q(reserve, [file.id, "c".repeat(64)])).rows[0].id,
+    displayId,
+  );
+  await q(reserve, [file.id, "b".repeat(64)]);
+  checks++;
   await denied("select public.complete_display($1)", [displayId]);
   const display = (
     await q("select * from public.archive_item_files where id=$1", [displayId])
@@ -283,6 +289,7 @@ try {
     `insert into storage.objects(bucket_id,name,metadata) values($1,$2,'{"size":100,"mimetype":"image/jpeg"}')`,
     [display.bucket_id, display.storage_path],
   );
+  await denied(reserve, [file.id, "c".repeat(64)]); // Uploaded derivative is immutable even before its receipt.
   // Recover the contributor's incomplete display receipt as another Editor.
   await asUser(users[4]);
   assert.equal(
@@ -926,6 +933,151 @@ try {
     [a, batchSources[1], details],
   );
   checks++;
+  // Retrospective preview retries on two originals attached to one legacy-style item.
+  await asUser(users[3]);
+  const legacy = (
+    await q(
+      "select public.begin_ingestion($1,gen_random_uuid(),'Two retained HEIC originals','Photograph','','{}',$2::jsonb) id",
+      [a, JSON.stringify([groupFile, { ...groupFile, name: "second.heic" }])],
+    )
+  ).rows[0].id;
+  const legacyFiles = (
+    await q(
+      "select * from public.archive_item_files where item_id=$1 order by page_order",
+      [legacy],
+    )
+  ).rows;
+  for (const f of legacyFiles)
+    await q(
+      "insert into storage.objects(bucket_id,name,metadata) values($1,$2,$3::jsonb)",
+      [
+        f.bucket_id,
+        f.storage_path,
+        JSON.stringify({ size: f.byte_size, mimetype: f.mime_type }),
+      ],
+    );
+  await q("select public.complete_ingestion($1,$2)", [a, legacy]);
+  const beginPreview = "select public.begin_preview_attempt($1) token";
+  const recordPreview = "select public.record_preview_attempt($1,$2,$3,$4)";
+  await asUser(users[2]);
+  await denied(beginPreview, [legacyFiles[0].id]); // Commenter.
+  await asUser(users[1]);
+  await denied(beginPreview, [legacyFiles[0].id]); // Foreign archive admin.
+  assert.equal(
+    (await q("select count(*)::int n from public.preview_attempts")).rows[0].n,
+    0,
+  );
+  checks++;
+  for (const f of legacyFiles) {
+    await asUser(users[3]);
+    const token = (await q(beginPreview, [f.id])).rows[0].token;
+    await denied(beginPreview, [f.id]); // Concurrent attempt cannot overwrite a live lease.
+    await denied(recordPreview, [
+      f.id,
+      "00000000-0000-4000-8000-000000000001",
+      "decode",
+      null,
+    ]);
+    await denied(recordPreview, [f.id, token, "decode", "private error text"]);
+    await q(recordPreview, [f.id, token, "decode", "decode_failed"]);
+    const failed = (
+      await q(
+        "select * from public.preview_attempts where original_file_id=$1",
+        [f.id],
+      )
+    ).rows[0];
+    assert.equal(failed.status, "failed");
+    assert.equal(failed.error_code, "decode_failed");
+    checks++;
+    assert.equal(
+      (
+        await q(
+          "select status from public.processing_jobs where item_id=$1 and stage='create_display_derivatives'",
+          [legacy],
+        )
+      ).rows[0].status,
+      "failed",
+    );
+    checks++;
+    await denied(
+      "update public.preview_attempts set status='complete' where original_file_id=$1",
+      [f.id],
+    );
+    // Another Editor can retry without changing source ownership or needing a re-upload.
+    await asUser(users[4]);
+    const retryToken = (await q(beginPreview, [f.id])).rows[0].token;
+    await denied(recordPreview, [f.id, token, "complete", null]);
+    await denied(recordPreview, [f.id, retryToken, "complete", null]); // Needs a stored derivative receipt.
+    const d = (await q(reserve, [f.id, "d".repeat(64)])).rows[0].id;
+    const reserved = (
+      await q("select * from public.archive_item_files where id=$1", [d])
+    ).rows[0];
+    await q(
+      'insert into storage.objects(bucket_id,name,metadata) values($1,$2,\'{"size":100,"mimetype":"image/jpeg"}\')',
+      [reserved.bucket_id, reserved.storage_path],
+    );
+    await q("select public.complete_display($1)", [d]);
+    await q(recordPreview, [f.id, retryToken, "complete", null]);
+    const completed = (
+      await q(
+        "select * from public.preview_attempts where original_file_id=$1",
+        [f.id],
+      )
+    ).rows[0];
+    assert.equal(completed.status, "complete");
+    assert.equal(completed.attempts, 2);
+    checks++;
+  }
+  assert.equal(
+    (
+      await q(
+        "select count(*)::int n from public.archive_item_files where item_id=$1 and purpose='display' and status='stored'",
+        [legacy],
+      )
+    ).rows[0].n,
+    2,
+  );
+  checks++;
+  assert.equal(
+    (
+      await q(
+        "select count(*)::int n from public.archive_item_files where item_id=$1 and purpose='original' and status='stored' and sha256=$2",
+        [legacy, groupFile.sha256],
+      )
+    ).rows[0].n,
+    2,
+  );
+  checks++;
+  assert.equal(
+    (
+      await q(
+        "select status from public.processing_jobs where item_id=$1 and stage='create_display_derivatives'",
+        [legacy],
+      )
+    ).rows[0].status,
+    "complete",
+  );
+  checks++;
+  // A killed function's lease expires; a stale worker cannot finish the replacement attempt.
+  const killedToken = (await q(beginPreview, [legacyFiles[0].id])).rows[0]
+    .token;
+  await asOwner();
+  await q(
+    "update public.preview_attempts set started_at=now()-interval '76 seconds' where original_file_id=$1",
+    [legacyFiles[0].id],
+  );
+  await asUser(users[3]);
+  const replacement = (await q(beginPreview, [legacyFiles[0].id])).rows[0]
+    .token;
+  assert.notEqual(killedToken, replacement);
+  checks++;
+  await denied(recordPreview, [
+    legacyFiles[0].id,
+    killedToken,
+    "decode",
+    "decode_failed",
+  ]);
+  await q(recordPreview, [legacyFiles[0].id, replacement, "complete", null]);
   await asUser(users[0]);
   const owner = (
     await q("select owner_membership_id from public.archives where id=$1", [a])
@@ -966,7 +1118,7 @@ try {
   const rls = await q(
     "select count(*)::int as n from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind='r' and c.relrowsecurity and c.relforcerowsecurity",
   );
-  assert.equal(rls.rows[0].n, withAudio ? 20 : 18);
+  assert.equal(rls.rows[0].n, withAudio ? 21 : 19);
   checks++;
   if (!withAudio) {
     await db.exec(

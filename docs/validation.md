@@ -1,3 +1,14 @@
+# Hosted HEIC preview repair — current validation
+
+- Reproduced the old production-built API failure with a real photographic HEIC: Turbopack spread bare typed-array worker data into a plain object, and Buffer.from failed before HEIC decode. Direct source-worker conversion succeeded. The corrected named source envelope succeeds in the built application.
+- Lint, strict TypeScript and the normal production build pass.
+- **75 regression tests pass**, including actual HEIC conversion/container rotation, JPEG EXIF rotation, PNG/WebP, damaged input, previous capture/bulk/audio/catalogue/discovery/accessibility checks and public-origin validation. The first full run encountered a transient Next development JSON-manifest parse error on initial /people compilation (74 passed); the unchanged warmed-server full rerun passed all 75.
+- **1 authenticated production-build preview flow passes** with the upstream libheif real HEIC sample (718,114 bytes; 1280×854). The build's isolated trace also produces a 351,967-byte JPEG with no repository-module fallback. Actual Retry buttons recover two source positions on one synthetic item after an injected read outage. Original hashes/downloads, two private derived records, detail, Explore, reload, completed-request idempotency and sign-out denial are checked. Auth/PostgREST/Storage are loopback protocol fixtures; the decoder and application are real.
+- **126 disposable PostgreSQL checks pass**, executing actual migrations through new 008, including lease expiry/concurrency, stale-token rejection, failure recording, cross-archive/role gates, two-original receipts, empty-reservation recovery, immutable uploaded derivatives and source preservation. **99 checks pass with optional audio 006 initially absent**, followed by successful later installation of 006.
+- **4 production authentication-boundary tests pass** on the normal local production build. The separate **1,007-row authenticated discoverability regression passes** after the fixture extension.
+
+Migrations 001–007 are byte-identical to HEAD. No hosted archive data/Storage change, production-original download/conversion, Git staging, push or deployment was performed. Tests did not access either actual family HEIC. The upstream image stays in temporary storage and is not added to the repository. Hosted Vercel/Linux, the family's exact HEIC variants and physical iPhone/Safari remain unverified; use the [exact no-reupload production smoke test](hosted-heic-previews.md). [Files to commit](heic-preview-commit-manifest.md).
+
 # Saved-item discoverability — current validation
 
 The existing production item with two originals remains unchanged. The real app now uses paged RLS-visible catalogue queries, independent item lookup and resilient optional-resource loading. No new migration, production data change or automatic split was introduced.

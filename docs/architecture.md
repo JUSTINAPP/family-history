@@ -1,5 +1,7 @@
 # Architecture
 
+**Hosted HEIC processing:** An authenticated on-demand Node route reads the private original and awaits a disposable libheif-WASM/Sharp worker. Its `{ source }` worker-data envelope survives Next's production bundling. Migration 008 records per-original leases and errors; the existing display receipt remains separate from the master. No daemon or browser-local File is needed for retrospective Retry. See [root cause, deployment packaging checks and production smoke test](hosted-heic-previews.md).
+
 **Discoverability fix (current):** All RLS-permitted archive rows are listed with paginated reads; preview, metadata and optional-service failures do not hide saved items or block their detail routes. No new migration is needed for this fix. See [trace, tests and deployment smoke test](saved-item-discoverability.md).
 
 **Bulk-photograph correction (current):** Production inspection confirmed two originals grouped under one item. Capture now explicitly distinguishes one item’s views from separate photographs, with durable import batches and separate batch context. Apply only new migration **007** for bulk; it works without audio migration 006. Existing production sources are unchanged. See [workflow, audit and deployment](bulk-photograph-import.md).

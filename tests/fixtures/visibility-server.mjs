@@ -8,8 +8,8 @@ export const USER = "60000000-0000-4000-8000-000000000003";
 export const ITEM = "60000000-0000-4000-8000-000000000004";
 export const BATCH = "60000000-0000-4000-8000-000000000005";
 export const COUNT = 1007;
-export async function fixtureServer(port = 4301) {
-  const original = await readFile("public/images/beach.jpg"),
+export async function fixtureServer(port = 4301, { previewFile } = {}) {
+  const original = await readFile(previewFile || "public/images/beach.jpg"),
     hash = createHash("sha256").update(original).digest("hex");
   const now = Math.floor(Date.now() / 1000),
     url = `http://127.0.0.1:${port}`,
@@ -57,7 +57,7 @@ export async function fixtureServer(port = 4301) {
     archive(OTHER_ARCHIVE, "Other test archive", "2020-01-01T00:00:00Z"),
     archive(ARCHIVE, "Test archive", "2021-01-01T00:00:00Z"),
   ];
-  const rows = Array.from({ length: COUNT }, (_, index) => ({
+  const rows = Array.from({ length: previewFile ? 1 : COUNT }, (_, index) => ({
     id:
       index === 0
         ? ITEM
@@ -87,8 +87,8 @@ export async function fixtureServer(port = 4301) {
       status: "stored",
       bucket_id: "archive-originals",
       storage_path: `${ARCHIVE}/${row.id}/${page}`,
-      mime_type: "image/jpeg",
-      original_filename: `original-${index}-${page}.jpg`,
+      mime_type: previewFile ? "image/heic" : "image/jpeg",
+      original_filename: `original-${index}-${page}.${previewFile ? "heic" : "jpg"}`,
       byte_size: original.length,
       sha256: hash,
       page_order: page,
@@ -98,6 +98,11 @@ export async function fixtureServer(port = 4301) {
     })),
   );
   const requests = [];
+  const objects = new Map(
+    files.map((f) => [`${f.bucket_id}/${f.storage_path}`, original]),
+  );
+  let failPreview = false;
+  const attempts = new Map();
   let failList = false;
   const server = createServer(async (req, res) => {
     const address = new URL(req.url, url);
@@ -112,12 +117,22 @@ export async function fixtureServer(port = 4301) {
     }
     if (address.pathname === "/__fixture/failure") {
       failList = address.searchParams.get("list") === "1";
+      failPreview = address.searchParams.get("preview") === "1";
       return send(200, { ok: true });
     }
     if (address.pathname === "/__fixture/summary")
       return send(200, {
-        count: COUNT,
+        count: rows.length,
         originalHash: hash,
+        attempts: [...attempts.values()],
+        displays: files.filter((f) => f.purpose === "display"),
+        originalHashes: files
+          .filter((f) => f.purpose === "original")
+          .map((f) =>
+            createHash("sha256")
+              .update(objects.get(`${f.bucket_id}/${f.storage_path}`))
+              .digest("hex"),
+          ),
         requests: requests
           .filter((r) => r.path.startsWith("/rest/v1/archive_items"))
           .slice(-30),
@@ -138,6 +153,34 @@ export async function fixtureServer(port = 4301) {
     if (req.headers.authorization !== `Bearer ${token}`)
       return send(401, { message: "Not signed in" });
     if (address.pathname.startsWith("/storage/v1/object/")) {
+      if (previewFile) {
+        const key = decodeURIComponent(
+          address.pathname.replace(
+            /^\/storage\/v1\/object\/(?:authenticated\/)?/,
+            "",
+          ),
+        );
+        if (req.method === "POST") {
+          if (!key.startsWith("archive-derived/"))
+            return send(403, { message: "Immutable original" });
+          if (objects.has(key)) return send(409, { message: "Duplicate" });
+          const chunks = [];
+          for await (const chunk of req) chunks.push(chunk);
+          objects.set(key, Buffer.concat(chunks));
+          return send(200, { Key: key });
+        }
+        const value = objects.get(key);
+        if (!value) return send(404, { message: "Object missing" });
+        if (failPreview && key.startsWith("archive-originals/"))
+          return send(503, { message: "Synthetic source read outage" });
+        res.writeHead(200, {
+          "Content-Type": key.startsWith("archive-derived/")
+            ? "image/jpeg"
+            : "image/heic",
+        });
+        res.end(value);
+        return;
+      }
       res.writeHead(200, {
         "Content-Type": "image/jpeg",
         "Content-Length": original.length,
@@ -147,6 +190,62 @@ export async function fixtureServer(port = 4301) {
     }
     if (address.pathname === "/rest/v1/rpc/can_access_archive")
       return send(200, true);
+    if (previewFile && address.pathname.startsWith("/rest/v1/rpc/")) {
+      const chunks = [];
+      for await (const chunk of req) chunks.push(chunk);
+      const body = JSON.parse(Buffer.concat(chunks).toString() || "{}");
+      const rpc = address.pathname.split("/").pop();
+      if (rpc === "reserve_display") {
+        const s = files.find((f) => f.id === body.p_source_id);
+        let d = files.find((f) => f.parent_original_id === s.id);
+        if (!d) {
+          d = {
+            ...s,
+            id: crypto.randomUUID(),
+            purpose: "display",
+            parent_original_id: s.id,
+            status: "reserved",
+            bucket_id: "archive-derived",
+            mime_type: "image/jpeg",
+            sha256: body.p_sha256,
+            byte_size: body.p_size,
+            width: body.p_width,
+            height: body.p_height,
+          };
+          d.storage_path = `${ARCHIVE}/${ITEM}/${d.id}`;
+          files.push(d);
+        }
+        return send(200, d.id);
+      }
+      if (rpc === "complete_display") {
+        const f = files.find((f) => f.id === body.p_file_id);
+        f.status = "stored";
+        return send(200, null);
+      }
+      if (rpc === "begin_preview_attempt") {
+        const a = {
+          original_file_id: body.p_source_id,
+          attempt_id: crypto.randomUUID(),
+          stage: "download",
+          status: "processing",
+        };
+        attempts.set(body.p_source_id, a);
+        return send(200, a.attempt_id);
+      }
+      if (rpc === "record_preview_attempt") {
+        const a = attempts.get(body.p_source_id);
+        Object.assign(a, {
+          stage: body.p_stage,
+          error_code: body.p_error_code,
+          status: body.p_error_code
+            ? "failed"
+            : body.p_stage === "complete"
+              ? "complete"
+              : "processing",
+        });
+        return send(200, null);
+      }
+    }
     if (address.pathname.startsWith("/rest/v1/rpc/"))
       return send(503, { code: "fixture_preview_unavailable" });
     const table = address.pathname.split("/").pop();
@@ -168,34 +267,36 @@ export async function fixtureServer(port = 4301) {
       return send(503, { code: "fixture_optional_unavailable" });
     let data =
       table === "import_batches"
-        ? [{
-            id: BATCH,
-            archive_id: ARCHIVE,
-            context: "Fixture batch",
-            expected_count: 1,
-            created_by: USER,
-            created_at: "2026-01-01T00:00:00Z",
-          }]
+        ? [
+            {
+              id: BATCH,
+              archive_id: ARCHIVE,
+              context: "Fixture batch",
+              expected_count: 1,
+              created_by: USER,
+              created_at: "2026-01-01T00:00:00Z",
+            },
+          ]
         : table === "archives"
-        ? archives
-        : table === "archive_items"
-          ? rows
-          : table === "archive_item_files"
-            ? files
-            : table === "archive_memberships"
-              ? archives.map((a) => ({
-                  id: USER,
-                  archive_id: a.id,
-                  profile_id: USER,
-                  role: "contributor",
-                  status: "active",
-                  joined_at: a.created_at,
-                  profiles: {
-                    display_name: "Test contributor",
-                    email: user.email,
-                  },
-                }))
-              : [];
+          ? archives
+          : table === "archive_items"
+            ? rows
+            : table === "archive_item_files"
+              ? files
+              : table === "archive_memberships"
+                ? archives.map((a) => ({
+                    id: USER,
+                    archive_id: a.id,
+                    profile_id: USER,
+                    role: "contributor",
+                    status: "active",
+                    joined_at: a.created_at,
+                    profiles: {
+                      display_name: "Test contributor",
+                      email: user.email,
+                    },
+                  }))
+                : [];
     for (const [key, value] of address.searchParams) {
       if (value.startsWith("eq.") && !key.includes("."))
         data = data.filter((row) => String(row[key]) === value.slice(3));
