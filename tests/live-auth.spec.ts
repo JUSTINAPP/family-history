@@ -9,6 +9,7 @@ test("private routes fail closed without an authenticated session", async ({
   for (const route of [
     "/",
     "/explore",
+    "/quick-catalogue",
     "/explore?batch=50000000-0000-4000-8000-000000000001",
     "/imports",
     "/imports/50000000-0000-4000-8000-000000000001",

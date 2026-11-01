@@ -7,6 +7,7 @@ export async function ItemPlaces({
   editable,
   editor,
   profileId,
+  simple = false,
 }: {
   archiveId: string;
   itemId: string;
@@ -14,6 +15,7 @@ export async function ItemPlaces({
   editable: boolean;
   editor: boolean;
   profileId: string;
+  simple?: boolean;
 }) {
   let data;
   try {
@@ -38,6 +40,7 @@ export async function ItemPlaces({
       editable={editable}
       editor={editor}
       profileId={profileId}
+      simple={simple}
     />
   );
 }

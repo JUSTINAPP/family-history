@@ -1,3 +1,5 @@
+import { QuickField } from "./quick-field";
+import { FamilyConversation } from "./family-conversation";
 import { cataloguePresentation } from "@/lib/catalogue-presentation";
 import { loadPlaceData } from "@/lib/backend/places";
 import { LiveWorkspaceProvider } from "./live-workspace";
@@ -69,9 +71,9 @@ export async function LiveItem({
           <span>{item.kind}</span>
         </div>
         <PageIntro
-          eyebrow="PRESERVED IN YOUR PRIVATE ARCHIVE"
+          eyebrow="FROM YOUR FAMILY ARCHIVE"
           title={display.title}
-          description="Original material and contributor context are kept separately. No AI analysis has run."
+          description="A familiar face, a place, a little of what we remember."
         />
         {saved && item.ingestion_status === "ready" && (
           <section className="notice" role="status">
@@ -161,6 +163,7 @@ export async function LiveItem({
                     priority={index === 0}
                     originalPreserved={true}
                   />
+                  <details className="archive-information"><summary>Original file information</summary>
                   <div className="saved-file-list">
                     <a
                       href={`/api/v1/files/${file.id}`}
@@ -174,23 +177,48 @@ export async function LiveItem({
                     bytes · SHA-256 {file.sha256}
                     <br />
                     No optimisation was applied to this file.
-                  </p>
+                  </p></details>
                 </div>
               ))}
           </section>
           <section className="saved-context">
-            <p className="eyebrow">CONTRIBUTOR RECOLLECTIONS</p>
+            <IdentificationForm
+              archiveId={snapshot.archive.id}
+              itemId={item.id}
+              people={snapshot.people}
+              identifications={identifications}
+              role={role}
+              profileId={snapshot.profileId}
+              canCreate={editable}
+              simple
+              unavailable={
+                result.resourceWarnings.length > 0 ||
+                snapshot.resourceWarnings.includes("People could not load.")
+              }
+            />
+            <QuickField archiveId={item.archive_id} itemId={item.id} field="date" value={item.reported_date || ""} precision={item.date_precision} editable={editable && item.ingestion_status === "ready" && item.lifecycle === "active"} />
+            <ItemPlaces
+              archiveId={item.archive_id}
+              itemId={item.id}
+              reportedText={item.reported_place || ""}
+              editable={editable}
+              editor={can(role, "editor")}
+              profileId={snapshot.profileId}
+              simple
+            />
+            <details><summary>Edit caption</summary><QuickField archiveId={item.archive_id} itemId={item.id} field="caption" value={item.title || ""} editable={editable} /></details>
+            <p className="eyebrow">MEMORIES FROM THE FAMILY</p>
             <h2>What we know so far.</h2>
             {written.length ? (
               written.map((r) => (
                 <div key={r.id}>
                   <blockquote>{r.original_text}</blockquote>
                   <p className="help-line">
-                    Reported by a contributor ·{" "}
+                    {snapshot.members.find(m => m.profileId === r.contributor_id)?.name || "Archive contributor"} ·{" "}
                     {new Date(r.recorded_at).toLocaleDateString("en-AU", {
                       timeZone: "Australia/Sydney",
                     })}{" "}
-                    · unverified
+
                   </p>
                 </div>
               ))
@@ -199,6 +227,7 @@ export async function LiveItem({
                 No recollection yet. Preserving the original is enough to begin.
               </p>
             )}
+            <details className="archive-information"><summary>Archive information</summary>
             <dl className="metadata-grid" style={{ marginTop: 30 }}>
               {[
                 ["Previously reported people (text)", item.people_text],
@@ -217,7 +246,7 @@ export async function LiveItem({
                 </div>
               ))}
             </dl>
-            {item.notes && <p className="prose">{item.notes}</p>}
+
             <p className="help-line">
               Created{" "}
               {new Date(item.created_at).toLocaleDateString("en-AU", {
@@ -233,29 +262,13 @@ export async function LiveItem({
             <div className="notice">
               Original files are preserved unchanged. Display previews are
               separate copies.
-            </div>
-            <IdentificationForm
-              archiveId={snapshot.archive.id}
-              itemId={item.id}
-              people={snapshot.people}
-              identifications={identifications}
-              role={role}
-              profileId={snapshot.profileId}
-              canCreate={editable}
-              unavailable={
-                result.resourceWarnings.length > 0 ||
-                snapshot.resourceWarnings.includes("People could not load.")
-              }
-            />
-            <ItemPlaces
-              archiveId={item.archive_id}
-              itemId={item.id}
-              reportedText={item.reported_place || ""}
-              editable={editable}
-              editor={can(role, "editor")}
-              profileId={snapshot.profileId}
-            />
-            <AddRecollection archiveId={snapshot.archive.id} itemId={item.id} />
+            </div></details>
+            {item.notes && <p className="prose">{item.notes}</p>}
+            <FamilyConversation archiveId={item.archive_id} itemId={item.id} comments={result.comments}
+              profileId={snapshot.profileId} names={Object.fromEntries(snapshot.members.map(m => [m.profileId, m.name]))}
+              canComment={can(role, "commenter") && item.lifecycle === "active" && !item.archived_at && item.ingestion_status === "ready"}
+              editor={can(role, "editor")} unavailable={result.commentsUnavailable} />
+            <details className="add-memory"><summary>Add a memory</summary><p>A longer recollection becomes part of the archive, separately from the conversation.</p><AddRecollection archiveId={snapshot.archive.id} itemId={item.id} /></details>
             {audioUnavailable && (
               <p className="help-line">
                 Voice recordings could not load. Other item details remain
@@ -267,7 +280,7 @@ export async function LiveItem({
             )}
             {can(role, "contributor") && (
               <details className="audio-metadata">
-                <summary>Add a voice recollection</summary>
+                <summary>Add a voice memory</summary>
                 <AudioCapture itemId={item.id} />
               </details>
             )}

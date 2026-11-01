@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { loadWorkspace } from "@/lib/backend/repository";
 import { LiveWorkspaceProvider } from "@/components/live/live-workspace";
@@ -64,6 +65,7 @@ export default async function ExplorePage({
           key={`${snapshot.archive.id}:${snapshot.catalogueBatchId || "all"}`}
           snapshot={snapshot}
         >
+          <div className="page-shell quick-entry"><Link prefetch={false} className="text-link" href={`/quick-catalogue?archive=${snapshot.archive.id}`}>Quick catalogue ↗</Link></div>
           <Explore key={filterKey} />
         </LiveWorkspaceProvider>
       ) : (

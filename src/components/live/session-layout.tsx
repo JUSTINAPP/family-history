@@ -40,7 +40,7 @@ export async function SessionLayout({
   let snapshot;
   try {
     const pageLoadsMaterial =
-      ["/", "/explore", "/people", "/places"].includes(path) ||
+      ["/", "/explore", "/people", "/places", "/quick-catalogue"].includes(path) ||
       path.startsWith("/places/") ||
       path.startsWith("/people/") ||
       path.startsWith("/archive/");

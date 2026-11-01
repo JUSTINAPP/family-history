@@ -16,6 +16,7 @@ export function IdentificationForm({
   profileId,
   canCreate = false,
   unavailable = false,
+  simple = false,
 }: {
   archiveId: string;
   itemId: string;
@@ -25,6 +26,7 @@ export function IdentificationForm({
   profileId: string;
   canCreate?: boolean;
   unavailable?: boolean;
+  simple?: boolean;
 }) {
   const router = useRouter();
   const [query, setQuery] = useState(""),
@@ -52,7 +54,7 @@ export function IdentificationForm({
       if (result.error) setMessage(result.error);
       else {
         setMessage(
-          action === "remove"
+          simple ? (action === "remove" ? "Person removed." : "Person saved.") : action === "remove"
             ? "Association removed. The Person and original report are retained."
             : action === "confirm"
               ? "Identification confirmed by an Editor."
@@ -72,7 +74,7 @@ export function IdentificationForm({
   }
   return (
     <section className="item-people" aria-label="People in this item">
-      <h2>People</h2>
+      <h2>{simple ? "Who" : "People"}</h2>
       {unavailable && (
         <p role="alert">
           People or identifications could not load completely. Reload before
@@ -85,13 +87,15 @@ export function IdentificationForm({
             const person = people.find((p) => p.id === i.person_id);
             return (
               <li key={i.id}>
-                <strong>{person?.name || i.proposed_name}</strong> ·{" "}
-                {i.status === "accepted" ? "confirmed ✓" : "reported"}{" "}
+                <strong>{person?.name || i.proposed_name}</strong>{" "}
                 <Link
                   href={`/people/${person?.id || i.person_id}?archive=${archiveId}`}
                 >
                   View person ↗
                 </Link>
+                <details open={!simple}>
+                  <summary>Identification details</summary>
+                  <p>{i.status === "accepted" ? "confirmed ✓" : "reported"}</p>
                 <p className="help-line">
                   Originally reported by{" "}
                   {i.proposed_by === profileId
@@ -113,6 +117,7 @@ export function IdentificationForm({
                     Confirm reported identification
                   </button>
                 )}
+                </details>
                 {!unavailable &&
                   (editor ||
                     (canReport &&
@@ -137,7 +142,7 @@ export function IdentificationForm({
         <p>No People linked yet.</p>
       )}
       {!!unlinked.length && (
-        <div>
+        <details open={!simple}><summary>Earlier names and review</summary><div>
           <h3>Reported identifications awaiting a Person link</h3>
           {unlinked.map((i) => (
             <div key={i.id}>
@@ -162,7 +167,7 @@ export function IdentificationForm({
               )}
             </div>
           ))}
-        </div>
+        </div></details>
       )}
       {identifications.some((i) => i.status === "rejected") && (
         <details>
@@ -293,11 +298,13 @@ export function IdentificationForm({
           )}
         </div>
       )}
+      {!simple && <>
       <p className="help-line">
         Reported: a contributor recognises someone. Confirmed: an Editor has
         reviewed the identity. Machine suggestions remain separate until human
         review.
       </p>
+      </>}
       {message && <p role="status">{message}</p>}
     </section>
   );

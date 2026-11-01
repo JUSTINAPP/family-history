@@ -1,5 +1,7 @@
 # Supabase foundation
 
+**Current release — migration 012:** Reuses comments for private family conversation and adds independent date/caption RPCs, six date precision choices, shallow replies, own-comment editing, Editor moderation and explicit copying into recollections. Verify the installed 001–011 baseline, then manually apply only missing 012 before the app release. No automatic historical interpretation, Storage changes or notification delivery. Migrations 001–011 are unchanged. See [schema/permissions, read-only installation markers and exact smoke test](../docs/quick-catalogue-conversation.md). No production SQL was run by the agent.
+
 **Living scrapbook follow-up:** No SQL changes or new migration. The existing 011 Places schema remains the prerequisite; do not rerun it if installed. The simpler separation UI uses the unchanged version/permission-checked 009 RPC, and deliberate shared-note/Person copying uses existing authenticated RPCs. See [current release and manual verification](../docs/living-scrapbook.md).
 
 **Current release — migration 011:** Adds archive-scoped Places and item associations with RLS/narrow RPCs, preserves Where text, and integrates association cleanup with the existing deletion preflight/lifecycle. Confirm the 001–010 baseline before manually applying only 011. No automatic backfill or Storage change occurs. See [manual installation and smoke test](../docs/archive-places.md).

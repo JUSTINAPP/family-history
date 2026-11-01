@@ -4943,3 +4943,40 @@ main {
 }
 
 .scrapbook-preview-pending { display: grid; align-content: center; width: 100px; min-height: 90px; text-align: center; background: #eae7df; padding: 8px; font-size: 12px; }
+
+/* Quick family contributions reuse the archive's paper, type and quiet rules. */
+.quick-entry { padding-top: 25px; padding-bottom: 0; text-align: right; }
+.quick-catalogue { padding-block: 35px 70px; }
+.quick-catalogue h1 { font-size: clamp(36px, 5vw, 64px); }
+.quick-navigation { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding-block: 24px; }
+.quick-navigation button, .quick-navigation a, .quick-context button, .comment-actions button { min-height: 44px; }
+.quick-photo-layout { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 55px; align-items: start; }
+.quick-photo .archive-image { min-height: 200px; }
+.quick-photo h2 { font-size: 28px; margin: 20px 0 12px; overflow-wrap: anywhere; }
+.quick-context { min-width: 0; }
+.quick-context h2, .quick-field h2, .family-conversation h2 { font-size: 26px; margin-bottom: 10px; }
+.quick-field { border-bottom: 1px solid var(--line, #d9d2c6); padding: 22px 0; }
+.quick-context .item-people { margin-top: 0; padding-block: 22px; }
+.quick-photo-strip { display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); gap: 15px; padding-top: 35px; }
+.quick-photo-strip button { padding: 6px; background: transparent; border: 1px solid transparent; cursor: pointer; min-width: 0; }
+.quick-photo-strip button[aria-current] { border-color: currentColor; }
+.quick-photo-strip .archive-image { width: 100%; min-height: 65px; }
+.family-conversation { padding-block: 28px; margin-top: 25px; border-top: 1px solid var(--line, #d9d2c6); }
+.family-comment { margin: 20px 0; min-width: 0; }
+.comment-byline { display: flex; flex-wrap: wrap; gap: 8px; font-size: 13px; align-items: baseline; }
+.comment-byline time { color: var(--muted); font-size: 11px; }
+.comment-body { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.65; margin-top: 8px; }
+.comment-reply { border-left: 1px solid var(--line, #d9d2c6); margin-left: 18px; padding-left: 16px; }
+.comment-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+.comment-actions summary, .archive-information summary, .add-memory summary { cursor: pointer; padding-block: 10px; }
+.comment-composer textarea { min-height: 100px; }
+.quick-context .field input, .quick-context .field select, .quick-context textarea { max-width: 100%; min-width: 0; }
+@media(max-width: 820px) {
+  .quick-photo-layout { grid-template-columns: minmax(0,1fr); gap: 20px; }
+  .quick-photo-strip { grid-template-columns: repeat(4,minmax(0,1fr)); gap: 8px; }
+  .quick-navigation { gap: 8px 16px; }
+}
+
+.quick-navigation { position: sticky; top: 0; z-index: 20; background: var(--paper); border-bottom: 1px solid var(--line); }
+.quick-photo-layout { scroll-margin-top: 120px; }
+.quick-photo .archive-image { max-height: 75vh; }

@@ -131,6 +131,7 @@ export async function fixtureServer(
     : [];
   const identifications = [],
     recollections = [],
+    comments = [],
     provenance = [];
   const requests = [];
   const objects = new Map(
@@ -366,6 +367,29 @@ export async function fixtureServer(
       });
       return send(200, { people, materialIds });
     }
+    if (address.pathname === "/__fixture/quick-photos" && management) {
+      const template = imageSets.find(s => s.status === "stored");
+      const source = files.find(f => f.id === template.original_file_id);
+      const ids = [];
+      for (let n=0;n<14;n++) {
+        const id=crypto.randomUUID(), originalId=crypto.randomUUID();
+        rows.push({...rows.find(r => !r.archived_at),id,kind:"Photograph",title:`Quick photograph ${n+1}`,archived_at:null,split_from:null,
+          lifecycle:"active",ingestion_status:"ready",reported_date:"",date_precision:"unknown",reported_place:"",people_text:"",notes:"",catalogued_at:null,created_at:`2026-12-${String(31-n).padStart(2,"0")}T00:00:00Z`});
+        const originalCopy={...source,id:originalId,item_id:id,storage_path:`${ARCHIVE}/${id}/${originalId}`};
+        files.push(originalCopy); objects.set(`${source.bucket_id}/${originalCopy.storage_path}`,original);
+        const set={...template,id:crypto.randomUUID(),item_id:id,original_file_id:originalId};
+        for (const key of ["display_file_id","thumbnail_file_id","small_file_id"]) {
+          const old=files.find(f => f.id === template[key]);
+          const file={...old,id:crypto.randomUUID(),item_id:id,parent_original_id:originalId};
+          file.storage_path=`${ARCHIVE}/${id}/${file.id}`;files.push(file);
+          objects.set(`${file.bucket_id}/${file.storage_path}`,objects.get(`${old.bucket_id}/${old.storage_path}`));set[key]=file.id;
+        }
+        if (n !== 13) imageSets.push(set); // Last test photo deliberately has no prepared small receipt.
+        ids.push(id);
+      }
+      comments.push({id:crypto.randomUUID(),archive_id:ARCHIVE,item_id:ids[0],author_id:"60000000-0000-4000-8000-000000000099",body:"Was this outside the house?",created_at:"2026-01-01T00:00:00Z",parent_id:null,revision:1});
+      return send(200,{ids,people,places});
+    }
     if (address.pathname === "/__fixture/failure") {
       failList = address.searchParams.get("list") === "1";
       failPreview = address.searchParams.get("preview") === "1";
@@ -432,6 +456,8 @@ export async function fixtureServer(
           ...item,
           id: itemId,
           title: `Lazy-load photograph ${n}`,
+          // Keep the last offscreen card new/uncached, independently of random UUID ordering.
+          created_at: new Date(Date.parse(item.created_at) - (n+1)*1000).toISOString(),
           split_from: null,
           archived_at: null,
         });
@@ -486,6 +512,7 @@ export async function fixtureServer(
         itemPlaces,
         identifications,
         recollections,
+        comments,
         provenance,
         files,
         displays: files.filter((f) => f.purpose === "display"),
@@ -747,6 +774,38 @@ export async function fixtureServer(
           created_at: new Date().toISOString(),
         });
         return send(200, id);
+      }
+      if (rpc === "save_item_field") {
+        const item=rows.find(r=>r.id===body.p_item_id && r.archive_id===body.p_archive_id);
+        if (!item || !management) return send(403,{code:"42501",message:"permission_denied"});
+        const before=body.p_field==="date" ? {value:item.reported_date || "",precision:item.date_precision || "unknown"} : {value:item.title};
+        if (JSON.stringify(before)!==JSON.stringify(body.p_expected)) return send(400,{code:"40001",message:"field_changed_reload"});
+        if (body.p_field==="date") {item.reported_date=body.p_value;item.date_precision=body.p_precision;} else item.title=body.p_value;
+        item.updated_at=new Date().toISOString();return send(200,null);
+      }
+      if (rpc === "post_item_comment") {
+        const item=rows.find(r=>r.id===body.p_item_id && r.archive_id===body.p_archive_id);
+        if (!item || item.archived_at || item.lifecycle==="deleting") return send(403,{code:"42501"});
+        const existing=comments.find(c=>c.author_id===USER && c.client_write_id===body.p_write_id);
+        if (existing) return send(200,existing.id);
+        if (body.p_parent_id && !comments.some(c=>c.id===body.p_parent_id && c.item_id===item.id && !c.parent_id && !c.archived_at)) return send(400,{code:"P0001"});
+        const id=crypto.randomUUID();comments.push({id,archive_id:item.archive_id,item_id:item.id,author_id:USER,body:body.p_body,created_at:new Date().toISOString(),revision:1,parent_id:body.p_parent_id,client_write_id:body.p_write_id});
+        return send(200,id);
+      }
+      if (rpc === "change_item_comment") {
+        const c=comments.find(c=>c.id===body.p_comment_id);
+        if (!c || (body.p_action==="edit" && c.author_id!==USER) || (body.p_action!=="edit" && !management)) return send(403,{code:"42501"});
+        if (c.revision!==body.p_revision) return send(400,{code:"40001"});
+        if (body.p_action==="edit") {c.body=body.p_body;c.edited_at=new Date().toISOString();}
+        else c.archived_at=body.p_action==="archive" ? new Date().toISOString() : null;
+        c.revision++;return send(200,null);
+      }
+      if (rpc === "promote_item_comment") {
+        const c=comments.find(c=>c.id===body.p_comment_id);
+        if (!c || !management || c.archived_at) return send(403,{code:"42501"});
+        let r=recollections.find(r=>r.fixture_comment_id===c.id);
+        if (!r) {r={id:crypto.randomUUID(),archive_id:c.archive_id,item_id:c.item_id,original_text:c.body,contributor_id:c.author_id,recorded_at:c.created_at,fixture_comment_id:c.id};recollections.push(r);}
+        return send(200,r.id);
       }
       if (rpc === "add_recollection") {
         const item = rows.find(r => r.id === body.p_item_id && r.archive_id === body.p_archive_id);
@@ -1037,7 +1096,7 @@ export async function fixtureServer(
     )
       return send(503, { code: "fixture_optional_unavailable" });
     let data =
-      table === "places"
+      table === "comments" ? comments : table === "places"
         ? places
         : table === "item_places"
           ? itemPlaces

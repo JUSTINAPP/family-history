@@ -17,6 +17,7 @@ export interface CatalogueRow {
   notes: string | null;
   ingestion_status: string;
   archived_at?: string | null;
+  contributed_by?: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -125,6 +126,7 @@ export function catalogueItems(
     return {
       ...presentation,
       rawTitle: row.title || "",
+      contributedBy: row.contributed_by,
       datePrecision: row.date_precision,
       createdAt: row.created_at,
       updatedAt: row.updated_at,

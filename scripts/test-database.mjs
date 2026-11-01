@@ -5,6 +5,7 @@ import { join } from "node:path";
 import assert from "node:assert/strict";
 import { managementChecks } from "./test-item-management.mjs";
 import { personChecks } from "./test-person-identifications.mjs";
+import { conversationChecks } from "./test-conversation.mjs";
 import { placeChecks } from "./test-places.mjs";
 const directory = await mkdtemp(join(tmpdir(), "archive-postgres-"));
 let db = new PGlite(directory);
@@ -1103,6 +1104,8 @@ try {
     manifestFile: groupFile,
   });
   checks += placeCount;
+  const conversationCount = await conversationChecks({q, asUser, asOwner, denied, users, archive: a, otherArchive: b, manifestFile: groupFile});
+  checks += conversationCount;
   const managementCount = await managementChecks({
     q,
     asUser,

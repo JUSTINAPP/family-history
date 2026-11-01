@@ -19,6 +19,7 @@ export function PlacePicker({
   editable,
   editor,
   profileId,
+  simple = false,
 }: {
   archiveId: string;
   itemId: string;
@@ -28,6 +29,7 @@ export function PlacePicker({
   editable: boolean;
   editor: boolean;
   profileId: string;
+  simple?: boolean;
 }) {
   const router = useRouter();
   const [query, setQuery] = useState(""),
@@ -61,7 +63,7 @@ export function PlacePicker({
       if (result.error) setMessage(result.error);
       else {
         setMessage(
-          action === "remove"
+          simple ? (action === "remove" ? "Place removed." : "Place saved.") : action === "remove"
             ? "Association removed. The Place and original wording remain."
             : "Place association saved.",
         );
@@ -89,13 +91,14 @@ export function PlacePicker({
             const place = places.find((p) => p.id === link.place_id);
             return (
               <li key={link.id}>
-                <strong>{place?.name || "Linked Place"}</strong> · {link.status}{" "}
+                <strong>{place?.name || "Linked Place"}</strong>{" "}
                 {link.role !== "primary" &&
                   `· ${link.role.replaceAll("_", " ")}`}
                 <p>{place && placeSubtitle(place)}</p>
                 <Link href={`/places/${link.place_id}?archive=${archiveId}`}>
                   View place ↗
                 </Link>
+                <details open={!simple}><summary>Place details</summary><p>{link.status}</p>
                 {editor && link.status === "reported" && (
                   <button
                     className="subtle-button"
@@ -105,6 +108,7 @@ export function PlacePicker({
                     Confirm reported place
                   </button>
                 )}
+                </details>
                 {(editor ||
                   (editable &&
                     link.created_by === profileId &&
@@ -126,7 +130,7 @@ export function PlacePicker({
         <p>No Place linked yet.</p>
       )}
       {reportedText && (
-        <div className="notice">
+        <details open={!simple}><summary>Earlier Where wording</summary><div className="notice">
           <p>
             Originally reported Where: <q>{reportedText}</q>
           </p>
@@ -162,7 +166,7 @@ export function PlacePicker({
               </button>
             </>
           )}
-        </div>
+        </div></details>
       )}
       {canChangePrimary && (
         <button

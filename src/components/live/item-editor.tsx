@@ -118,7 +118,7 @@ export function ItemEditor({
         <label className="field">
           <span>Date certainty</span>
           <select name="precision" defaultValue={item.date_precision}>
-            {["unknown", "approximate", "year", "exact"].map((p) => (
+            {["unknown", "approximate", "year", "month", "decade", "exact"].map((p) => (
               <option key={p} value={p}>
                 {p}
               </option>

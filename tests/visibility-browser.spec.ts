@@ -62,6 +62,7 @@ test("real-data path lists all permitted rows and reopens metadata-free, preview
   await expect(
     page.getByRole("link", { name: "Edit catalogue details", exact: false }),
   ).toBeVisible();
+  await page.getByText("Add a memory", {exact: true}).click();
   await expect(
     page.getByLabel("Add a recollection", { exact: true }),
   ).toBeVisible();

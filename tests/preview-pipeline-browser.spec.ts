@@ -341,6 +341,7 @@ test("People link relationally, preserve reported provenance and stay independen
     name: "People in this item",
     exact: true,
   });
+  await people.getByText("Earlier names and review", {exact: true}).click();
   await people
     .getByRole("button", { name: "Link to existing person", exact: true })
     .click();
@@ -369,6 +370,7 @@ test("People link relationally, preserve reported provenance and stay independen
       (p: { field_path: string }) => p.field_path === "identification_linked",
     ),
   ).toBe(true);
+  await people.getByText("Identification details", {exact: true}).click();
   await people
     .getByRole("button", {
       name: "Confirm reported identification",
@@ -907,6 +909,7 @@ test("Places are scoped archive entry points with relational filtering, preserve
   ).toBeVisible();
   await page.goto(`/archive/${item}`);
   const where = page.getByRole("region", { name: "Places in this item" });
+  await where.getByText("Earlier Where wording", {exact:true}).click();
   await expect(
     where.getByText("Near Auroville, as remembered", { exact: true }),
   ).toBeVisible();
@@ -1046,4 +1049,138 @@ test("home is a deterministic private scrapbook using real small variants and wo
   await pieces.first().locator(".scrapbook-caption").click();
   await expect(page).toHaveURL(new RegExp(links[0]!.split("?")[0]));
   await expect(page.locator(".saved-original")).not.toHaveCount(0);
+});
+
+test("quick catalogue saves fields independently and supports a private attributed family conversation", async ({page,request}) => {
+  test.setTimeout(120000);
+  page.setDefaultTimeout(10000);
+  const seed=await (await request.post("http://127.0.0.1:4301/__fixture/quick-photos")).json();
+  await page.context().addCookies([{name:"active_archive",value:archive,url:"http://127.0.0.1:4300"}]);
+  await page.route("**/*",route => {
+    const h=route.request().headers();return h["next-router-prefetch"]==="1" || h.purpose==="prefetch" ? route.abort() : route.continue();
+  });
+  await page.goto("/sign-in?next="+encodeURIComponent(`/quick-catalogue?archive=${archive}`));
+  await page.getByLabel("Email",{exact:true}).fill("visibility@example.test");
+  await page.getByLabel("Password",{exact:true}).fill("local-fixture-password");
+  await page.locator("form").getByRole("button",{name:"Sign in",exact:true}).click();
+  await expect(page.getByRole("heading",{name:"Quick catalogue",exact:true})).toBeVisible();
+  await expect(page.locator(".quick-photo h2")).toHaveText("Quick photograph 1");
+  await expect(page.locator(".quick-photo img")).toHaveAttribute("data-image-variant","small");
+  await expect(page.locator(".quick-photo img")).not.toHaveAttribute("srcset");
+  const summary=async()=> (await request.get("http://127.0.0.1:4301/__fixture/summary")).json();
+  const person=seed.people[0];
+  const who=page.getByRole("region",{name:"People in this item",exact:true});
+  await who.getByRole("button",{name:"+ Add person",exact:true}).click();
+  await who.getByLabel("Search People in this archive").fill(person.display_name);
+  await who.getByRole("list",{name:"Matching People"}).getByRole("button").first().click();
+  await expect(who.getByRole("status")).toHaveText("Person saved.");
+  let state=await summary();
+  expect(state.identifications.some((i:{item_id:string;person_id:string})=>i.item_id===seed.ids[0] && i.person_id===person.id)).toBe(true);
+  expect(state.recollections.filter((r:{item_id:string})=>r.item_id===seed.ids[0])).toHaveLength(0);
+  const when=page.getByRole("region",{name:"When",exact:true});
+  await when.getByRole("button",{name:"Edit date",exact:true}).click();
+  await when.getByRole("combobox",{name:"Date precision",exact:true}).selectOption("approximate");
+  await when.getByLabel("Date",{exact:true}).fill("1984");
+  await when.getByRole("button",{name:"Save date",exact:true}).click();
+  await expect(when.getByRole("status")).toHaveText("Date saved.");
+  await expect(when.getByText("c. 1984",{exact:true})).toBeVisible();
+  const where=page.getByRole("region",{name:"Places in this item",exact:true});
+  await where.getByRole("button",{name:"+ Add place",exact:true}).click();
+  await where.getByLabel("Search Places in this archive").fill("Quick family home");
+  await where.getByRole("button",{name:"+ Add new place",exact:true}).click();
+  await where.getByRole("button",{name:"Create Place and link to this item",exact:true}).click();
+  await expect(where.getByRole("status")).toHaveText("Place saved.");
+  state=await summary();
+  expect(state.items.find((i:{id:string})=>i.id===seed.ids[0])).toMatchObject({reported_date:"1984",date_precision:"approximate"});
+  expect(state.recollections.filter((r:{item_id:string})=>r.item_id===seed.ids[0])).toHaveLength(0);
+  await page.getByText("Add or edit a caption",{exact:true}).click();
+  const caption=page.getByRole("region",{name:"Caption",exact:true});
+  await caption.getByRole("button",{name:"Edit caption",exact:true}).click();
+  await caption.getByLabel("Title / caption",{exact:true}).fill("An afternoon at home");
+  await caption.getByRole("button",{name:"Save caption",exact:true}).click();
+  await expect(caption.getByRole("status")).toHaveText("Caption saved.");
+  await expect(page.locator(".quick-photo h2")).toHaveText("An afternoon at home");
+  // A refresh from another field must not silently advance the version of an already-open draft.
+  await when.getByRole("button",{name:"Edit date",exact:true}).click();
+  await when.getByLabel("Date",{exact:true}).fill("1985");
+  const second=await page.context().newPage();
+  await second.goto(`/quick-catalogue?archive=${archive}`);
+  const secondWhen=second.getByRole("region",{name:"When",exact:true});
+  await secondWhen.getByRole("button",{name:"Edit date",exact:true}).click();
+  await secondWhen.getByLabel("Date",{exact:true}).fill("1986");
+  await secondWhen.getByRole("button",{name:"Save date",exact:true}).click();
+  await expect(secondWhen.getByRole("status")).toHaveText("Date saved.");
+  await second.waitForLoadState("networkidle");await second.close();
+  await caption.getByRole("button",{name:"Edit caption",exact:true}).click();
+  await caption.getByRole("button",{name:"Save caption",exact:true}).click();
+  await expect(when.getByText("c. 1986",{exact:true})).toBeVisible();
+  await expect(when.getByLabel("Date",{exact:true})).toHaveValue("1985");
+  await when.getByRole("button",{name:"Save date",exact:true}).click();
+  await expect(when.getByRole("status")).toContainText("This field changed");
+  expect((await summary()).items.find((i:{id:string})=>i.id===seed.ids[0]).reported_date).toBe("1986");
+  await when.getByRole("button",{name:"Cancel",exact:true}).click();
+  const conversation=page.getByRole("region",{name:"Family conversation",exact:true});
+  await expect(conversation.getByText("Was this outside the house?",{exact:true})).toBeVisible();
+  await expect(conversation.locator("article").first().getByRole("button",{name:"Edit your comment",exact:true})).toHaveCount(0);
+  await conversation.getByLabel("Add a comment",{exact:true}).fill("I remember the dog was called Misha.");
+  await conversation.getByRole("button",{name:"Post comment",exact:true}).click();
+  await expect(conversation.getByText("I remember the dog was called Misha.",{exact:true})).toBeVisible();
+  await expect(conversation.getByRole("status").filter({hasText:"Comment saved."})).toBeVisible();
+  const ownId=(await summary()).comments.find((c:{body:string})=>c.body==="I remember the dog was called Misha.").id;
+  const own=conversation.locator(`[data-comment-id="${ownId}"]`);
+  await own.getByRole("button",{name:"Edit your comment",exact:true}).click();
+  await own.getByRole("textbox",{name:"Edit your comment",exact:true}).fill("The dog was called Misha.");
+  await own.getByRole("button",{name:"Save comment",exact:true}).click();
+  await expect(conversation.getByText("The dog was called Misha.",{exact:true})).toBeVisible();
+  await expect(conversation.getByText("· edited",{exact:true})).toBeVisible();
+  const root=conversation.locator("article").filter({hasText:"Was this outside the house?"});
+  await root.getByRole("button",{name:/Reply to/}).click();
+  await conversation.getByLabel("Reply to an archive member",{exact:true}).fill("Yes, outside our house.");
+  await conversation.getByRole("button",{name:"Post reply",exact:true}).click();
+  await expect(conversation.locator(".comment-reply")).toHaveCount(1);
+  await expect(conversation.locator(".comment-reply").getByRole("button",{name:/Reply to/})).toHaveCount(0);
+  await own.getByText("Comment options",{exact:true}).click();
+  await own.getByRole("button",{name:"Keep as a recollection",exact:true}).click();
+  await expect(conversation.getByRole("status").filter({hasText:"Copied to recollections"})).toBeVisible();
+  state=await summary();
+  const ownRecord=state.comments.find((c:{body:string})=>c.body==="The dog was called Misha.");
+  expect(ownRecord.author_id).toBe("60000000-0000-4000-8000-000000000003");
+  expect(ownRecord.created_at).toBeTruthy();expect(ownRecord.edited_at).toBeTruthy();
+  expect(state.recollections.find((r:{item_id:string})=>r.item_id===seed.ids[0]).original_text).toBe(ownRecord.body);
+  await page.getByRole("button",{name:"Next needing information",exact:true}).click();
+  await expect(page.locator(".quick-photo h2")).toHaveText("Quick photograph 2");
+  await expect(page.getByRole("button",{name:"Previous",exact:true})).toBeEnabled();
+  await page.getByRole("button",{name:"Previous",exact:true}).click();
+  await expect(conversation.getByText("The dog was called Misha.",{exact:true})).toBeVisible();
+  await page.waitForLoadState("networkidle"); // Finish the prior mutation refresh before measuring the next request.
+  await request.get("http://127.0.0.1:4301/__fixture/metrics?reset=1");
+  await page.reload();await page.waitForLoadState("networkidle");
+  const counts=await (await request.get("http://127.0.0.1:4301/__fixture/metrics")).json();
+  expect(counts["/rest/v1/comments"]).toBe(1);
+  expect(counts["/rest/v1/people"]).toBe(1);expect(counts["/rest/v1/places"]).toBe(1);
+  expect(counts["/rest/v1/archive_memberships"]).toBe(1);
+  expect(counts["/rest/v1/identifications"]).toBeLessThanOrEqual(3); // Archive links plus one visible-group read, never twelve reads.
+  await page.getByRole("button",{name:"Choose photograph 12: Quick photograph 12",exact:true}).click();
+  await page.getByRole("link",{name:"Next",exact:true}).click();
+  await expect(page.locator(".quick-photo h2")).toHaveText("Quick photograph 13");
+  await page.getByRole("button",{name:"Choose photograph 2: Quick photograph 14",exact:true}).click();
+  await expect(page.locator(".quick-photo").getByText("Preview unavailable",{exact:true})).toBeVisible();
+  await expect(page.locator(".quick-photo").getByText("Preparing display preview…",{exact:true})).toHaveCount(0);
+  await page.getByRole("button",{name:"Previous",exact:true}).click();
+  await page.getByRole("link",{name:"Previous",exact:true}).click();
+  await expect(page.locator(".quick-photo h2")).toHaveText("An afternoon at home");
+  await page.setViewportSize({width:375,height:850});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
+  await page.screenshot({path:"/private/tmp/quick-catalogue-mobile.png",fullPage:true});
+  await page.getByRole("link",{name:"Open full record",exact:false}).click();
+  await expect(page.getByRole("region",{name:"Family conversation",exact:true}).getByText("The dog was called Misha.",{exact:true})).toBeVisible();
+  await expect(page.getByText("Archive information",{exact:true})).toBeVisible();
+  await expect(page.getByText("Catalogue state",{exact:true})).not.toBeVisible();
+  await page.getByText("Add a memory",{exact:true}).click();
+  await expect(page.getByLabel("Add a recollection",{exact:true})).toBeVisible();
+  await page.getByRole("button",{name:"Demo profile"}).click();
+  await page.getByRole("button",{name:"Sign out",exact:true}).click();
+  await expect(page).toHaveURL(/sign-in/);
+  await page.goto(`/quick-catalogue?archive=${archive}`);
+  await expect(page).toHaveURL(/sign-in/);
 });

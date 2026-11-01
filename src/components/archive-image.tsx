@@ -129,7 +129,7 @@ export function ArchiveImage({
         <div className="image-unavailable">
           <FileImage size={22} strokeWidth={1} />
           <span role="status">
-            {derived && !message
+            {derived && autoPrepare && !message
               ? "Preparing display preview…"
               : "Preview unavailable"}
           </span>

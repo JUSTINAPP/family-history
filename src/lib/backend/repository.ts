@@ -1,3 +1,4 @@
+import type { FamilyComment } from "../conversation";
 import { cataloguePresentation } from "../catalogue-presentation";
 import "server-only";
 import { cache } from "react";
@@ -474,14 +475,11 @@ export async function loadItem(id: string) {
         .order("created_at")
         .retry(false)
         .abortSignal(AbortSignal.timeout(2500)),
-      client
-        .from("comments")
-        .select("*")
-        .eq("archive_id", snapshot.archive.id)
-        .eq("item_id", id)
-        .order("created_at")
-        .retry(false)
-        .abortSignal(AbortSignal.timeout(2500)),
+      allRows<FamilyComment>((from, to) => client.from("comments").select("*", {count: "exact"})
+        .eq("archive_id", snapshot.archive.id).eq("item_id", id).order("created_at").order("id")
+        .range(from, to).retry(false).abortSignal(AbortSignal.timeout(2500)), c => c.id)
+        .then(result => ({data: result.data, error: null}))
+        .catch(() => ({data: [] as FamilyComment[], error: true})),
       client
         .from("identifications")
         .select("*")
@@ -512,6 +510,7 @@ export async function loadItem(id: string) {
     files: files.data || [],
     recollections: recollections.data || [],
     comments: comments.data || [],
+    commentsUnavailable: !!comments.error,
     identifications: identifications.data || [],
   };
 }
