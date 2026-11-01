@@ -150,15 +150,15 @@ export async function LiveItem({
             </Link>
           </p>
         )}
-        <div className="saved-material-layout">
+        <div className={`saved-material-layout ${documentKinds.includes(item.kind) ? "saved-document-layout" : ""}`}>
           <section>
             <ItemTypeField key={item.kind} archiveId={item.archive_id} itemId={item.id} kind={item.kind} editable={editable && item.lifecycle === "active" && !item.archived_at && item.ingestion_status === "ready"}/>
             {item.kind === "Audio" && (
               <Recordings recordings={recordings} snapshot={snapshot} />
             )}
             {documentKinds.includes(item.kind) && <>
-              <DocumentActions itemId={item.id} kind={item.kind} canProcess={editable && item.lifecycle === "active" && !item.archived_at && item.ingestion_status === "ready"}/>
               <DocumentReader pages={files.filter(f => f.purpose === "original")} sets={result.imageSets} title={display.title} editable={editable && !item.archived_at && item.ingestion_status === "ready"} />
+              <DocumentActions itemId={item.id} kind={item.kind} canProcess={editable && item.lifecycle === "active" && !item.archived_at && item.ingestion_status === "ready"}/>
             </>}
             {!documentKinds.includes(item.kind) && files
               .filter((file) => file.purpose === "original")
@@ -195,10 +195,12 @@ export async function LiveItem({
               ))}
           </section>
           <section className="saved-context">
+{!documentKinds.includes(item.kind) && <>
             <FamilyConversation archiveId={item.archive_id} itemId={item.id} comments={result.comments}
               profileId={snapshot.profileId} names={Object.fromEntries(snapshot.members.map(m => [m.profileId, m.name]))}
               canComment={can(role, "commenter") && item.lifecycle === "active" && !item.archived_at && item.ingestion_status === "ready"}
               editor={can(role, "editor")} unavailable={result.commentsUnavailable} />
+            </>}
             <IdentificationForm
               archiveId={snapshot.archive.id}
               itemId={item.id}
@@ -224,6 +226,12 @@ export async function LiveItem({
               simple
             />
             <details><summary>Edit caption</summary><QuickField archiveId={item.archive_id} itemId={item.id} field="caption" value={item.title || ""} editable={editable} /></details>
+            {documentKinds.includes(item.kind) && <>
+            <FamilyConversation archiveId={item.archive_id} itemId={item.id} comments={result.comments}
+              profileId={snapshot.profileId} names={Object.fromEntries(snapshot.members.map(m => [m.profileId, m.name]))}
+              canComment={can(role, "commenter") && item.lifecycle === "active" && !item.archived_at && item.ingestion_status === "ready"}
+              editor={can(role, "editor")} unavailable={result.commentsUnavailable} />
+            </>}
             <p className="eyebrow">MEMORIES FROM THE FAMILY</p>
             <h2>What we know so far.</h2>
             {written.length ? (

@@ -167,17 +167,13 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
               return item;
             if (item.jobStatus === "queued")
               return { ...item, jobStatus: "processing" };
-            const stages = processingStages(item.kind);
+            const stages = processingStages();
             const next = item.jobStep + 1;
             return {
               ...item,
               jobStep: Math.min(next, stages.length - 1),
               jobStatus:
-                next >= stages.length
-                  ? item.kind === "Letter"
-                    ? "needs_review"
-                    : "complete"
-                  : "processing",
+                next >= stages.length ? "complete" : "processing",
             };
           }),
         ),

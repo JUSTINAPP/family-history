@@ -32,16 +32,18 @@ function ImportPreview({ file }: { file: File }) {
     <p>Preparing preview…</p>
   );
 }
-export function BulkImport() {
+export function BulkImport({initialFiles,initialContext="",embedded=false,onStarted}:{initialFiles?:File[];initialContext?:string;embedded?:boolean;onStarted?:()=>void} = {}) {
   const workspace = useWorkspace(),
     { archive, role } = workspace,
     selection = useImportSelection(),
     router = useRouter(),
     params = useSearchParams();
-  const [initialId] = useState(() => params.get("batch"));
+  const [initialId] = useState(() => embedded ? null : params.get("batch"));
   const [batchId] = useState(() => initialId || crypto.randomUUID());
   const [entries, setEntries] = useState<ImportEntry[]>(() =>
-    selection.selection?.archiveId === archive.id
+    initialFiles
+      ? initialFiles.map(file=>({file,captureId:crypto.randomUUID(),status:"pending" as const}))
+      : selection.selection?.archiveId === archive.id
       ? selection.selection.files.map((file) => ({
           file,
           captureId: crypto.randomUUID(),
@@ -50,7 +52,7 @@ export function BulkImport() {
       : [],
   );
   const [snapshot, setSnapshot] = useState<BatchSnapshot | null>(null),
-    [context, setContext] = useState(""),
+    [context, setContext] = useState(initialContext),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [created, setCreated] = useState(!!initialId),
@@ -129,6 +131,7 @@ export function BulkImport() {
   }
   async function run() {
     if (busy) return;
+    onStarted?.();
     setBusy(true);
     setError("");
     try {
@@ -216,7 +219,7 @@ export function BulkImport() {
             );
         });
       }
-      router.refresh();
+      if(!embedded)router.refresh();
     } catch (error) {
       setError(
         error instanceof Error
@@ -229,7 +232,8 @@ export function BulkImport() {
   }
   const complete = total > 0 && imported.length === total;
   return (
-    <div className="page-shell">
+    <div className={embedded?"capture-import":"page-shell"}>
+      {!embedded && <>
       <PageIntro
         eyebrow="BULK IMPORT PHOTOGRAPHS"
         title="One photograph. One place in the archive."
@@ -244,7 +248,8 @@ export function BulkImport() {
           Voice recording ↗
         </Link>
       </nav>
-      {workspace.mode === "live" && (
+      </>}
+      {workspace.mode === "live" && !embedded && (
         <p>
           <Link className="text-link" href="/imports">
             Recent imports and unfinished batches ↗
@@ -257,6 +262,7 @@ export function BulkImport() {
         </p>
       )}
       <div className="catalogue-form">
+        {!embedded && <>
         <label className="field">
           <span>
             {created
@@ -279,8 +285,9 @@ export function BulkImport() {
           photographs, 30 MB each. For front/back or several views of one thing,
           use Add one item.
         </p>
+        </>}
         <label className="field">
-          <span>Batch context (optional)</span>
+          <span>{embedded?"A note about these photographs (optional)":"Batch context (optional)"}</span>
           <textarea
             value={context}
             disabled={busy || started}
@@ -312,7 +319,7 @@ export function BulkImport() {
               value={imported.length}
               max={total}
             />
-            <div className="import-previews">
+            {!embedded && <div className="import-previews">
               {entries
                 .filter((e) => e.file.size > 0)
                 .slice(0, 6)
@@ -321,7 +328,7 @@ export function BulkImport() {
                     <ImportPreview file={e.file} />
                   </div>
                 ))}
-            </div>
+            </div>}
             {!complete && (
               <button
                 className="button"
@@ -335,7 +342,7 @@ export function BulkImport() {
                   ? "Importing photographs…"
                   : failed
                     ? "Retry unfinished imports"
-                    : "Import all"}
+                    : embedded ? `Save ${total} photographs` : "Import all"}
               </button>
             )}
             {complete && (
@@ -369,7 +376,7 @@ export function BulkImport() {
                   >
                     Catalogue first photograph ↗
                   </Link>
-                  <a className="text-link" href="/add/bulk?workflow=import">
+                  <a className="text-link" href={embedded?"/add":"/add/bulk?workflow=import"}>
                     Add more ↗
                   </a>
                 </div>

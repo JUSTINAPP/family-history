@@ -79,28 +79,16 @@ test("separate-photo intent hands selected files to bulk, reports completion and
 }) => {
   const bytes = await readFile("public/images/beach.jpg");
   await page.goto("/add");
-  await page.getByRole("button",{name:"One photograph, front and back",exact:true}).click();
   await page
     .getByLabel("Upload existing images", { exact: true })
     .setInputFiles([
       { name: "one.jpg", mimeType: "image/jpeg", buffer: bytes },
       { name: "two.jpg", mimeType: "image/jpeg", buffer: bytes },
     ]);
-  await expect(
-    page.getByRole("button", { name: "Save & view", exact: true }),
-  ).toBeDisabled();
-  await page
-    .getByRole("button", {
-      name: "Import as separate photographs",
-      exact: true,
-    })
-    .click();
-  await expect(page).toHaveURL(/add\/bulk/);
-  await expect(page.getByRole("status")).toContainText("0 of 2");
-  await page
-    .getByLabel("Batch context (optional)", { exact: true })
-    .fill("Janice’s photo box");
-  await page.getByRole("button", { name: "Import all", exact: true }).click();
+  await page.getByLabel("Material type",{exact:true}).selectOption("Photograph");
+  await expect(page.getByText("2 photographs selected",{exact:true})).toBeVisible();
+  await page.getByLabel("A note about these photographs (optional)",{exact:true}).fill("Janice’s photo box");
+  await page.getByRole("button",{name:"Save 2 photographs",exact:true}).click();
   await expect(
     page.getByRole("heading", {
       name: "2 photographs safely added to The Allen & Cork Archive",
@@ -114,18 +102,28 @@ test("separate-photo intent hands selected files to bulk, reports completion and
     page.getByRole("heading", { name: "Photograph, still to be catalogued" }),
   ).toHaveCount(2);
 });
+test("twenty library photographs save as twenty independent archive items through the embedded import",async({page})=>{
+ test.setTimeout(120000);
+ const bytes=await readFile("public/images/beach.jpg");await page.goto("/add");
+ await page.getByLabel("Upload existing images",{exact:true}).setInputFiles(Array.from({length:20},(_,i)=>({name:`photo-${i+1}.jpg`,mimeType:"image/jpeg",buffer:bytes})));
+ await page.getByLabel("Material type",{exact:true}).selectOption("Photograph");
+ await expect(page.getByText("20 photographs selected",{exact:true})).toBeVisible();
+ await page.getByRole("button",{name:"Save 20 photographs",exact:true}).click();
+ await expect(page.getByRole("region",{name:"Import complete",exact:true})).toContainText("20 photographs safely added");
+ await page.getByRole("link",{name:/View imported photographs/}).click();
+ await expect(page.locator(".item-card")).toHaveCount(20);
+});
 test("front and back explicitly grouped remain one item with two source files", async ({
   page,
 }) => {
   await page.goto("/add");
-  await page.getByRole("button",{name:"One photograph, front and back",exact:true}).click();
   await page
     .getByLabel("Upload existing images", { exact: true })
     .setInputFiles(["public/images/beach.jpg", "public/images/letter.jpg"]);
-  await page
-    .getByRole("button", { name: "Keep together as one item", exact: true })
-    .click();
-  await page.getByRole("button", { name: "Save & view", exact: true }).click();
+  await page.getByLabel("Material type",{exact:true}).selectOption("Photograph");
+  await page.getByText("Front and back of one photograph?",{exact:true}).click();
+  await page.getByRole("checkbox",{name:"Keep together as one item",exact:true}).check();
+  await page.getByRole("button", { name: "Save to archive", exact: true }).click();
   await expect(page).toHaveURL(/add\/saved/);
   await expect(page.locator(".saved-file-list")).toContainText("beach.jpg");
   await expect(page.locator(".saved-file-list")).toContainText("letter.jpg");

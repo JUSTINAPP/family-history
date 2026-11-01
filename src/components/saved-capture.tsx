@@ -3,7 +3,6 @@ import Link from "next/link";
 import { Check, ArrowUpRight, Download } from "lucide-react";
 import { useWorkspace } from "./workspace-provider";
 import { ArchiveImage, PageIntro } from "./ui";
-import { TranscriptionReview } from "./transcription-review";
 import { processingStages } from "@/lib/demo-workspace";
 import { downloadDraft } from "@/lib/capture";
 export function SavedCapture({ id }: { id: string }) {
@@ -23,7 +22,7 @@ export function SavedCapture({ id }: { id: string }) {
         </Link>
       </div>
     );
-  const phases = processingStages(item.kind);
+  const phases = processingStages();
   return (
     <div className="page-shell saved-capture">
       <PageIntro
@@ -49,7 +48,7 @@ export function SavedCapture({ id }: { id: string }) {
                   : "Processing preview complete"}
           </strong>
           <p>
-            Simulated background processing. You can keep capturing straight
+            Originals preserved in this demo. You can keep capturing straight
             away.
           </p>
         </div>
@@ -57,11 +56,9 @@ export function SavedCapture({ id }: { id: string }) {
       </div>
       <div className="saved-material-layout">
         <section>
-          <ArchiveImage
-            src={item.files[0].url}
-            alt={`Preserved local source ${item.files[0].originalName}`}
-            className="saved-original"
-          />
+          {item.files.map(file => <ArchiveImage key={file.id}
+            src={file.url} alt={`Preserved local source ${file.originalName}`}
+            className="saved-original" />)}
           <div className="saved-file-list">
             {item.files.map((file, i) => (
               <a key={file.id} href={file.url} download={file.originalName}>
@@ -198,21 +195,7 @@ export function SavedCapture({ id }: { id: string }) {
           These layers remain distinct.
         </p>
       </details>
-      {item.kind === "Letter" && (
-        <TranscriptionReview
-          itemId={item.id}
-          files={
-            item.files.filter((f) => f.role === "page").length
-              ? item.files
-                  .filter((f) => f.role === "page")
-                  .map((f, i) => ({ url: f.url, label: `Page ${i + 1}` }))
-              : item.files.map((f, i) => ({
-                  url: f.url,
-                  label: `Image ${i + 1}`,
-                }))
-          }
-        />
-      )}
+      {["Letter","Document","Postcard"].includes(item.kind) && <p>Original pages saved. Transcription is optional after connecting your private archive.</p>}
     </div>
   );
 }

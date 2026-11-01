@@ -15,7 +15,7 @@ export function Processing() {
       title: c.title,
       kind: c.kind,
       status: c.jobStatus,
-      stage: processingStages(c.kind)[c.jobStep],
+      stage: processingStages()[c.jobStep],
       href: `/add/saved/${c.id}`,
       error: undefined,
     })),

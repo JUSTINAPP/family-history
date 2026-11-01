@@ -130,21 +130,26 @@ test("mobile letter capture reorders pages, saves without waiting and exports de
   await page.setViewportSize({ width: 375, height: 850 });
   await page.goto("/add");
   await page
-    .getByRole("button", { name: "Adding a letter? Start a letter" })
-    .click();
-  await page
     .getByLabel("Upload existing images", { exact: true })
     .setInputFiles([photo, letter]);
+  await page.getByLabel("Material type",{exact:true}).selectOption("Letter");
   await expect(page.locator(".capture-page")).toHaveCount(2);
   await page.getByRole("button", { name: "Move letter.jpg earlier" }).click();
+  await page.getByRole("button",{name:"Remove beach.jpg",exact:true}).click();
+  await expect(page.locator(".capture-page")).toHaveCount(1);
+  await page.getByLabel("Upload existing images",{exact:true}).setInputFiles(photo);
+  await expect(page.locator(".capture-page")).toHaveCount(2);
+  await page.getByRole("checkbox",{name:"Keep together as one letter",exact:true}).uncheck();
+  await expect(page.getByRole("button",{name:"Save to archive",exact:true})).toBeDisabled();
+  await page.getByRole("checkbox",{name:"Keep together as one letter",exact:true}).check();
   await page
     .getByRole("combobox", { name: "Role for beach.jpg" })
     .selectOption("envelope-front");
-  await page.getByRole("button", { name: "Type instead" }).click();
+  await page.getByText("Add a note or details (optional)",{exact:true}).click();
   await page
     .getByRole("textbox", { name: "Your recollection, in your words" })
     .fill("Margaret sent this letter around 1956.");
-  await page.getByRole("button", { name: "Save & view" }).click();
+  await page.getByRole("button", { name: "Save to archive" }).click();
   await expect(page).toHaveURL(/\/add\/saved\//);
   await expect(
     page.getByRole("link", { name: "Capture the next item" }),
@@ -158,6 +163,9 @@ test("mobile letter capture reorders pages, saves without waiting and exports de
   expect(exported.suggestedFilename()).toBe("archive-draft.json");
   const manifest = JSON.parse(await readFile((await exported.path())!, "utf8"));
   expect(manifest.archiveId).toBe("a0000000-0000-4000-8000-000000000001");
+  expect(manifest.kind).toBe("Letter");
+  expect(manifest.files.map((f:{name:string})=>f.name)).toEqual(["letter.jpg","beach.jpg"]);
+  expect(manifest.files[1].role).toBe("envelope-front");
 });
 test("bulk local review advances and exports batch metadata", async ({
   page,

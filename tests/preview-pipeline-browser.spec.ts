@@ -1366,6 +1366,7 @@ test("a preserved photograph can be reclassified as a Letter and open existing d
  const before=await summary(),prior=before.items.find((i:{id:string})=>i.id===seed.ids[0]);
  await page.getByText("Change item type",{exact:true}).click();await page.getByLabel("Archive item type",{exact:true}).selectOption("Letter");await page.getByRole("button",{name:"Save item type",exact:true}).click();
  const actions=page.getByRole("region",{name:"Document transcription",exact:true});await expect(actions.getByRole("link",{name:"Transcribe letter",exact:true})).toBeVisible();await expect(page.getByRole("region",{name:"Document pages",exact:true})).toBeVisible();
+ expect(await page.getByRole("region",{name:"Document pages",exact:true}).evaluate(el=>!!(el.compareDocumentPosition(document.querySelector('[aria-label="Document transcription"]')!)&Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
  let after=await summary();const next=after.items.find((i:{id:string})=>i.id===seed.ids[0]);expect(next.kind).toBe("Letter");
  for(const key of ["title","reported_date","date_precision","reported_place","people_text","notes","id"])expect(next[key]).toBe(prior[key]);
  for(const name of ["files","comments","identifications","itemPlaces","recollections","imageSets"])expect(after[name].filter((r:{item_id:string})=>r.item_id===seed.ids[0])).toEqual(before[name].filter((r:{item_id:string})=>r.item_id===seed.ids[0]));
@@ -1373,6 +1374,13 @@ test("a preserved photograph can be reclassified as a Letter and open existing d
  await actions.getByRole("link",{name:"Transcribe letter",exact:true}).click();await expect(page.getByRole("button",{name:"Transcribe letter",exact:true})).toBeDisabled();await expect(page.getByText("AI transcription is not configured.",{exact:false})).toBeVisible();
  await page.goto(`/archive/${seed.ids[0]}`);await page.getByText("Change item type",{exact:true}).click();await page.getByLabel("Archive item type",{exact:true}).selectOption("Document");await page.getByRole("button",{name:"Save item type",exact:true}).click();await expect(actions.getByRole("link",{name:"Transcribe document",exact:true})).toBeVisible();
  await page.reload();await expect(actions.getByRole("link",{name:"Transcribe document",exact:true})).toBeVisible();
- await page.goto("/add");await expect(page.getByRole("button",{name:"Upload existing",exact:true})).toBeDisabled();await page.getByRole("button",{name:"Add a letter or document",exact:true}).click();await expect(page.getByRole("button",{name:"Upload existing",exact:true})).toBeEnabled();await page.getByRole("button",{name:"Adding a letter? Start a letter",exact:true}).click();await expect(page.getByLabel("Material type",{exact:true})).toHaveValue("Letter");await page.getByLabel("Material type",{exact:true}).selectOption("Postcard");await page.getByLabel("Upload existing images",{exact:true}).setInputFiles(["public/images/letter.jpg","public/images/beach.jpg"]);await expect(page.locator(".capture-page")).toHaveCount(2);await expect(page.getByRole("combobox",{name:"Role for letter.jpg",exact:true})).toContainText("Written side");
+ await page.goto("/add");
+ for(const name of ["Take photo","Choose from library"]){
+  await expect(page.getByRole("button",{name,exact:true})).toBeEnabled();
+  const chooser=page.waitForEvent("filechooser");await page.getByRole("button",{name,exact:true}).click();await chooser;
+ }
+ await page.getByLabel("Upload existing images",{exact:true}).setInputFiles(["public/images/letter.jpg","public/images/beach.jpg"]);
+ await page.getByLabel("Material type",{exact:true}).selectOption("Postcard");await expect(page.locator(".capture-page")).toHaveCount(2);await expect(page.getByRole("combobox",{name:"Role for letter.jpg",exact:true})).toContainText("Written side");
+
  after=await summary();expect(after.items).toHaveLength(before.items.length);
 });

@@ -238,15 +238,6 @@ export const letterStages = [
 export const sampleRecollection =
   "That’s my mum Janice, probably around 1963, outside her parents’ house in Shropshire. I think the woman beside her is Aunt Margaret.";
 
-export function processingStages(kind: string) {
-  return kind === "Letter"
-    ? letterStages
-    : [
-        "Preserving originals",
-        "Optimising images",
-        "Finding dates",
-        "Finding people",
-        "Finding places",
-        "Preparing previews",
-      ];
+export function processingStages() {
+  return ["Preserving originals", "Preparing previews"];
 }

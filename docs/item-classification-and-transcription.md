@@ -1,5 +1,7 @@
 # Item classification and document entry — release 015
 
+**Superseded capture UX:** The subsequent [capture-first correction](capture-first.md) removes the upfront intention gate described below and places saved document images before transcription actions. The independent classification RPC and migration 015 remain unchanged. The release-015 capture steps below record the previous interface; use the new smoke procedure for the current application.
+
 The reported item was stored as Photograph, so the document-only transcription controls were correctly absent. The old single-item capture screen defaulted to Photograph; it did not infer Letter from handwriting or a HEIC/JPEG file. Its legacy Start a letter shortcut also toggled an already-selected Letter back to Photograph. Without production interaction logs we cannot identify which path was used for this particular upload. Both ambiguous capture behaviours are now removed.
 
 ## Correct an existing item without uploading again
