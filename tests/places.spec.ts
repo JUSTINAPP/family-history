@@ -31,7 +31,7 @@ test("Place search finds names and geographic context without inventing a canoni
     }),
   ).toBe("NSW, Australia");
 });
-test("Place piles require actual same-archive active links and ready small thumbnails, never a matching text name", () => {
+test("Place piles require actual same-archive active links and can try stored legacy previews", () => {
   const item = {
     id: "photo",
     archiveId: "a",
@@ -59,5 +59,7 @@ test("Place piles require actual same-archive active links and ready small thumb
   );
   expect(
     placeMaterials([{ ...item, imageSet: undefined }], [link], "a").place,
-  ).toEqual({ count: 1, items: [] });
+  ).toEqual({ count: 1, items: [{ id: item.id, kind: item.kind, title: item.title, image: item.image, imageSet: undefined }] });
+  expect(placeMaterials([{ ...item, imageSet: undefined, image: "/images/empty-archive.svg" }], [link], "a").place.items).toEqual([]);
+  expect(placeMaterials([{ ...item, imageSet: undefined, archivedAt: "2026-01-01" }], [link], "a")).toEqual({});
 });

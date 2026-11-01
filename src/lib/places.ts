@@ -56,7 +56,7 @@ export function placeMaterials(
   links: ItemPlace[],
   archiveId: string,
 ) {
-  return personMaterials(
+  const material = personMaterials(
     items,
     links
       .filter((l) => l.status !== "removed")
@@ -70,4 +70,12 @@ export function placeMaterials(
       })),
     archiveId,
   );
+  for (const [placeId, group] of Object.entries(material)) {
+    if (group.items.length) continue;
+    const linkedIds = new Set(links.filter(link => link.archive_id === archiveId && link.place_id === placeId && link.status !== "removed").map(link => link.item_id));
+    group.items = items.filter(item => item.archiveId === archiveId && !item.archivedAt && item.kind !== "Audio" && linkedIds.has(item.id) && item.image.startsWith("/api/v1/previews/"))
+      .sort((first, second) => first.id.localeCompare(second.id)).slice(0, 4)
+      .map(({ id, kind, title, image, imageSet }) => ({ id, kind, title, image, imageSet }));
+  }
+  return material;
 }

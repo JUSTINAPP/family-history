@@ -1013,7 +1013,9 @@ test("home is a visit-stable private scrapbook using real small variants and wor
   await expect(page).toHaveURL(/\/$/);
   await expect(page.getByText("An archive, still being discovered.", {exact: true})).toHaveCount(0);
   const pieces = page.locator(".home-scrapbook .scrapbook-piece");
-  await expect(pieces).toHaveCount(3);
+  await expect.poll(() => pieces.count()).toBeGreaterThan(3);
+  const initialCount = await pieces.count();
+  expect(initialCount).toBeLessThanOrEqual(12);
   const state = await (await request.get("http://127.0.0.1:4301/__fixture/summary")).json();
   const smallIds = new Set(state.imageSets.map((s: {small_file_id: string}) => s.small_file_id));
   const links = await pieces.locator(".scrapbook-caption").evaluateAll(nodes => nodes.map(n => n.getAttribute("href")));
@@ -1028,7 +1030,7 @@ test("home is a visit-stable private scrapbook using real small variants and wor
   await expect(pieces.first().locator("img")).not.toHaveAttribute("srcset");
   await request.get("http://127.0.0.1:4301/__fixture/metrics?reset=1");
   await page.reload();
-  await expect(pieces).toHaveCount(3);
+  await expect(pieces).toHaveCount(initialCount);
   await page.waitForLoadState("networkidle");
   const metrics = await (await request.get("http://127.0.0.1:4301/__fixture/metrics")).json();
   expect(metrics["/rest/v1/people"]).toBe(1);
@@ -1041,6 +1043,19 @@ test("home is a visit-stable private scrapbook using real small variants and wor
   expect(await pieces.locator(".scrapbook-caption").evaluateAll(nodes => nodes.map(n => n.getAttribute("href")))).toEqual(links);
   await expect(page.locator(".scrapbook-home")).toHaveAttribute("data-arrangement",arrangement!);
   await page.setViewportSize({width: 375, height: 850});
+  const bottomNav = await page.locator(".mobile-primary-nav").boundingBox();
+  expect(bottomNav!.y + bottomNav!.height).toBeCloseTo(850, 0);
+  const slider = page.locator(".home-slider");
+  await page.getByRole("button", {name: "Next photographs"}).click();
+  await expect.poll(() => slider.evaluate(element => element.scrollLeft)).toBeGreaterThan(100);
+  await page.getByRole("button", {name: "Previous photographs"}).click();
+  await expect.poll(() => slider.evaluate(element => element.scrollLeft)).toBeLessThan(10);
+  const proportions = await pieces.first().locator(".archive-image").evaluate(element => {
+    const frame = element as HTMLElement;
+    const image = frame.querySelector("img") as HTMLImageElement;
+    return { frame: frame.clientWidth / frame.clientHeight, source: image.naturalWidth / image.naturalHeight };
+  });
+  expect(Math.abs(proportions.frame - proportions.source)).toBeLessThan(.08);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
   await pieces.last().scrollIntoViewIfNeeded();
   await expect.poll(() => pieces.last().locator("img").evaluate(n => (n as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
@@ -1055,13 +1070,13 @@ test("home is a visit-stable private scrapbook using real small variants and wor
   await expect(page).toHaveURL(new RegExp(links[0]!.split("?")[0]));
   await expect(page.locator(".saved-original")).not.toHaveCount(0);
   await page.goBack();
-  await expect(pieces).toHaveCount(3);
+  await expect(pieces).toHaveCount(initialCount);
   expect(await pieces.locator(".scrapbook-caption").evaluateAll(nodes => nodes.map(n => n.getAttribute("href")))).toEqual(links);
   await expect(page.locator(".scrapbook-home")).toHaveAttribute("data-arrangement",arrangement!);
   const nextVisit=await browser.newContext({baseURL:"http://127.0.0.1:4300"});
   await nextVisit.addCookies(sessionCookies.filter(c=>c.name!==HOME_VISIT_COOKIE));
   const nextPage=await nextVisit.newPage();await nextPage.goto("/");
-  await expect(nextPage.locator(".scrapbook-piece")).toHaveCount(3);
+  await expect(nextPage.locator(".scrapbook-piece")).toHaveCount(initialCount);
   expect((await nextVisit.cookies()).find(c=>c.name===HOME_VISIT_COOKIE)!.value).not.toBe(visit.value);
   await nextVisit.close();
 });
@@ -1549,7 +1564,7 @@ test.describe("site-wide phone audit",()=>{
   await phone.goto(`/explore?archive=${archive}&q=Quick%20photograph`);const image=phone.locator(".item-card img[data-image-variant=thumbnail]").first();await expect(image).toBeVisible();await image.evaluate(img=>(img as HTMLImageElement).decode());await expect(image).toHaveAttribute("sizes",/90vw/);
   const current=await image.evaluate(img=>(img as HTMLImageElement).currentSrc);const summary=await(await phone.request.get("http://127.0.0.1:4301/__fixture/summary")).json();expect(summary.imageSets.some((s:{thumbnail_file_id:string;manifest:{thumbnail:{width:number}}})=>current.endsWith(s.thumbnail_file_id)&&s.manifest.thumbnail.width>=1000)).toBe(true);await bounds(phone);await context.close();
   await page.context().addCookies(phoneCookies);await page.setViewportSize({width:1440,height:960});await page.goto("/");await expect(page.locator(".home-scrapbook")).toBeVisible();await bounds(page);
-  expect(await page.locator(".home-scrapbook").evaluate(e=>getComputedStyle(e).gridTemplateColumns.split(" ").length)).toBe(3);
+  expect(await page.locator(".home-scrapbook").evaluate(e=>getComputedStyle(e).display)).toBe("flex");
   expect(await page.locator(".scrapbook-piece").first().evaluate(e=>getComputedStyle(e).transform)).toBe("none");expect(await page.locator(".scrapbook-piece > .archive-image").first().evaluate(e=>getComputedStyle(e).transform)).not.toBe("none");expect((await page.locator(".site-header").boundingBox())!.height).toBe(111);
   await page.goto("/explore");await expect(page.locator(".conversation-grid")).toBeVisible();expect(await page.locator(".conversation-grid").evaluate(e=>getComputedStyle(e).gridTemplateColumns.split(" ").length)).toBe(4);await bounds(page);
  });

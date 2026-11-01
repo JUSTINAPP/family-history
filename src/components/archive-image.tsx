@@ -20,6 +20,7 @@ export function ArchiveImage({
   rotation: fallbackRotation = 0,
   onReady,
   fetchPriority,
+  fitFrame = false,
 }: {
   src: string;
   alt: string;
@@ -35,6 +36,7 @@ export function ArchiveImage({
   rotation?: number;
   onReady?: () => void;
   fetchPriority?: "high" | "low" | "auto";
+  fitFrame?: boolean;
 }) {
   const variant = src.includes("variant=thumbnail")
     ? "thumbnail"
@@ -136,6 +138,7 @@ export function ArchiveImage({
           ? {
               aspectRatio: quarter ? `${set[variant].height}/${set[variant].width}` : `${set[variant].width}/${set[variant].height}`,
               height: "auto",
+              ...(fitFrame ? { width: `min(100%, calc(var(--archive-frame-height, 440px) * ${quarter ? set[variant].height / set[variant].width : set[variant].width / set[variant].height}))`, maxHeight: "var(--archive-frame-height, 440px)" } : {}),
             }
           : undefined
       }

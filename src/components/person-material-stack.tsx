@@ -23,11 +23,11 @@ export function PersonMaterialStack({
             key={item.id}
             data-item-id={item.id}
             style={{
-              aspectRatio: `${presentationRatio(item.imageSet!)}`,
-              width: `${Math.min(78, presentationRatio(item.imageSet!) * 60)}%`,
+              aspectRatio: `${item.imageSet ? presentationRatio(item.imageSet) : 1}`,
+              width: `${Math.min(78, (item.imageSet ? presentationRatio(item.imageSet) : 1) * 60)}%`,
               ...(items.length === 1
                 ? {
-                    left: `${(100 - Math.min(78, presentationRatio(item.imageSet!) * 60)) / 2}%`,
+                    left: `${(100 - Math.min(78, (item.imageSet ? presentationRatio(item.imageSet) : 1) * 60)) / 2}%`,
                   }
                 : {}),
             }}
@@ -36,7 +36,7 @@ export function PersonMaterialStack({
               src={item.image}
               alt={`${item.kind} from ${name}'s linked archive: ${item.title}`}
               imageSet={item.imageSet}
-              variant="small"
+              variant={item.imageSet ? "small" : "display"}
               autoPrepare={false}
               originalPreserved
             />
