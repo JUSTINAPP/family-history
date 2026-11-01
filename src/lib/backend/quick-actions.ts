@@ -39,7 +39,10 @@ export async function conversationAction(archiveId: string, itemId: string, form
       else return {error: "Unknown comment action."};
     }
     if (result.error) return {error: result.error.code === "40001" ? "This comment changed. Reload before editing it." : result.error.message === "comment_retry_conflict" ? "An earlier version may already be saved. Reload to review it before posting changed text." : "Comment not saved. Check your access and retry; your words are still here."};
-    revalidatePath("/", "layout");
-    return {ok: true};
+    const target=action === "post" ? result.data : id;
+    const saved=await client.from("comments").select("id,archive_id,item_id,author_id,body,created_at,edited_at,archived_at,parent_id,revision")
+      .eq("archive_id",archiveId).eq("item_id",itemId).eq("id",target).maybeSingle();
+    if(saved.error||!saved.data)return {error:"Your change may be saved. Reload the conversation before retrying."};
+    return {ok: true,comment:saved.data as import("../conversation").FamilyComment};
   } catch { return {error: "Comment not saved. Check your connection and retry."}; }
 }

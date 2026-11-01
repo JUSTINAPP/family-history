@@ -562,6 +562,7 @@ export async function fixtureServer(
               .update(objects.get(`${f.bucket_id}/${f.storage_path}`))
               .digest("hex"),
           ),
+        conversationRequests: requests.filter(r=>r.path==="/rest/v1/comments"),
         requests: requests
           .filter((r) => r.path.startsWith("/rest/v1/archive_items"))
           .slice(-30),

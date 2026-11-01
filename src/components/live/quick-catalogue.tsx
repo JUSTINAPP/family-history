@@ -1,4 +1,5 @@
 "use client";
+import { ConversationCacheProvider } from "./conversation-cache";
 import Link from "next/link";
 import { useRef, useState } from "react";
 import type { ArchiveItem, Person, MemberRole } from "@/lib/types";
@@ -12,7 +13,7 @@ import { IdentificationForm } from "./identification-form";
 import { PlacePicker } from "./place-picker";
 import { QuickField } from "./quick-field";
 import { FamilyConversation } from "./family-conversation";
-export function QuickCatalogue({archiveId, items, people, places, placeLinks, identifications, comments,
+function QuickCatalogueContent({archiveId, items, people, places, placeLinks, identifications, comments,
   role, profileId, names, editableIds, page, total, needsOnly}: {
   archiveId: string; items: ArchiveItem[]; people: Person[]; places: ArchivePlace[]; placeLinks: ItemPlace[];
   identifications: Identification[]; comments: FamilyComment[]; role: MemberRole; profileId: string;
@@ -62,4 +63,8 @@ export function QuickCatalogue({archiveId, items, people, places, placeLinks, id
 
     </>}
   </div>;
+}
+
+export function QuickCatalogue(props: Parameters<typeof QuickCatalogueContent>[0]) {
+  return <ConversationCacheProvider key={`${props.profileId}:${props.archiveId}`}><QuickCatalogueContent {...props}/></ConversationCacheProvider>;
 }

@@ -302,9 +302,9 @@ export function Explore() {
         </button>
       </div>
       {filtered.length ? (
-        <div className="masonry">
+        <div className={`masonry ${workspace.mode === "live" ? "conversation-grid" : ""}`}>
           {filtered.map((item, i) => (
-            <ItemCard key={item.id} item={item} index={i} />
+            <ItemCard key={item.id} item={item} index={i} inlineConversation={workspace.mode === "live"} />
           ))}
         </div>
       ) : (

@@ -1,4 +1,5 @@
 "use client";
+import { ConversationCacheProvider } from "./conversation-cache";
 import { useRef, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -147,8 +148,8 @@ export function LiveWorkspaceProvider({
     saveReview: () => {},
   };
   return (
-    <WorkspaceContext.Provider value={value}>
+    <WorkspaceContext.Provider value={value}><ConversationCacheProvider key={`${current.profileId}:${current.archive.id}`}>
       {children}
-    </WorkspaceContext.Provider>
+    </ConversationCacheProvider></WorkspaceContext.Provider>
   );
 }

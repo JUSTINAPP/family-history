@@ -46,6 +46,8 @@ test("private APIs do not accept anonymous uploads or disclose source records", 
   );
   expect(source.status()).toBe(401);
   expect(source.headers()["cache-control"]).toContain("no-store");
+  const conversation=await request.get("/api/v1/conversations/40000000-0000-4000-8000-000000000001?archive=40000000-0000-4000-8000-000000000002");
+  expect(conversation.status()).toBe(401);expect(conversation.headers()["cache-control"]).toContain("no-store");
   for(const path of ["/api/v1/documents/40000000-0000-4000-8000-000000000001", "/api/v1/document-runs/40000000-0000-4000-8000-000000000001"]) {
     expect((await request.post(path)).status()).toBe(401);
     expect((await request.post(path,{headers:{Origin:"https://untrusted.example"}})).status()).toBe(403);

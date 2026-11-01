@@ -1,3 +1,4 @@
+import { InlineConversation } from "./live/inline-conversation";
 import { ConversationLink } from "./conversation-link";
 import { ArchiveImage } from "./archive-image";
 export { ArchiveImage } from "./archive-image";
@@ -43,10 +44,12 @@ export function ItemCard({
   item,
   index = 0,
   imageSizes,
+  inlineConversation = false,
 }: {
   item: ArchiveItem;
   index?: number;
   imageSizes?: string;
+  inlineConversation?: boolean;
 }) {
   return (
     <article className={`item-card item-${item.aspect}`}>
@@ -83,7 +86,7 @@ export function ItemCard({
           <p>
             {item.kind} <span>·</span> {item.date}
           </p>
-          <ConversationLink item={item} />
+          {!inlineConversation && <ConversationLink item={item} />}
           {item.ingestionStatus && item.ingestionStatus !== "ready" && (
             <p className="help-line">
               {item.sourcePreserved
@@ -93,6 +96,7 @@ export function ItemCard({
           )}
         </div>
       </div>
+      {inlineConversation && <InlineConversation item={item} />}
     </article>
   );
 }
