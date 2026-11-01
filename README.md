@@ -1,5 +1,7 @@
 # The Allen & Cork Archive
 
+**Document AI provider follow-up:** Anthropic Messages is now selectable alongside OpenAI using server-only configuration. No new migration. Explicit transcription, human review and cost controls remain. See [configuration and exact two-page live test](docs/anthropic-document-provider.md).
+
 **Current release — conversation access and image rotation (014):** Family conversation is beside the normal item image, cards link to comments, and Quick catalogue is easier to find. Image options save non-destructive quarter turns across private previews and archival stacks; masters and derivative bytes stay unchanged. Only migration 014 is new. See [release, manual Supabase action and exact smoke test](docs/conversation-and-image-rotation.md).
 
 **Current release — letters and optional document AI (013):** Preserve ordered multi-page letters as one item, read original pages, explicitly request transcription/English translation, correct drafts and deliberately confirm metadata. OpenAI is optional and server-only; uploads never start AI. Only migration 013 is new; 001–012 remain unchanged. See [release, configuration, manual Supabase action and smoke test](docs/document-processing.md).

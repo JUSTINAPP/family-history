@@ -8,6 +8,7 @@ const env = {
   DOCUMENT_AI_PROVIDER: "",
   DOCUMENT_AI_MODEL: "",
   OPENAI_API_KEY: "fixture-server-document-key",
+  ANTHROPIC_API_KEY: "fixture-server-anthropic-key",
   ARCHIVE_DEMO_MODE: "false",
   ARCHIVE_BUILD_DIR: ".next-test",
   NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:4301",
@@ -21,7 +22,8 @@ async function command(args) {
 if (!process.env.TEST_PREVIEW_SKIP_BUILD)
   await command(["node_modules/next/dist/bin/next", "build"]);
 for (const name of await readdir(".next-test/static", {recursive:true})) {
-  if(name.endsWith(".js") && (await readFile(`.next-test/static/${name}`,"utf8")).includes("fixture-server-document-key")) throw new Error("Server document key leaked into client bundle.");
+  const contents=name.endsWith(".js") ? await readFile(`.next-test/static/${name}`,"utf8") : "";
+  if(name.endsWith(".js") && ["fixture-server-document-key","fixture-server-anthropic-key"].some(key=>contents.includes(key))) throw new Error("Server document key leaked into client bundle.");
 }
 console.log("Document server-key client-bundle exclusion passed.");
 const previewFile = process.env.TEST_HEIC_FILE || "tests/fixtures/preview.heic";

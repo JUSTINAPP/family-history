@@ -1,3 +1,21 @@
+# Anthropic document provider — 1 November 2026
+
+Base `b61b455`. Anthropic is added beside the retained OpenAI adapter. No migration or dependency change; 001–014 are unchanged. No live provider call, production account/project query, key inspection, push or deployment was performed. Nothing staged or committed. Existing generated `next-env.d.ts` remains excluded.
+
+- **105 full regressions pass (31.2s)** on the final complete run, including seven new mocked Anthropic cases plus retained OpenAI tests and archive/document/photo/audio/conversation/rotation/mobile/accessibility workflows. New cases verify selected-key/provider/model configuration without fallback or probes, two sequential image pages, current Messages headers/base64/JSON-schema/thinking structure, raw response and resolved-model receipts, all seven suggestion kinds/ordered evidence/case normalization, text-only translation/source separation, sanitized HTTP/network failures with exactly one call, refusal/truncation/malformed/over-limit denial, invalid image rejection before fetch and grounded evidence. No injected mock calls a live API.
+- **Production build passes** using loopback-only Supabase fixtures and AI disabled. Both dummy OpenAI and Anthropic keys are absent from client JavaScript. The existing isolated production HEIC decoder trace passes (1,280 × 854 JPEG, 287,570 bytes).
+- **8 authenticated production browser flows pass (25.6s)**, retaining document reading/review/source-versus-translation/history, graceful unconfigured processing, explicit canonical confirmation, original checksums, rotation, People/Place relationships, Quick Catalogue, conversation, mobile and private caching. These use synthetic HTTP fixtures; the new Anthropic transport is tested through injected fetch, not a live service.
+- **388 disposable PostgreSQL checks pass** across unchanged migrations 001–014; **361 pass with audio initially absent**, including later installation of 006. Two new persistence checks verify raw provider JSON and returned model storage in existing fields. Existing attempt/source/claim/cancel/review/provenance/canonical permission/original-preservation/deletion tests remain green. No schema change is required for the receipt/raw response contract.
+- **4 authentication checks pass (1.5s)** on the final production build, retaining private routes/APIs, origin/redirect denial and mobile sign-in accessibility.
+- **1 authenticated 1,007-row discoverability flow passes (12.1s)** against local fixtures, retaining pagination, edit/reload/sign-in, archive scope and independent catalogue failures.
+- **Lint, strict TypeScript and `git diff --check` pass.** No package/lockfile, `.env.local`, old migration or generated artifact belongs in the proposed commit. `.env.example` contains empty placeholders only.
+
+The first complete regression run passed 104 tests and failed the existing demo invitation-paused assertion. The unchanged complete suite then passed all 105 tests, including that assertion; no invitation implementation/test change was made. This is recorded as an intermittent existing demo-state assertion, not hidden by retries in the test configuration.
+
+Successful Anthropic output retains complete bounded raw JSON and receipts. Provider error bodies and transport messages are sanitized and not retained/logged. Existing explicit page-count confirmation, leases/cached-page reuse, attempt history, source-language/translation separation and human canonical review remain. API/model/account entitlement, live handwriting/translation quality, provider billing and hosted request duration have not been tested. The documented synthetic two-page acceptance procedure remains required after an approved release.
+
+[Adapter/configuration/API references and exact live test](anthropic-document-provider.md) · [exact commit manifest](anthropic-provider-commit-manifest.md).
+
 # Conversation access / image rotation — release 014, 1 November 2026
 
 Base `494864c`. Only migration **014** is new; 001–013 are unchanged. No production project, family original, hosted image or live AI service was accessed. Nothing staged, committed, pushed or deployed. Existing generated `next-env.d.ts` remains excluded.

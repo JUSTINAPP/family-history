@@ -27,10 +27,12 @@ export async function documentChecks({q,asUser,asOwner,denied,users,archive,mani
   const file=snap.pages[n].id;const c=(await one(claim,[run.id,file])).c;
   await denied(claim,[run.id,file]);
   await denied(save,[run.id,file,null,JSON.stringify({text:'forged'})]);
-  await q(save,[run.id,file,c.token,JSON.stringify({text:texts[n],language:'fr',uncertainty:n===1?['Illegible name']:[],confidence:null})]);
+  await q(save,[run.id,file,c.token,JSON.stringify({text:texts[n],language:'fr',uncertainty:n===1?['Illegible name']:[],confidence:null,receipt:{provider:'anthropic',responseId:'msg_fixture',model:'fixture-resolved',usage:{input_tokens:10,output_tokens:5}},rawResponse:{id:'msg_fixture',type:'message',content:[{type:'text',text:JSON.stringify({text:texts[n]})}],stop_reason:'end_turn'}})]);
   eq((await one(claim,[run.id,file])).c.cached,true);
  }
  eq((await one("select count(*)::int n from public.transcriptions where document_run_id=$1",[run.id])).n,4);
+ eq((await one("select model from public.transcriptions where document_run_id=$1 order by page_order_snapshot limit 1",[run.id])).model,'fixture-resolved');
+ eq((await one("select output->$2->'rawResponse'->>'id' id from public.document_runs where id=$1",[run.id,snap.pages[0].id])).id,'msg_fixture');
  eq((await one("select count(*)::int n from public.identifications where item_id=$1",[item])).n,0);
  const extraction=(await one("select public.claim_document_extraction($1) c",[run.id])).c;
  await denied("select public.claim_document_extraction($1)",[run.id]);

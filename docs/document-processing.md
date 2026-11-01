@@ -18,7 +18,7 @@ Explore searches latest human-reviewed source text per original, alongside exist
 
 ## Provider and permission boundary
 
-The narrow `DocumentProvider` interface exposes page reading and structured extraction. The initial adapter is OpenAI Responses with image inputs and strict Structured Outputs; Anthropic is a future adapter, not implemented or required. The server sends `store:false`; that is not a claim of zero provider retention. See the official [image-input guide](https://developers.openai.com/api/docs/guides/images-vision) and [Structured Outputs guide](https://developers.openai.com/api/docs/guides/structured-outputs?api-mode=responses).
+The narrow `DocumentProvider` interface exposes page reading and structured extraction. Both OpenAI Responses and Anthropic Messages adapters are implemented; `DOCUMENT_AI_PROVIDER` selects one without fallback. The original OpenAI adapter is retained. See [Anthropic configuration, request/provenance behaviour and exact two-page live test](anthropic-document-provider.md). OpenAI sends `store:false`; that is not a claim of zero provider retention. Official references: [OpenAI image input](https://developers.openai.com/api/docs/guides/images-vision) and [Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs?api-mode=responses).
 
 Only server variables configure AI:
 
@@ -28,7 +28,7 @@ DOCUMENT_AI_MODEL=<explicit-account-approved-vision-and-structured-output-model-
 OPENAI_API_KEY=<server-secret>
 ```
 
-`.env.example` has empty placeholders, including a clearly reserved `ANTHROPIC_API_KEY`. Never use `NEXT_PUBLIC_` for AI secrets or commit `.env.local`. No model is silently selected. Missing/unsupported provider, model or key produces a clear not-configured state; reading preserved images and reviewing saved drafts still works.
+`.env.example` has empty placeholders for both `OPENAI_API_KEY` and `ANTHROPIC_API_KEY`; only the selected provider needs a key. Never use `NEXT_PUBLIC_` for AI secrets or commit `.env.local`. No model is silently selected. Missing/unsupported provider, model or key produces a clear not-configured state; reading preserved images and reviewing saved drafts still works.
 
 The existing session, same-origin API checks and user-scoped Supabase client remain. No service-role credential is introduced. Eligible Contributors may process their own ready, active, unarchived and unverified documents; Editors may process eligible archive documents. Only Editors correct transcription or apply suggestions. Readers see only RLS-readable items/runs. SQL functions independently check permissions, source versions and lifecycle. Direct authenticated writes remain revoked except narrow RPCs.
 
@@ -69,6 +69,6 @@ Use a disposable archive and synthetic typed/handwritten pages; start with AI un
 
 ## First provider connection: exact next step
 
-Keep AI disabled until the schema/app release is approved. Choose an OpenAI account-approved model that supports both image input and strict Structured Outputs, put the three variables above in ignored local server configuration, and restart the local app. Run one synthetic two-page letter through explicit transcription and human review, checking actual receipts, uncertainty and cancellation. No live model request has been tested in this release; accuracy, latency, permissions/limits and billing remain acceptance gates before enabling family-material processing. Configure equivalent hosted server secrets only after that acceptance and explicit release approval.
+Anthropic is the selected first live provider. Follow the [exact two-page synthetic-letter acceptance procedure](anthropic-document-provider.md) using `DOCUMENT_AI_PROVIDER=anthropic`, your configured `DOCUMENT_AI_MODEL`, and server-only `ANTHROPIC_API_KEY`. The OpenAI adapter remains available through `DOCUMENT_AI_PROVIDER=openai`. No live provider call or production configuration was made by the agent. Accuracy, hosted duration, billing and account/model access remain acceptance gates.
 
 See [final validation](validation.md) and [exact commit manifest](document-processing-commit-manifest.md).

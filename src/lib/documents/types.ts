@@ -7,15 +7,16 @@ export interface DocumentSuggestion {
   page: number;
   context: string;
 }
-export interface ProviderReceipt { responseId: string; model: string; usage: Record<string,unknown> | null; }
+export interface ProviderReceipt { responseId: string; model: string; usage: Record<string,unknown> | null; provider?: string; apiVersion?: string; requestId?: string | null; stopReason?: string; }
 export interface PageReading {
   receipt?: ProviderReceipt;
+  rawResponse?: Record<string,unknown>;
   text: string;
   language: string;
   uncertainty: string[];
   confidence: number | null;
 }
-export interface DocumentExtraction {suggestions: DocumentSuggestion[]; receipt?: ProviderReceipt;}
+export interface DocumentExtraction {suggestions: DocumentSuggestion[]; receipt?: ProviderReceipt; rawResponse?: Record<string,unknown>;}
 export interface DocumentProvider {
   name: string;
   model: string;
