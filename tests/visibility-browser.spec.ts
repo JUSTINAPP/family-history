@@ -102,7 +102,7 @@ test("real-data path lists all permitted rows and reopens metadata-free, preview
       .digest("hex"),
   ).toBe((await fixture.json()).originalHash);
   const savedUrl = page.url();
-  await page.getByRole("button", { name: "Demo profile" }).click();
+  await page.getByRole("button", { name: "Account" }).click();
   await page.getByRole("button", { name: "Sign out", exact: true }).click();
   await expect(page).toHaveURL(/sign-in/);
   await login(page, new URL(savedUrl).pathname);

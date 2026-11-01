@@ -1,11 +1,13 @@
 import type { ArchiveItem } from "./types";
-/** Stable editorial mix: newest ready anchor, then new kinds, People and Places.
- * Ties use update time, creation time and ID; no inferred image similarity.
+import { homeVisitHash } from "./home-visit";
+/** Stable editorial mix: a visit-seeded anchor, then new kinds, People and Places.
+ * Without a visit, retain newest-first ordering. No inferred image similarity.
  */
-export function homeMaterial(items: ArchiveItem[], limit = 9): ArchiveItem[] {
+export function homeMaterial(items: ArchiveItem[], limit = 9, visit?: string): ArchiveItem[] {
   const candidates = items
     .filter(i => !i.archivedAt && i.imageSet && i.kind !== "Audio")
-    .sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || "")
+    .sort((a, b) => (visit ? homeVisitHash(`${visit}:${a.id}`) - homeVisitHash(`${visit}:${b.id}`) : 0)
+      || (b.updatedAt || "").localeCompare(a.updatedAt || "")
       || (b.createdAt || "").localeCompare(a.createdAt || "") || a.id.localeCompare(b.id));
   const selected: ArchiveItem[] = [];
   const kinds = new Set<string>(), people = new Set<string>();

@@ -10,12 +10,12 @@ import { WorkspaceProvider } from "@/components/workspace-provider";
 export const metadata: Metadata = {
   title: {
     default: isDemoMode()
-      ? `${initialArchive.name} — Still being discovered`
-      : "Archive — A private place for what we keep",
+      ? `${initialArchive.name} — Archive`
+      : "Allen & Cork — Archive",
     template: isDemoMode() ? `%s — ${initialArchive.name}` : "%s — Archive",
   },
   description:
-    "Photographs, letters, documents and objects. A place to explore, contribute and keep the stories alive.",
+    "Explore photographs, letters, documents and objects in a private archive.",
   robots: { index: false, follow: false },
 };
 export default function RootLayout({

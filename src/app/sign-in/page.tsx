@@ -13,8 +13,8 @@ export default async function SignInPage({
   return (
     <div className="capture-shell">
       <PageIntro
-        eyebrow="A PRIVATE PLACE FOR WHAT WE KEEP"
-        title="Come on in."
+        eyebrow="PRIVATE ARCHIVE"
+        title="Sign in"
         description="Sign in to explore and contribute to the archives you belong to."
       />
       {!configured && (

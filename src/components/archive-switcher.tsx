@@ -18,7 +18,7 @@ export function ArchiveSwitcher() {
       }}
     >
       <summary aria-label={`Current archive: ${archive.name}`}>
-        <span className="archive-current-name">{archive.name}</span>
+        <span className="archive-identity"><span className="archive-current-name">{archive.name === "The Allen & Cork Archive" ? "Allen & Cork" : archive.name}</span><span className="archive-identity-label">Archive</span></span>
         <ChevronDown size={13} aria-hidden="true" />
       </summary>
       <div className="archive-switcher-panel">

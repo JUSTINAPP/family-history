@@ -7,7 +7,6 @@ import { transcriptionPages } from "@/lib/data";
 import { useWorkspace } from "./workspace-provider";
 import { useCatalogue } from "./catalogue";
 import { PageIntro, ItemCard } from "./ui";
-import { can } from "@/lib/permissions";
 const kinds = [
   "All",
   "Photographs",
@@ -133,26 +132,10 @@ export function Explore() {
     );
 
   return (
-    <div className="page-shell">
-      {workspace.mode === "live" && can(workspace.role, "editor") && (
-        <p className="help-line">
-          <a
-            href={`/explore?archive=${workspace.archive.id}${params.get("state") === "archived" ? "" : "&state=archived"}`}
-          >
-            {params.get("state") === "archived"
-              ? "View active items"
-              : "Archived items"}{" "}
-            ↗
-          </a>{" "}
-          ·{" "}
-          <Link href={`/admin/deletions?archive=${workspace.archive.id}`}>
-            Deletion progress ↗
-          </Link>
-        </p>
-      )}
+    <div className="page-shell explore-page">
       {params.get("state") === "archived" && (
         <p className="notice">
-          Archived items · Editors can open, review and restore them.
+          Archived items · Editors can open, review and restore them. <Link href={`/explore?archive=${workspace.archive.id}`}>View active items ↗</Link>
         </p>
       )}
       {params.get("batch") && (
@@ -172,11 +155,10 @@ export function Explore() {
           opened.
         </p>
       )}
-      <PageIntro
-        eyebrow="THE COLLECTION"
-        title="An archive of us."
-        description="The big days. The ordinary afternoons. The things we thought to keep."
-      >{workspace.mode === "live" && <Link prefetch={false} className="text-link" href={`/quick-catalogue?archive=${workspace.archive.id}`}>Quick catalogue ↗</Link>}</PageIntro>
+      <div className="explore-heading">
+        <h1>Explore</h1>
+        {workspace.mode === "live" && <Link prefetch={false} className="text-link" href={`/quick-catalogue?archive=${workspace.archive.id}`}>Quick catalogue ↗</Link>}
+      </div>
       <div className="archive-controls">
         <div className="search-field">
           <Search size={20} />
@@ -186,7 +168,7 @@ export function Explore() {
             type="search"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="A name, a place, a little detail…"
+            placeholder="Search names, places or details"
           />
           {q && (
             <button aria-label="Clear search" onClick={() => setQ("")}>

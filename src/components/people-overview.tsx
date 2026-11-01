@@ -27,9 +27,9 @@ export function PeopleOverview({
   return (
     <div className="page-shell">
       <PageIntro
-        eyebrow="THE PEOPLE IN OUR STORIES"
-        title="A familiar face."
-        description="Lives gathered in photographs, letters and the words we keep. Start with a person, and follow their material."
+        eyebrow="PEOPLE IN THE COLLECTION"
+        title="People"
+        description="Browse people and the material linked to them."
       >
         <TextLink href="/tree">See family connections</TextLink>
       </PageIntro>

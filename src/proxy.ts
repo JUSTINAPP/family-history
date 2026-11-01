@@ -1,8 +1,17 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { isDemoMode, supabaseConfig } from "@/lib/supabase/config";
+import { HOME_VISIT_COOKIE } from "@/lib/home-visit";
 export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
+  // A session preference keeps server-rendered Home stable through reload/back.
+  // No item IDs, metadata or authentication information are stored here.
+  const previousVisit = request.cookies.get(HOME_VISIT_COOKIE)?.value;
+  // Initialise on the entry page too: a sign-in Server Action can render Home
+  // directly, without a separate Home request through Proxy.
+  const newVisit = !pathname.startsWith("/api/") && !/^[a-f0-9-]{36}$/.test(previousVisit || "")
+    ? crypto.randomUUID() : null;
+  if (newVisit) request.cookies.set(HOME_VISIT_COOKIE, newVisit);
   function forwardedHeaders() {
     const headers = new Headers(request.headers);
     headers.set("x-archive-path", pathname);
@@ -28,9 +37,14 @@ export async function proxy(request: NextRequest) {
       headers.set("x-archive-batch", batch);
     return headers;
   }
-  let response = NextResponse.next({
-    request: { headers: forwardedHeaders() },
-  });
+  function nextResponse() {
+    const next = NextResponse.next({ request: { headers: forwardedHeaders() } });
+    if (newVisit) next.cookies.set(HOME_VISIT_COOKIE, newVisit, {
+      httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/",
+    });
+    return next;
+  }
+  let response = nextResponse();
   if (isDemoMode()) return response;
   const open = pathname === "/sign-in" || pathname.startsWith("/auth/");
   const api = pathname.startsWith("/api/");
@@ -51,9 +65,7 @@ export async function proxy(request: NextRequest) {
       getAll: () => request.cookies.getAll(),
       setAll: (values) => {
         values.forEach(({ name, value }) => request.cookies.set(name, value));
-        response = NextResponse.next({
-          request: { headers: forwardedHeaders() },
-        });
+        response = nextResponse();
         values.forEach(({ name, value, options }) =>
           response.cookies.set(name, value, options),
         );

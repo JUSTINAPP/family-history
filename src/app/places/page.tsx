@@ -28,7 +28,7 @@ export default async function Places({
     } catch {
       return (
         <EmptyFeature
-          title="A sense of place."
+          title="Places"
           description="Places could not load. Reload to retry."
         />
       );
@@ -72,7 +72,7 @@ export default async function Places({
       <PageIntro
         eyebrow="A SENSE OF PLACE"
         title="Where life happened."
-        description="A street, a home, a stretch of coast. Places hold a little of us, too."
+        description="Browse places and the material linked to them."
       />
       <div className="place-grid">
         {places.map((p) => (

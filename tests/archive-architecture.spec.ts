@@ -95,7 +95,7 @@ test("current archive is quiet, named and accessible from the switcher", async (
 }) => {
   await page.goto("/");
   await expect(page.locator(".archive-current-name")).toHaveText(
-    "The Allen & Cork Archive",
+    "Allen & Cork",
   );
   await expect(page).toHaveTitle(/The Allen & Cork Archive/);
   await page.locator(".archive-switcher summary").click();

@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { createHash } from "node:crypto";
 import sharp from "sharp";
+import { homeVisitHash, HOME_VISIT_COOKIE } from "../src/lib/home-visit";
 const archive = "60000000-0000-4000-8000-000000000001";
 const item = "60000000-0000-4000-8000-000000000004";
 const sources = [
@@ -283,7 +284,7 @@ test("production build retrospectively converts two preserved HEICs and privatel
   await expect
     .poll(() => lastImage.evaluate((n) => (n as HTMLImageElement).naturalWidth))
     .toBeGreaterThan(0);
-  await page.getByRole("button", { name: "Demo profile" }).click();
+  await page.getByRole("button", { name: "Account" }).click();
   await page.getByRole("button", { name: "Sign out", exact: true }).click();
   await expect(page).toHaveURL(/sign-in/);
   expect(
@@ -794,7 +795,7 @@ test("Places are scoped archive entry points with relational filtering, preserve
   await page.setViewportSize({ width: 375, height: 850 });
   await page.goto(`/places?archive=${archive}`);
   await expect(
-    page.getByRole("heading", { name: "A sense of place.", exact: true }),
+    page.getByRole("heading", { name: "Places", exact: true }),
   ).toBeVisible();
   const cards = page.locator(".place-archive-card");
   await expect(cards).toHaveCount(33);
@@ -996,7 +997,7 @@ test("Places are scoped archive entry points with relational filtering, preserve
   ).toBe(307);
 });
 
-test("home is a deterministic private scrapbook using real small variants and working material links", async ({page, request}) => {
+test("home is a visit-stable private scrapbook using real small variants and working material links", async ({page, request, browser}) => {
   test.setTimeout(90000);
   await page.context().addCookies([{name: "active_archive", value: archive, url: "http://127.0.0.1:4300"}]);
   await page.route("**/*", route => {
@@ -1012,10 +1013,14 @@ test("home is a deterministic private scrapbook using real small variants and wo
   await expect(page).toHaveURL(/\/$/);
   await expect(page.getByText("An archive, still being discovered.", {exact: true})).toHaveCount(0);
   const pieces = page.locator(".home-scrapbook .scrapbook-piece");
-  await expect(pieces).toHaveCount(9);
+  await expect(pieces).toHaveCount(3);
   const state = await (await request.get("http://127.0.0.1:4301/__fixture/summary")).json();
   const smallIds = new Set(state.imageSets.map((s: {small_file_id: string}) => s.small_file_id));
   const links = await pieces.locator(".scrapbook-caption").evaluateAll(nodes => nodes.map(n => n.getAttribute("href")));
+  const arrangement=await page.locator(".scrapbook-home").getAttribute("data-arrangement");
+  const sessionCookies=await page.context().cookies();
+  const visit=sessionCookies.find(c=>c.name===HOME_VISIT_COOKIE)!;
+  expect(visit.value).toMatch(/^[a-f0-9-]{36}$/);expect(visit.httpOnly).toBe(true);expect(visit.expires).toBe(-1);
   for (const link of links) expect(state.items.some((i: {id: string; archived_at?: string}) => link?.includes(i.id) && !i.archived_at)).toBe(true);
   await expect(pieces.first().locator(".has-placeholder .image-presentation")).toHaveCSS("background-image", /data:image\/webp/);
   await expect(pieces.last().locator("img")).toHaveAttribute("loading", "lazy");
@@ -1023,7 +1028,7 @@ test("home is a deterministic private scrapbook using real small variants and wo
   await expect(pieces.first().locator("img")).not.toHaveAttribute("srcset");
   await request.get("http://127.0.0.1:4301/__fixture/metrics?reset=1");
   await page.reload();
-  await expect(pieces).toHaveCount(9);
+  await expect(pieces).toHaveCount(3);
   await page.waitForLoadState("networkidle");
   const metrics = await (await request.get("http://127.0.0.1:4301/__fixture/metrics")).json();
   expect(metrics["/rest/v1/people"]).toBe(1);
@@ -1034,6 +1039,7 @@ test("home is a deterministic private scrapbook using real small variants and wo
   expect(metrics["/rest/v1/item_places"]).toBeLessThanOrEqual(2);
   expect(metrics["/rest/v1/identifications"]).toBeLessThanOrEqual(2);
   expect(await pieces.locator(".scrapbook-caption").evaluateAll(nodes => nodes.map(n => n.getAttribute("href")))).toEqual(links);
+  await expect(page.locator(".scrapbook-home")).toHaveAttribute("data-arrangement",arrangement!);
   await page.setViewportSize({width: 375, height: 850});
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
   await pieces.last().scrollIntoViewIfNeeded();
@@ -1048,6 +1054,16 @@ test("home is a deterministic private scrapbook using real small variants and wo
   await pieces.first().locator(".scrapbook-caption").click();
   await expect(page).toHaveURL(new RegExp(links[0]!.split("?")[0]));
   await expect(page.locator(".saved-original")).not.toHaveCount(0);
+  await page.goBack();
+  await expect(pieces).toHaveCount(3);
+  expect(await pieces.locator(".scrapbook-caption").evaluateAll(nodes => nodes.map(n => n.getAttribute("href")))).toEqual(links);
+  await expect(page.locator(".scrapbook-home")).toHaveAttribute("data-arrangement",arrangement!);
+  const nextVisit=await browser.newContext({baseURL:"http://127.0.0.1:4300"});
+  await nextVisit.addCookies(sessionCookies.filter(c=>c.name!==HOME_VISIT_COOKIE));
+  const nextPage=await nextVisit.newPage();await nextPage.goto("/");
+  await expect(nextPage.locator(".scrapbook-piece")).toHaveCount(3);
+  expect((await nextVisit.cookies()).find(c=>c.name===HOME_VISIT_COOKIE)!.value).not.toBe(visit.value);
+  await nextVisit.close();
 });
 
 test("quick catalogue saves fields independently and supports a private attributed family conversation", async ({page,request}) => {
@@ -1177,7 +1193,7 @@ test("quick catalogue saves fields independently and supports a private attribut
   await expect(page.getByText("Catalogue state",{exact:true})).not.toBeVisible();
   await page.getByText("Add a memory",{exact:true}).click();
   await expect(page.getByLabel("Add a recollection",{exact:true})).toBeVisible();
-  await page.getByRole("button",{name:"Demo profile"}).click();
+  await page.getByRole("button",{name:"Account"}).click();
   await page.getByRole("button",{name:"Sign out",exact:true}).click();
   await expect(page).toHaveURL(/sign-in/);
   await page.goto(`/quick-catalogue?archive=${archive}`);
@@ -1268,7 +1284,7 @@ test("saved letters read as ordered objects with separate AI drafts, human revie
   expect(await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
   await page.screenshot({path:"/private/tmp/document-review-mobile.png",fullPage:true});
   await page.goto(`/archive/${seed.id}`);await expect(page.getByText("A letter about family travel.",{exact:true})).toBeVisible();
-  await page.getByRole("button",{name:"Demo profile"}).click();await page.getByRole("button",{name:"Sign out",exact:true}).click();await expect(page).toHaveURL(/sign-in/);
+  await page.getByRole("button",{name:"Account"}).click();await page.getByRole("button",{name:"Sign out",exact:true}).click();await expect(page).toHaveURL(/sign-in/);
   expect((await page.request.post(`/api/v1/documents/${seed.id}`)).status()).toBe(401);
 });
 
@@ -1305,6 +1321,16 @@ test("family conversation is reachable from cards and persisted presentation rot
   await card.getByRole("button",{name:/3 comments on/}).click();await expect(page).toHaveURL(/\/explore\?/);await expect(card.getByText("I recognise this doorway.",{exact:true})).toBeVisible();
   await page.goto(`/quick-catalogue?archive=${archive}`);await expect(page.locator(".quick-photo .archive-image")).toHaveAttribute("data-presentation-rotation","90");
   await page.setViewportSize({width:375,height:850});expect(await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth)).toBeLessThanOrEqual(0);await page.screenshot({path:"/private/tmp/rotation-quick-mobile.png",fullPage:true});
+  // Pin the fixture's rotated item as the visit anchor while retaining random live selection.
+  const homeState=await summary();
+  const readyIds=homeState.items.filter((i:{id:string;archived_at?:string;kind:string})=>!i.archived_at&&i.kind!=="Audio"&&homeState.imageSets.some((s:{item_id:string;status:string})=>s.item_id===i.id&&s.status==="stored")).map((i:{id:string})=>i.id);
+  let visit="";
+  for(let n=0;n<100000;n++){
+    const candidate=`00000000-0000-4000-8000-${n.toString(16).padStart(12,"0")}`;
+    const ranked=[...readyIds].sort((a:string,b:string)=>homeVisitHash(`${archive}:${candidate}:${a}`)-homeVisitHash(`${archive}:${candidate}:${b}`));
+    if(ranked[0]===seed.ids[0]){visit=candidate;break;}
+  }
+  expect(visit).not.toBe("");await page.context().addCookies([{name:HOME_VISIT_COOKIE,value:visit,url:"http://127.0.0.1:4300"}]);
   await page.goto("/");await expect(page.getByRole("link",{name:"Help identify photographs ↗",exact:true})).toBeVisible();
   const piece=page.locator(".scrapbook-piece").filter({has:page.locator(`a[href*="${seed.ids[0]}"]`)});await expect(piece.locator(".archive-image")).toHaveAttribute("data-presentation-rotation","90");await expect(piece.getByRole("link",{name:/3 comments on/})).toBeVisible();
   await page.waitForLoadState("networkidle");await request.get("http://127.0.0.1:4301/__fixture/metrics?reset=1");await page.reload();await page.waitForLoadState("networkidle");const metrics=await(await request.get("http://127.0.0.1:4301/__fixture/metrics")).json();expect(metrics["/rest/v1/item_conversation_counts"]).toBe(1);expect(metrics["/rest/v1/comments"]||0).toBe(0);
@@ -1312,7 +1338,7 @@ test("family conversation is reachable from cards and persisted presentation rot
   await page.goto(`/places?archive=${archive}`);await expect(page.locator(`.material-leaf[data-item-id="${seed.ids[0]}"] .archive-image`).first()).toHaveAttribute("data-presentation-rotation","90");
   const after=await summary();const stored=after.files.find((f:{id:string})=>f.id===original.id);expect(stored.sha256).toBe(original.sha256);expect(stored.storage_path).toBe(original.storage_path);expect(after.imageSets.filter((s:{original_file_id:string})=>s.original_file_id===original.id)).toEqual(before.imageSets.filter((s:{original_file_id:string})=>s.original_file_id===original.id));
   const bytes=await page.request.get(`/api/v1/files/${original.id}`);expect(createHash("sha256").update(await bytes.body()).digest("hex")).toBe(original.sha256);
-  await page.getByRole("button",{name:"Demo profile"}).click();await page.getByRole("button",{name:"Sign out",exact:true}).click();await expect(page).toHaveURL(/sign-in/);
+  await page.getByRole("button",{name:"Account"}).click();await page.getByRole("button",{name:"Sign out",exact:true}).click();await expect(page).toHaveURL(/sign-in/);
   await page.goto("/sign-in?next="+encodeURIComponent(`/archive/${seed.ids[0]}`));await page.getByLabel("Email",{exact:true}).fill("visibility@example.test");await page.getByLabel("Password",{exact:true}).fill("local-fixture-password");await page.locator("form").getByRole("button",{name:"Sign in",exact:true}).click();await expect(image).toHaveAttribute("data-presentation-rotation","90");
 });
 
@@ -1469,20 +1495,35 @@ test.describe("site-wide phone audit",()=>{
   routes=["/","/explore","/quick-catalogue","/people",`/people/${people.people[0].id}`,"/places",`/places/${places.places[0].id}`,`/archive/${photoId}`,`/archive/${people.materialIds[4]}`,`/archive/${letterId}`,`/archive/${letterId}/review?run=${runId}`,"/add","/add/voice","/admin","/admin/settings","/admin/members","/admin/invitations","/admin/processing",`/archive/${letterId}/edit`];
   phoneCookies=await context.cookies();await context.close();
  });
- for(const width of [320,360,375,390,430])test(`phone ${width}px: routes, expanded controls, text and paper stay contained`,async({page})=>{
+ for(const width of [320,360,375,390,430,768,1024,1440])test(`responsive ${width}px: routes, expanded controls, text and paper stay contained`,async({page})=>{
   test.setTimeout(180000);await page.context().addCookies(phoneCookies);await page.setViewportSize({width,height:844});
   for(const route of routes){await page.goto(route);await page.locator("h1").waitFor();await page.evaluate(()=>document.fonts.ready);await bounds(page);}
   await page.goto("/");
-  for(const selector of [".header-actions .icon-button",".header-actions .add-button",".header-actions .avatar"])for(const control of await page.locator(selector).all())await hit(control);
+  for(const selector of [".header-actions .icon-button:visible",".header-actions .add-button:visible",".header-actions .avatar:visible"])for(const control of await page.locator(selector).all())await hit(control);
   await page.locator(".archive-current-name").evaluate(e=>e.textContent="The Allen & Cork Family History Archive");
   const name=await page.locator(".archive-current-name").evaluate(e=>({height:e.clientHeight,scroll:e.scrollHeight,rect:e.getBoundingClientRect().toJSON()}));expect(name.scroll).toBeLessThanOrEqual(name.height+1);expect(name.rect.x).toBeGreaterThanOrEqual(0);expect(name.rect.right).toBeLessThanOrEqual(width);
-  await page.getByRole("button",{name:"Demo profile"}).click();const panel=await page.locator(".profile-panel").boundingBox();expect(panel!.x).toBeGreaterThanOrEqual(0);expect(panel!.x+panel!.width).toBeLessThanOrEqual(width);await bounds(page);await page.keyboard.press("Escape");await expect(page.getByRole("button",{name:"Demo profile"})).toBeFocused();
+  await page.getByRole("button",{name:"Account"}).click();const panel=await page.locator(".profile-panel").boundingBox();expect(panel!.x).toBeGreaterThanOrEqual(0);expect(panel!.x+panel!.width).toBeLessThanOrEqual(width);await bounds(page);await page.keyboard.press("Escape");await expect(page.getByRole("button",{name:"Account"})).toBeFocused();
   await expect(page.getByRole("navigation",{name:"Mobile navigation",exact:true})).toHaveCount(0);
-  await page.getByRole("button",{name:"Open menu",exact:true}).click();await expect(page.getByRole("navigation",{name:"Mobile navigation",exact:true})).toBeVisible();await bounds(page);await page.keyboard.press("Escape");await expect(page.getByRole("button",{name:"Open menu",exact:true})).toBeFocused();
+  if(width<=820){
+   const primary=page.getByRole("navigation",{name:"Primary mobile navigation",exact:true});
+   for(const label of ["Home","Explore","Add","People"])await hit(primary.getByRole("link",{name:label,exact:true}));
+   await page.getByRole("button",{name:"Open menu",exact:true}).click();await expect(page.getByRole("navigation",{name:"Mobile navigation",exact:true})).toBeVisible();await bounds(page);await page.keyboard.press("Escape");await expect(page.getByRole("button",{name:"Open menu",exact:true})).toBeFocused();
+  }
   await page.getByLabel("Current archive: Test archive",{exact:true}).click();await bounds(page);await page.keyboard.press("Escape");
   await page.locator(".scrapbook-piece .archive-image").evaluateAll(es=>es.forEach(e=>(e as HTMLElement).style.aspectRatio="0.06"));await bounds(page);
   const geometry=await page.locator(".scrapbook-piece > .archive-image").first().evaluate(e=>({transform:getComputedStyle(e).transform,height:e.getBoundingClientRect().height}));expect(geometry.transform).not.toBe("none");expect(geometry.height).toBeLessThan(600);
-  if(width===375){await page.goto("/");await page.locator(".home-scrapbook .archive-image img").first().evaluate(img=>(img as HTMLImageElement).decode());await page.screenshot({path:"/private/tmp/mobile-home-375.png",fullPage:true});}
+  await page.goto("/");await page.locator(".home-scrapbook .archive-image img").first().evaluate(img=>(img as HTMLImageElement).decode());
+  for(const caption of await page.locator(".scrapbook-caption").all())expect(await caption.evaluate(e=>getComputedStyle(e).transform)).toBe("none");
+  await page.screenshot({path:`/private/tmp/allen-cork-visual-refresh/home-${width}.png`,fullPage:true});
+  if(width===375||width===1440){
+   await page.screenshot({path:`/private/tmp/allen-cork-visual-refresh/home-first-screen-${width}.png`});
+   await page.goto("/explore");await expect(page.locator(".explore-page")).toBeVisible();await page.locator(".item-card img").first().evaluate(img=>(img as HTMLImageElement).decode());await page.screenshot({path:`/private/tmp/allen-cork-visual-refresh/explore-${width}.png`});
+   await page.goto("/people");await expect(page.locator(".archival-people-grid")).toBeVisible();await page.locator(".material-leaf img").first().evaluate(img=>(img as HTMLImageElement).decode());await page.screenshot({path:`/private/tmp/allen-cork-visual-refresh/people-${width}.png`});
+  }
+  for(const route of ["/","/explore"]){await page.goto(route);await page.locator("h1").waitFor();await page.evaluate(()=>document.documentElement.style.fontSize="24px");await bounds(page);}
+  // The existing phone input/body minima and compact controls below apply at <=600px.
+  // Larger widths retain their desktop fields and are covered by the workflow tests above.
+  if(width>600)return;
   await page.goto(`/explore?archive=${archive}&q=${encodeURIComponent("Quick photograph")}`);
   const card=page.locator(".item-card").first();await card.getByRole("button",{name:/comments on|comment on/}).click();const conversation=card.getByRole("region",{name:"Family conversation",exact:true});await expect(conversation).toBeVisible();
   const textarea=conversation.getByLabel("Add a comment",{exact:true});expect(await textarea.evaluate(e=>parseFloat(getComputedStyle(e).fontSize))).toBeGreaterThanOrEqual(16);
@@ -1509,7 +1550,7 @@ test.describe("site-wide phone audit",()=>{
   const current=await image.evaluate(img=>(img as HTMLImageElement).currentSrc);const summary=await(await phone.request.get("http://127.0.0.1:4301/__fixture/summary")).json();expect(summary.imageSets.some((s:{thumbnail_file_id:string;manifest:{thumbnail:{width:number}}})=>current.endsWith(s.thumbnail_file_id)&&s.manifest.thumbnail.width>=1000)).toBe(true);await bounds(phone);await context.close();
   await page.context().addCookies(phoneCookies);await page.setViewportSize({width:1440,height:960});await page.goto("/");await expect(page.locator(".home-scrapbook")).toBeVisible();await bounds(page);
   expect(await page.locator(".home-scrapbook").evaluate(e=>getComputedStyle(e).gridTemplateColumns.split(" ").length)).toBe(3);
-  expect(await page.locator(".scrapbook-piece").first().evaluate(e=>getComputedStyle(e).transform)).not.toBe("none");expect((await page.locator(".site-header").boundingBox())!.height).toBe(111);
+  expect(await page.locator(".scrapbook-piece").first().evaluate(e=>getComputedStyle(e).transform)).toBe("none");expect(await page.locator(".scrapbook-piece > .archive-image").first().evaluate(e=>getComputedStyle(e).transform)).not.toBe("none");expect((await page.locator(".site-header").boundingBox())!.height).toBe(111);
   await page.goto("/explore");await expect(page.locator(".conversation-grid")).toBeVisible();expect(await page.locator(".conversation-grid").evaluate(e=>getComputedStyle(e).gridTemplateColumns.split(" ").length)).toBe(4);await bounds(page);
  });
 });

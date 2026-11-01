@@ -13,12 +13,12 @@ export function PublicChrome({ children }: { children: React.ReactNode }) {
     <>
       <header className="site-header">
         <Link className="wordmark" href="/">
-          Archive.
+          Allen &amp; Cork / Archive
         </Link>
       </header>
       <main id="main">{children}</main>
       <footer className="site-footer">
-        <p>A private place for what we keep.</p>
+        <p>Private archive · authenticated access.</p>
       </footer>
     </>
   );

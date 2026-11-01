@@ -84,7 +84,7 @@ test("sign-in keeps local redirects safe and remains accessible on a phone", asy
   await page.setViewportSize({ width: 375, height: 850 });
   await page.goto("/sign-in?next=https://untrusted.example");
   await expect(
-    page.getByRole("heading", { name: "Come on in." }),
+    page.getByRole("heading", { name: "Sign in", exact: true }),
   ).toBeVisible();
   await expect(page.locator("input[name=next]")).toHaveValue("/");
   expect(

@@ -201,10 +201,10 @@ test("navigation is usable on a phone and unknown records return 404", async ({
   await page.goto("/");
   await page.getByRole("button", { name: "Open menu" }).click();
   await page
-    .getByRole("navigation", { name: "Mobile navigation" })
+    .getByRole("navigation", { name: "Mobile navigation", exact: true })
     .getByRole("link", { name: "People", exact: true })
     .click();
-  await expect(page.locator("h1")).toHaveText("A familiar face.");
+  await expect(page.locator("h1")).toHaveText("People");
   const response = await page.goto("/archive/not-in-this-archive");
   expect(response?.status()).toBe(404);
   await expect(

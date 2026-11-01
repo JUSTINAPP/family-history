@@ -7,7 +7,7 @@ export default function About() {
     return (
       <article className="long-doc">
         <p className="eyebrow">YOUR PRIVATE ARCHIVE</p>
-        <h1>A place for what we keep.</h1>
+        <h1>About the archive</h1>
         <p>
           Uploaded photographs and documents are stored as untouched originals
           in private Storage. Your words are preserved separately as contributor

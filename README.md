@@ -1,5 +1,7 @@
 # The Allen & Cork Archive
 
+**Visual refresh:** Image-led, visit-stable Home, DM Sans throughout, warm cream surfaces, muted green actions and labelled mobile navigation. The released mobile audit remains the baseline. No migration or new dependency. See [implementation, screenshots, release checks and exact commit manifest](docs/visual-refresh.md).
+
 **Site-wide mobile audit:** Phone gutters, readable type, a full-name/two-row header, contained paper rotations and popovers, accessible touch areas, wrapped forms/conversation and correctly sized Retina gallery images. No migration; 001–016 remain unchanged. See [measurements, validation and exact iPhone smoke test](docs/mobile-responsive-audit.md).
 
 **Letter reading and correspondence (016):** Reviewed From/To/Date/Place, meaningful Letter labels, prominent Read transcription, concise AI review with Advanced review retained, and bounded private page prefetch/revalidation. Migration 016 enables reviewed sender/recipient text without forcing Person creation; no old migration or source bytes change. See [release, performance measurements and exact smoke test](docs/letter-reading-and-correspondence.md).

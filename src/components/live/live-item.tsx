@@ -77,9 +77,9 @@ export async function LiveItem({
           <span>{item.kind}</span>
         </div>
         <PageIntro
-          eyebrow={item.kind==="Letter"?"LETTER":"FROM YOUR FAMILY ARCHIVE"}
+          eyebrow={item.kind==="Letter"?"LETTER":"FROM THE COLLECTION"}
           title={display.title}
-          description={item.kind==="Letter"?correspondenceDate(item.reported_date||"",item.date_precision)||"Original correspondence, preserved in your family archive.":"A familiar face, a place, a little of what we remember."}
+          description={item.kind==="Letter"?correspondenceDate(item.reported_date||"",item.date_precision)||"Original correspondence, preserved in this archive.":"View the source material, linked information and comments."}
         />
         {saved && item.ingestion_status === "ready" && (
           <section className="notice" role="status">

@@ -27,6 +27,24 @@ test("home selection is stable, varied and limited to actual ready material", ()
   expect(homeMaterial([], 9)).toEqual([]);
 });
 
+test("visit seeds vary the feature without changing eligible data or reshuffling a visit", () => {
+  const rows = Array.from({length: 24}, (_, i) => item(String(i), {kind: i % 3 === 0 ? "Letter" : i % 3 === 1 ? "Object" : "Photograph"}));
+  rows.push(item("archived", {archivedAt: "2026"}), item("pending", {imageSet: undefined}), item("audio", {kind: "Audio"}));
+  const selections = new Set<string>();
+  for (let visit = 0; visit < 12; visit++) {
+    const chosen = homeMaterial(rows, 3, `visit-${visit}`);
+    expect(chosen).toEqual(homeMaterial([...rows].reverse(), 3, `visit-${visit}`));
+    expect(chosen).toHaveLength(3);
+    expect(new Set(chosen.map(i => i.kind)).size).toBe(3);
+    expect(chosen.every(i => !["archived", "pending", "audio"].includes(i.id))).toBe(true);
+    selections.add(chosen.map(i => i.id).join(","));
+  }
+  expect(selections.size).toBeGreaterThan(1);
+  expect(homeMaterial([], 3, "visit")).toEqual([]);
+  expect(homeMaterial([rows[0]], 3, "visit")).toEqual([rows[0]]);
+  expect(homeMaterial(rows.slice(0, 2), 3, "visit")).toHaveLength(2);
+});
+
 test("classification updates derived placeholder labels while retaining deliberate titles",()=>{
   expect(cataloguePresentation({kind:"Letter",title:"Photograph, still to be catalogued"}).title).toBe("Letter, still to be catalogued");
   expect(cataloguePresentation({kind:"Document",title:"A letter from Jan"}).title).toBe("A letter from Jan");

@@ -15,9 +15,9 @@ export function PlacesOverview({
   return (
     <div className="page-shell">
       <PageIntro
-        eyebrow="THE PLACES IN OUR STORIES"
-        title="A sense of place."
-        description="A home, a neighbourhood, a stretch of coast. Follow a place into the material connected to it."
+        eyebrow="PLACES IN THE COLLECTION"
+        title="Places"
+        description="Browse places and the material linked to them."
       />
       <div className="people-grid archival-people-grid places-archive-grid">
         {places.map((place) => (
