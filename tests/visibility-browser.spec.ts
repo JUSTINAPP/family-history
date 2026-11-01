@@ -78,7 +78,9 @@ test("real-data path lists all permitted rows and reopens metadata-free, preview
   await expect(
     page.getByLabel("Title / caption", { exact: true }),
   ).toBeVisible();
-  await expect(page.getByLabel("People", { exact: true })).toBeVisible();
+  await expect(
+    page.getByLabel("Reported people notes (text)", { exact: true }),
+  ).toBeVisible();
   await page.getByRole("link", { name: "Back to item", exact: true }).click();
   await expect(
     page.getByRole("heading", {

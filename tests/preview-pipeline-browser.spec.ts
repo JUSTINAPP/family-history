@@ -312,3 +312,255 @@ test("production build retrospectively converts two preserved HEICs and privatel
     ).status(),
   ).toBe(401);
 });
+
+test("People link relationally, preserve reported provenance and stay independent after a photograph split", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120000);
+  const seed = await (
+    await request.post("http://127.0.0.1:4301/__fixture/person-item")
+  ).json();
+  const summary = async () =>
+    (await request.get("http://127.0.0.1:4301/__fixture/summary")).json();
+  const jina = seed.people.find(
+    (p: { display_name: string }) => p.display_name === "Jina Allen",
+  );
+  const jan = seed.people.find(
+    (p: { display_name: string }) => p.display_name === "Jan Allen",
+  );
+  await page.goto(`/sign-in?next=${encodeURIComponent(`/archive/${seed.id}`)}`);
+  await page
+    .getByLabel("Email", { exact: true })
+    .fill("visibility@example.test");
+  await page
+    .getByLabel("Password", { exact: true })
+    .fill("local-fixture-password");
+  await page
+    .locator("form")
+    .getByRole("button", { name: "Sign in", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Two family photographs", exact: true }),
+  ).toBeVisible();
+  await page.goto(`/explore?archive=${archive}&person=${jina.id}`);
+  await expect(page.locator(".item-card")).toHaveCount(0); // Text notes alone never establish identity.
+  await page.goto(`/archive/${seed.id}`);
+  const people = page.getByRole("region", {
+    name: "People in this item",
+    exact: true,
+  });
+  await people
+    .getByRole("button", { name: "Link to existing person", exact: true })
+    .click();
+  await expect(
+    people.getByRole("button", { name: "Jina Allen · Family", exact: true }),
+  ).toBeVisible();
+  await people
+    .getByRole("button", { name: "Jina Allen · Family", exact: true })
+    .click();
+  await expect(
+    people.getByRole("link", { name: "View person", exact: false }),
+  ).toHaveCount(1);
+  let state = await summary();
+  const linked = state.identifications.find(
+    (i: { id: string }) => i.id === seed.report.id,
+  );
+  expect(linked).toMatchObject({
+    person_id: jina.id,
+    proposed_name: seed.report.proposed_name,
+    proposed_by: seed.report.proposed_by,
+    created_at: seed.report.created_at,
+    status: "reported",
+  });
+  expect(
+    state.provenance.some(
+      (p: { field_path: string }) => p.field_path === "identification_linked",
+    ),
+  ).toBe(true);
+  await people
+    .getByRole("button", {
+      name: "Confirm reported identification",
+      exact: true,
+    })
+    .click();
+  await expect(people.getByText("confirmed ✓", { exact: false })).toBeVisible();
+  await people
+    .getByRole("button", { name: "+ Add person", exact: true })
+    .click();
+  await people.getByLabel("Search People in this archive").fill("Ja");
+  await people
+    .getByRole("button", { name: "Jan Allen · Family", exact: true })
+    .click();
+  await expect(
+    people.getByRole("link", { name: "View person", exact: false }),
+  ).toHaveCount(2);
+  await people
+    .getByRole("button", { name: "+ Add person", exact: true })
+    .click();
+  await people
+    .getByLabel("Search People in this archive")
+    .fill("A new relative");
+  await people
+    .getByRole("button", { name: "+ Add new person", exact: true })
+    .click();
+  await people.getByLabel("Name", { exact: true }).fill("A new relative");
+  await people
+    .getByLabel("Relationship/category if known")
+    .selectOption("family");
+  await people
+    .getByRole("button", {
+      name: "Create Person and link to this item",
+      exact: true,
+    })
+    .click();
+  await expect(
+    people.getByRole("link", { name: "View person", exact: false }),
+  ).toHaveCount(3);
+  await people
+    .getByRole("button", {
+      name: "Remove association with Jan Allen",
+      exact: true,
+    })
+    .click();
+  await expect(
+    people.getByRole("link", { name: "View person", exact: false }),
+  ).toHaveCount(2);
+  state = await summary();
+  expect(state.people.some((p: { id: string }) => p.id === jan.id)).toBe(true);
+  expect(
+    state.identifications.find(
+      (i: { person_id: string }) => i.person_id === jan.id,
+    ).status,
+  ).toBe("rejected");
+  await page.goto(`/people/${jina.id}?archive=${archive}`);
+  await expect(
+    page
+      .getByRole("region", { name: "Items featuring this Person" })
+      .locator(".item-card"),
+  ).toHaveCount(1);
+  await page.goto(`/explore?archive=${archive}&person=${jina.id}`);
+  await expect(page.locator(".item-card")).toHaveCount(1);
+  await page
+    .getByRole("combobox", { name: "People", exact: true })
+    .selectOption(jan.id);
+  await expect(page.locator(".item-card")).toHaveCount(0);
+  await page.goto(`/archive/${seed.id}`);
+  await page
+    .getByRole("link", {
+      name: "Split photographs into separate items",
+      exact: true,
+    })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Review photograph split", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("group", {
+      name: "What should happen to existing shared details and recollections?",
+    }),
+  ).toBeVisible();
+  await page.getByLabel("Split confirmation", { exact: true }).fill("SPLIT");
+  await page
+    .getByRole("checkbox", { name: /existing context will be retained/ })
+    .check();
+  await page
+    .getByRole("radio", {
+      name: "Keep the photographs together for now.",
+      exact: true,
+    })
+    .check();
+  await expect(
+    page.getByRole("button", {
+      name: "Confirm split photographs",
+      exact: true,
+    }),
+  ).toBeDisabled();
+  await page
+    .getByRole("radio", {
+      name: /Keep the shared context on the archived parent/,
+    })
+    .check();
+  await page
+    .getByRole("button", { name: "Confirm split photographs", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Separated photographs", exact: true }),
+  ).toBeVisible();
+  state = await summary();
+  const children = state.items.filter(
+    (i: { split_from?: string }) => i.split_from === seed.id,
+  );
+  expect(children).toHaveLength(2);
+  expect(
+    state.recollections.filter((r: { item_id: string }) =>
+      children.some((c: { id: string }) => c.id === r.item_id),
+    ),
+  ).toHaveLength(0);
+  expect(
+    state.identifications.filter((r: { item_id: string }) =>
+      children.some((c: { id: string }) => c.id === r.item_id),
+    ),
+  ).toHaveLength(0);
+  await page.goto(`/archive/${children[0].id}/edit`);
+  await page
+    .getByLabel("Title / caption", { exact: true })
+    .fill("Jina on her own");
+  await page.getByLabel("Date", { exact: true }).fill("1965");
+  await page.getByLabel("Place", { exact: true }).fill("India");
+  await page
+    .getByRole("combobox", { name: "Item type", exact: true })
+    .selectOption("Photograph");
+  await page
+    .getByLabel("Notes / context", { exact: true })
+    .fill("Only this photograph");
+  await page
+    .getByLabel("Add a recollection (optional)", { exact: true })
+    .fill("Jina-specific new words");
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await expect(
+    page.getByRole("status").filter({ hasText: "Changes saved" }),
+  ).toBeVisible();
+  await page
+    .getByRole("region", { name: "People in this item", exact: true })
+    .getByRole("button", { name: "+ Add person", exact: true })
+    .click();
+  await page.getByLabel("Search People in this archive").fill("Ji");
+  await page
+    .getByRole("button", { name: "Jina Allen · Family", exact: true })
+    .click();
+  state = await summary();
+  expect(
+    state.items.find((i: { id: string }) => i.id === children[0].id),
+  ).toMatchObject({
+    title: "Jina on her own",
+    reported_date: "1965",
+    reported_place: "India",
+  });
+  expect(
+    state.items.find((i: { id: string }) => i.id === children[1].id),
+  ).toMatchObject({
+    title: "Photograph, still to be catalogued",
+    reported_date: "",
+    reported_place: "",
+    notes: "",
+    catalogued_at: null,
+  });
+  await page.goto(`/archive/${children[1].id}`);
+  await expect(
+    page.getByText("No recollection yet.", { exact: false }),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByRole("region", { name: "People in this item" })
+      .getByText("No People linked yet.", { exact: true }),
+  ).toBeVisible();
+  await page.goto(`/people/${jina.id}?archive=${archive}`);
+  await expect(
+    page
+      .getByRole("region", { name: "Items featuring this Person" })
+      .locator(".item-card"),
+  ).toHaveCount(1); // Archived parent is excluded.
+  await page.goto(`/explore?archive=${archive}&person=${jina.id}`);
+  await expect(page.locator(".item-card")).toHaveCount(1);
+});

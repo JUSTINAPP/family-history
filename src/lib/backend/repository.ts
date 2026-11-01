@@ -1,4 +1,5 @@
 import "server-only";
+import { linkedPersonIds, type Identification } from "../identifications";
 import { imageSet, type ImageSetRow } from "../preview/types";
 import { cookies } from "next/headers";
 import { authenticatedClient } from "@/lib/supabase/server";
@@ -16,7 +17,18 @@ import {
   catalogueItems,
   type OriginalRow,
 } from "./catalogue";
+interface PersonRow {
+  id: string;
+  archive_id: string;
+  slug: string;
+  display_name: string;
+  category: string;
+  lifespan: string;
+  portrait_file_id: string | null;
+  biography: string;
+}
 export interface LiveSnapshot {
+  peopleLinksAvailable?: boolean;
   catalogueBatchId?: string;
   catalogueLoaded: boolean;
   catalogueAvailable: boolean;
@@ -150,14 +162,22 @@ export async function loadWorkspace(
           );
           return { data: [] as OriginalRow[] };
         }),
-    optional(
-      client
-        .from("people")
-        .select("*")
-        .eq("archive_id", row.id)
-        .order("display_name"),
-      "People could not load.",
-    ),
+    allRows<PersonRow>(
+      (from, to) =>
+        client
+          .from("people")
+          .select("*", { count: "exact" })
+          .eq("archive_id", row.id)
+          .order("display_name")
+          .order("id")
+          .range(from, to)
+          .retry(false)
+          .abortSignal(AbortSignal.timeout(2500)),
+      (p) => p.id,
+    ).catch(() => {
+      warnings.push("People could not load.");
+      return { data: [] };
+    }),
     optional(
       client
         .from("activity_log")
@@ -199,6 +219,28 @@ export async function loadWorkspace(
               .abortSignal(AbortSignal.timeout(2500)),
           (row) => row.id,
         ).catch(() => ({ data: [] as ImageSetRow[] })),
+    options.catalogue === false
+      ? Promise.resolve({ data: [] as Identification[], available: true })
+      : allRows<Identification>(
+          (from, to) =>
+            client
+              .from("identifications")
+              .select("*", { count: "exact" })
+              .eq("archive_id", row.id)
+              .in("status", ["reported", "accepted"])
+              .order("id")
+              .range(from, to)
+              .retry(false)
+              .abortSignal(AbortSignal.timeout(2500)),
+          (i) => i.id,
+        )
+          .then((value) => ({ ...value, available: true }))
+          .catch(() => {
+            warnings.push(
+              "Person associations could not load. Reload before filtering by People.",
+            );
+            return { data: [] as Identification[], available: false };
+          }),
   ]);
   const members: Member[] = (results[0].data || []).map((m) => ({
     archiveId: m.archive_id,
@@ -238,6 +280,9 @@ export async function loadWorkspace(
     batchId,
     results[7].data,
   );
+  catalogue.forEach((item) => {
+    item.people = linkedPersonIds(results[8].data, item.id);
+  });
   const people: Person[] = (results[3].data || []).map((p) => ({
     archiveId: p.archive_id,
     id: p.id,
@@ -258,6 +303,7 @@ export async function loadWorkspace(
     bio: p.biography,
   }));
   return {
+    peopleLinksAvailable: results[8].available,
     catalogueBatchId: batchId,
     catalogueLoaded: options.catalogue !== false,
     catalogueAvailable: available,

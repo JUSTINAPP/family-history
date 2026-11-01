@@ -46,6 +46,7 @@ export async function manageItemAction(form: FormData) {
     else if (action === "split") {
       if (
         form.get("confirmation") !== "SPLIT" ||
+        form.get("contextPolicy") !== "retain_parent" ||
         form.get("acknowledge") !== "yes"
       )
         return {

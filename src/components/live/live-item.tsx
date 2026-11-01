@@ -103,6 +103,24 @@ export async function LiveItem({
             </Link>
           </p>
         )}
+        {can(role, "editor") &&
+          item.kind === "Photograph" &&
+          item.grouping_kind === "single_object" &&
+          files.filter((f) => f.purpose === "original").length > 1 && (
+            <section className="notice">
+              <h2>Give each photograph its own story</h2>
+              <p>
+                These photographs are saved together. Separate them to catalogue
+                each one with its own people, recollections, date and place.
+              </p>
+              <Link
+                className="button"
+                href={`/archive/${item.id}/manage?split=1`}
+              >
+                Split photographs into separate items
+              </Link>
+            </section>
+          )}
         {item.split_from && (
           <p className="notice">
             Separated from a grouped photograph item. Its previous context was
@@ -175,7 +193,12 @@ export async function LiveItem({
             )}
             <dl className="metadata-grid" style={{ marginTop: 30 }}>
               {[
-                ["People", item.people_text],
+                ["Previously reported people (text)", item.people_text],
+                ["Item type", item.kind],
+                [
+                  "Catalogue state",
+                  item.catalogued_at ? "Catalogued" : "Uncatalogued",
+                ],
                 ["When", item.reported_date],
                 ["Where", item.reported_place],
                 ["Date certainty", item.date_precision],
@@ -203,19 +226,18 @@ export async function LiveItem({
               Original files are preserved unchanged. Display previews are
               separate copies.
             </div>
-            {identifications.length > 0 && (
-              <div>
-                <h3>Identification suggestions</h3>
-                {identifications.map((i) => (
-                  <p key={i.id}>
-                    {i.proposed_name} · {i.status}
-                  </p>
-                ))}
-              </div>
-            )}
             <IdentificationForm
               archiveId={snapshot.archive.id}
               itemId={item.id}
+              people={snapshot.people}
+              identifications={identifications}
+              role={role}
+              profileId={snapshot.profileId}
+              canCreate={editable}
+              unavailable={
+                result.resourceWarnings.length > 0 ||
+                snapshot.resourceWarnings.includes("People could not load.")
+              }
             />
             <AddRecollection archiveId={snapshot.archive.id} itemId={item.id} />
             {audioUnavailable && (

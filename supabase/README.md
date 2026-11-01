@@ -1,5 +1,7 @@
 # Supabase foundation
 
+**Current release — migration 010:** Reuses item/Person `identifications`, retaining original reports and adding explicit link/review provenance. Requires the established baseline including 009. No historical name matching or automatic split occurs. See [release order and smoke test](../docs/person-identifications.md); do not rerun older migrations.
+
 **Current release — migration 009:** [Item management and responsive image sets](../docs/individual-photo-management.md) supersedes the earlier release instructions below. The actual migrations through 009 passed 189 disposable PostgreSQL checks. Confirm the installed 001–008 baseline before manually applying only missing migrations; do not rerun installed SQL. Installation does not split historical items or delete Storage objects. The new code requires 009. No remote SQL was applied by the agent.
 
 **HEIC preview repair:** New additive migration **008** records per-original attempts and processing failures. It depends on the existing 001–005 preview foundation and is independent of optional 006/007. Do not rerun earlier migrations. See [manual deployment and no-reupload smoke test](../docs/hosted-heic-previews.md).

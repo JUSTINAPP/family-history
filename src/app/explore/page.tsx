@@ -16,6 +16,7 @@ export default async function ExplorePage({
     q?: string;
     type?: string;
     place?: string;
+    person?: string;
     unidentified?: string;
   }>;
 }) {

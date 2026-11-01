@@ -1,5 +1,7 @@
 # The Allen & Cork Archive
 
+**Current release — Person relationships (010):** Search/select existing People, create and link a minimal Person inline, reconcile legacy identification text explicitly, and filter Person pages/Explore by real relationships. The legacy-photo split confirmation now asks how to retain shared context. See [release and manual production smoke test](docs/person-identifications.md). Only migration 010 is new; 001–009 are unchanged.
+
 **Current release — individual photographs and image optimisation:** Migration **009** adds Editor item archive/restore, explicit legacy-photo splitting, resumable confirmed deletion and private responsive image sets. Earlier migration-only instructions below describe previous releases. Verify the installed migration history before applying only missing migrations. See [release order and exact production smoke test](docs/individual-photo-management.md), [validation](docs/validation.md) and [exact commit manifest](docs/item-management-commit-manifest.md). No remote migration, push or deployment was performed.
 
 **HEIC production-build repair:** The server worker now receives a typed source envelope that survives Turbopack bundling. Additive migration 008 records per-original preview attempts/failures; originals and private Storage remain unchanged. See [diagnosis, verification limits and manual deployment smoke test](docs/hosted-heic-previews.md).

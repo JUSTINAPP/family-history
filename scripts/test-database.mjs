@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import assert from "node:assert/strict";
 import { managementChecks } from "./test-item-management.mjs";
+import { personChecks } from "./test-person-identifications.mjs";
 const directory = await mkdtemp(join(tmpdir(), "archive-postgres-"));
 let db = new PGlite(directory);
 let checks = 0;
@@ -1079,6 +1080,17 @@ try {
     "decode_failed",
   ]);
   await q(recordPreview, [legacyFiles[0].id, replacement, "complete", null]);
+  const personCount = await personChecks({
+    q,
+    asUser,
+    asOwner,
+    denied,
+    users,
+    archive: a,
+    otherArchive: b,
+    manifestFile: groupFile,
+  });
+  checks += personCount;
   const managementCount = await managementChecks({
     q,
     asUser,

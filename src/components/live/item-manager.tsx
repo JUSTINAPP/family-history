@@ -5,14 +5,21 @@ import { useRouter } from "next/navigation";
 import type { ManagementSnapshot } from "@/lib/backend/item-management";
 import { manageItemAction } from "@/lib/backend/management-actions";
 import { ImageDiagnostics } from "./image-diagnostics";
-export function ItemManager({ snapshot }: { snapshot: ManagementSnapshot }) {
+export function ItemManager({
+  snapshot,
+  initialSplit = false,
+}: {
+  snapshot: ManagementSnapshot;
+  initialSplit?: boolean;
+}) {
   const { item, counts, files } = snapshot;
   const router = useRouter();
-  const [mode, setMode] = useState(""),
+  const [mode, setMode] = useState(initialSplit ? "split" : ""),
     [phrase, setPhrase] = useState(""),
     [ack, setAck] = useState(false),
     [busy, setBusy] = useState(false),
     [message, setMessage] = useState("");
+  const [contextPolicy, setContextPolicy] = useState("retain_parent");
   const originals = files.filter(
     (f) => f.purpose === "original" || f.purpose === "audio_original",
   );
@@ -26,6 +33,7 @@ export function ItemManager({ snapshot }: { snapshot: ManagementSnapshot }) {
       form.set("version", snapshot.version);
       form.set("confirmation", phrase);
       form.set("acknowledge", ack ? "yes" : "no");
+      form.set("contextPolicy", contextPolicy);
       const result = await manageItemAction(form);
       if (result.error) setMessage(result.error);
       else if (result.deleted)
@@ -172,6 +180,32 @@ export function ItemManager({ snapshot }: { snapshot: ManagementSnapshot }) {
       {mode === "split" && (
         <section className="notice">
           <h2>Review photograph split</h2>
+          <fieldset>
+            <legend>
+              What should happen to existing shared details and recollections?
+            </legend>
+            <label>
+              <input
+                type="radio"
+                name="contextPolicy"
+                value="retain_parent"
+                checked={contextPolicy === "retain_parent"}
+                onChange={() => setContextPolicy("retain_parent")}
+              />{" "}
+              Keep the shared context on the archived parent. I will add or copy
+              relevant context to each photograph deliberately.
+            </label>
+            <label>
+              <input
+                type="radio"
+                name="contextPolicy"
+                value="defer"
+                checked={contextPolicy === "defer"}
+                onChange={() => setContextPolicy("defer")}
+              />{" "}
+              Keep the photographs together for now.
+            </label>
+          </fieldset>
           <p>
             This creates {originals.length} uncatalogued photograph items. Each
             keeps its original and all derived files, without copying binaries.
@@ -202,7 +236,12 @@ export function ItemManager({ snapshot }: { snapshot: ManagementSnapshot }) {
           </label>
           <button
             className="button"
-            disabled={busy || phrase !== "SPLIT" || !ack}
+            disabled={
+              busy ||
+              phrase !== "SPLIT" ||
+              !ack ||
+              contextPolicy !== "retain_parent"
+            }
             onClick={() => void perform("split")}
           >
             Confirm split photographs

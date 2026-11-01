@@ -4863,3 +4863,9 @@ main {
 .management-panel label > input:not([type="checkbox"]) { display: block; border: 1px solid var(--line); padding: 10px; background: transparent; }
 .management-danger { border-top: 1px solid var(--line); margin-top: 40px; padding-top: 25px; }
 @media (prefers-reduced-motion: reduce) { .archive-image img { transition: none !important; } }
+
+.item-people { margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--line); }
+.people-associations { list-style: none; padding: 0; }
+.people-associations > li { border: 1px solid var(--line); border-radius: 8px; padding: 16px; margin: 12px 0; overflow-wrap: anywhere; }
+.item-people .subtle-button { margin: 6px 14px 6px 0; }
+.item-people ul[aria-label="Matching People"] { list-style: none; padding: 0; max-height: 280px; overflow-y: auto; }

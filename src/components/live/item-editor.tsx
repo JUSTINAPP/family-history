@@ -98,12 +98,12 @@ export function ItemEditor({
           </select>
         </label>
         <label className="field">
-          <span>People</span>
+          <span>Reported people notes (text)</span>
           <input
             name="people"
             defaultValue={item.people_text}
             maxLength={1000}
-            placeholder="Names or people you recognise"
+            placeholder="Preserved name notes; use People below to link Person records"
           />
         </label>
         <label className="field">
@@ -161,7 +161,11 @@ export function ItemEditor({
           {message}
         </p>
       )}
-      {batchId && !nextId && <p className="help-line">This is the last uncatalogued photograph you can edit in this import.</p>}
+      {batchId && !nextId && (
+        <p className="help-line">
+          This is the last uncatalogued photograph you can edit in this import.
+        </p>
+      )}
       <div className="import-actions">
         <button className="button" disabled={busy} type="submit">
           {busy ? "Saving…" : "Save changes"}
@@ -176,7 +180,14 @@ export function ItemEditor({
             Save & next uncatalogued ↗
           </button>
         )}
-        {batchId && <Link className="text-link" href={`/explore?archive=${item.archive_id}&batch=${batchId}`}>View this import ↗</Link>}
+        {batchId && (
+          <Link
+            className="text-link"
+            href={`/explore?archive=${item.archive_id}&batch=${batchId}`}
+          >
+            View this import ↗
+          </Link>
+        )}
         <Link className="text-link" href={`/archive/${item.id}`}>
           Back to item
         </Link>

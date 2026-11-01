@@ -29,7 +29,7 @@ export function Explore() {
   const params = useSearchParams();
   const [q, setQ] = useState(params.get("q") || "");
   const [type, setType] = useState(params.get("type") || "All");
-  const [person, setPerson] = useState("");
+  const [person, setPerson] = useState(params.get("person") || "");
   const [date, setDate] = useState("");
   const [place, setPlace] = useState(params.get("place") || "");
   const [collection, setCollection] = useState("");
@@ -41,7 +41,10 @@ export function Explore() {
   }, [params]);
   const filtered = items.filter((item) => {
     const names = item.people
-      .map((slug) => people.find((p) => p.slug === slug)?.name || "")
+      .map(
+        (slug) =>
+          people.find((p) => p.slug === slug || p.id === slug)?.name || "",
+      )
       .join(" ");
     return (
       (!params.get("batch") || item.importBatchId === params.get("batch")) &&
@@ -50,15 +53,7 @@ export function Explore() {
         `${item.title} ${item.reportedPeople || ""} ${item.notes} ${item.place} ${item.date} ${item.collection} ${item.tags.join(" ")} ${names} ${item.kind === "Letter" ? transcriptionPages.join(" ") : ""}`
           .toLowerCase()
           .includes(q.toLowerCase())) &&
-      (!person ||
-        item.people.includes(person) ||
-        (!!item.reportedPeople &&
-          item.reportedPeople
-            .toLowerCase()
-            .includes(
-              people.find((p) => p.slug === person)?.name.toLowerCase() ||
-                "__unmatched__",
-            ))) &&
+      (!person || item.people.includes(person)) &&
       (!date || Math.floor((item.year || 0) / 10) * 10 === Number(date)) &&
       (!place || item.place === place) &&
       (!collection || item.collection === collection) &&
@@ -82,6 +77,23 @@ export function Explore() {
     setFamily("");
   }
   const group = params.get("group");
+  if (
+    workspace.mode === "live" &&
+    person &&
+    workspace.resourceWarnings?.some((w) => w.startsWith("Person associations"))
+  )
+    return (
+      <div className="page-shell">
+        <PageIntro
+          eyebrow="PEOPLE"
+          title="Person associations could not load."
+          description="Reload to see a complete list of linked items."
+        />
+        <Link href={`/explore?archive=${workspace.archive.id}`}>
+          View all items
+        </Link>
+      </div>
+    );
   if (workspace.mode === "live" && workspace.catalogueAvailable === false)
     return (
       <div className="page-shell">
@@ -206,7 +218,10 @@ export function Explore() {
             <select value={person} onChange={(e) => setPerson(e.target.value)}>
               <option value="">People</option>
               {people.map((p) => (
-                <option value={p.slug} key={p.id}>
+                <option
+                  value={workspace.mode === "live" ? p.id : p.slug}
+                  key={p.id}
+                >
                   {p.name}
                 </option>
               ))}

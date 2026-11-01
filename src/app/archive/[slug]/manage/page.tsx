@@ -9,8 +9,10 @@ export const maxDuration = 60;
 export const metadata = { title: "Manage archive item" };
 export default async function ManagePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ split?: string }>;
 }) {
   if (isDemoMode()) notFound();
   const snapshot = await managementSnapshot((await params).slug).catch(
@@ -26,7 +28,10 @@ export default async function ManagePage({
         title={snapshot.item.title}
         description="Preserve, separate or deliberately remove material from this private archive."
       />
-      <ItemManager snapshot={snapshot} />
+      <ItemManager
+        snapshot={snapshot}
+        initialSplit={(await searchParams).split === "1"}
+      />
     </div>
   );
 }

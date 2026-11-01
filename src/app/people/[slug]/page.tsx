@@ -19,12 +19,16 @@ export async function generateMetadata({
 }
 export default async function PersonPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ archive?: string }>;
 }) {
   const { slug } = await params;
   if (!isDemoMode()) {
-    const data = await loadWorkspace();
+    const data = await loadWorkspace({
+      archiveId: (await searchParams).archive,
+    });
     const p = data?.people.find(
       (person) => person.slug === slug || person.id === slug,
     );
@@ -44,6 +48,35 @@ export default async function PersonPage({
           Reported record · not automatically verified. Membership and
           historical identity are separate.
         </p>
+        <section aria-label="Items featuring this Person">
+          <h2>Photographs and archive items featuring {p.name}</h2>
+          {data?.peopleLinksAvailable === false ||
+          data?.catalogueAvailable === false ? (
+            <p>Linked items could not load completely. Reload to retry.</p>
+          ) : (
+            <>
+              <p>
+                Reported and Editor-confirmed associations. Unlinked name
+                reports do not appear here.
+              </p>
+              <div className="recent-grid">
+                {data?.catalogue
+                  .filter((item) => item.people.includes(p.id))
+                  .map((item, index) => (
+                    <ItemCard key={item.id} item={item} index={index} />
+                  ))}
+              </div>
+              {!data?.catalogue.some((item) => item.people.includes(p.id)) && (
+                <p>No archive items linked yet.</p>
+              )}
+              <Link
+                href={`/explore?archive=${data?.archive.id}&person=${p.id}`}
+              >
+                Explore items featuring {p.name} ↗
+              </Link>
+            </>
+          )}
+        </section>
       </div>
     );
   }

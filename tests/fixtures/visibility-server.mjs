@@ -110,6 +110,26 @@ export async function fixtureServer(
     ).values(),
   ];
   const deletions = [];
+  const people = management
+    ? [
+        "Jina Allen",
+        "Jan Allen",
+        "Jonas Allen",
+        "Johnny Allen",
+        "Craig Cork",
+      ].map((name, index) => ({
+        id: `64000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
+        archive_id: ARCHIVE,
+        display_name: name,
+        slug: `64000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
+        category: "family",
+        biography: "",
+        lifespan: "",
+      }))
+    : [];
+  const identifications = [],
+    recollections = [],
+    provenance = [];
   const requests = [];
   const objects = new Map(
     files.map((f) => [`${f.bucket_id}/${f.storage_path}`, original]),
@@ -134,6 +154,54 @@ export async function fixtureServer(
       failPreview = address.searchParams.get("preview") === "1";
       failDelete = address.searchParams.get("delete") === "1";
       return send(200, { ok: true });
+    }
+    if (address.pathname === "/__fixture/person-item" && management) {
+      const id = crypto.randomUUID();
+      rows.push({
+        ...rows.find((r) => !r.archived_at),
+        id,
+        title: "Two family photographs",
+        grouping_kind: "single_object",
+        split_from: null,
+        archived_at: null,
+        lifecycle: "active",
+        notes: "Jina-specific shared context",
+        people_text: "Jina Allen",
+      });
+      for (let n = 0; n < 2; n++) {
+        const fid = crypto.randomUUID(),
+          path = `${ARCHIVE}/${id}/${fid}`;
+        files.push({
+          ...files.find((f) => f.purpose === "original"),
+          id: fid,
+          item_id: id,
+          storage_path: path,
+          original_filename: `IMG_639${n}.HEIC`,
+          page_order: n,
+        });
+        objects.set(`archive-originals/${path}`, original);
+      }
+      const report = {
+        id: crypto.randomUUID(),
+        archive_id: ARCHIVE,
+        item_id: id,
+        person_id: null,
+        proposed_by: USER,
+        proposed_name: "Jina Allen",
+        status: "reported",
+        source: "legacy_report",
+        created_at: "2026-01-01T00:00:00Z",
+      };
+      identifications.push(report);
+      recollections.push({
+        id: crypto.randomUUID(),
+        archive_id: ARCHIVE,
+        item_id: id,
+        original_text: "Jina-specific original words",
+        contributor_id: USER,
+        recorded_at: "2026-01-01T00:00:00Z",
+      });
+      return send(200, { id, report, people });
     }
     if (address.pathname === "/__fixture/many" && previewFile && management) {
       const template = imageSets.find((s) => s.status === "stored"),
@@ -196,6 +264,10 @@ export async function fixtureServer(
         imageSets,
         deletions,
         items: rows,
+        people,
+        identifications,
+        recollections,
+        provenance,
         files,
         displays: files.filter((f) => f.purpose === "display"),
         originalHashes: files
@@ -293,6 +365,108 @@ export async function fixtureServer(
       for await (const chunk of req) chunks.push(chunk);
       const body = JSON.parse(Buffer.concat(chunks).toString() || "{}");
       const rpc = address.pathname.split("/").pop();
+
+      if (rpc === "propose_identification") {
+        const person = people.find(
+          (p) =>
+            p.id === body.p_person_id && p.archive_id === body.p_archive_id,
+        );
+        if (body.p_person_id && !person)
+          return send(403, { message: "person_archive_mismatch" });
+        const existing = identifications.find(
+          (i) =>
+            i.item_id === body.p_item_id &&
+            i.person_id === person?.id &&
+            i.status !== "rejected",
+        );
+        if (existing) return send(200, existing.id);
+        const id = crypto.randomUUID();
+        identifications.push({
+          id,
+          archive_id: body.p_archive_id,
+          item_id: body.p_item_id,
+          person_id: person?.id || null,
+          proposed_by: USER,
+          proposed_name: person?.display_name || body.p_name,
+          status: "reported",
+          source: "human_report",
+          created_at: new Date().toISOString(),
+        });
+        return send(200, id);
+      }
+      if (rpc === "link_identification") {
+        const i = identifications.find(
+          (i) => i.id === body.p_identification_id,
+        );
+        i.person_id = body.p_person_id;
+        i.linked_by = USER;
+        i.linked_at = new Date().toISOString();
+        provenance.push({
+          field_path: "identification_linked",
+          value: {
+            original_proposed_by: i.proposed_by,
+            original_reported_name: i.proposed_name,
+            original_created_at: i.created_at,
+          },
+        });
+        return send(200, null);
+      }
+      if (rpc === "review_identification") {
+        const i = identifications.find(
+          (i) => i.id === body.p_identification_id,
+        );
+        i.status = body.p_action === "confirm" ? "accepted" : "rejected";
+        i.reviewed_by = USER;
+        return send(200, null);
+      }
+      if (rpc === "create_identified_person") {
+        const id = crypto.randomUUID();
+        people.push({
+          id,
+          slug: id,
+          archive_id: body.p_archive_id,
+          display_name: body.p_name,
+          category: body.p_category,
+          biography: "",
+          lifespan: "",
+        });
+        identifications.push({
+          id: crypto.randomUUID(),
+          archive_id: body.p_archive_id,
+          item_id: body.p_item_id,
+          person_id: id,
+          proposed_name: body.p_name,
+          proposed_by: USER,
+          status: "reported",
+          source: "human_report",
+          created_at: new Date().toISOString(),
+        });
+        return send(200, id);
+      }
+      if (rpc === "save_catalogue_context") {
+        const item = rows.find((r) => r.id === body.p_item_id),
+          d = body.p_details;
+        Object.assign(item, {
+          title: d.title,
+          kind: d.kind,
+          notes: d.notes,
+          people_text: d.people,
+          reported_date: d.date,
+          date_precision: d.precision,
+          reported_place: d.place,
+          catalogued_at: new Date().toISOString(),
+        });
+        if (body.p_recollection)
+          recollections.push({
+            id: crypto.randomUUID(),
+            archive_id: body.p_archive_id,
+            item_id: item.id,
+            original_text: body.p_recollection,
+            recorded_at: new Date().toISOString(),
+          });
+        return send(200, null);
+      }
+      if (rpc === "next_uncatalogued_photograph") return send(200, null);
 
       if (rpc === "reserve_image_set") {
         const original = files.find((f) => f.id === body.p_source_id),
@@ -458,6 +632,11 @@ export async function fixtureServer(
             split_from: item.id,
             grouping_kind: "separate_photograph",
             archived_at: null,
+            notes: "",
+            people_text: "",
+            reported_date: "",
+            reported_place: "",
+            catalogued_at: null,
           });
           children.push(child);
           for (const f of files.filter(
@@ -544,43 +723,49 @@ export async function fixtureServer(
     )
       return send(503, { code: "fixture_optional_unavailable" });
     let data =
-      table === "import_batches"
-        ? [
-            {
-              id: BATCH,
-              archive_id: ARCHIVE,
-              context: "Fixture batch",
-              expected_count: 1,
-              created_by: USER,
-              created_at: "2026-01-01T00:00:00Z",
-            },
-          ]
-        : table === "archives"
-          ? archives
-          : table === "archive_items"
-            ? rows
-            : table === "archive_item_files"
-              ? files
-              : table === "image_sets"
-                ? imageSets
-                : table === "current_image_sets"
-                  ? currentSets()
-                  : table === "item_deletions"
-                    ? deletions
-                    : table === "archive_memberships"
-                      ? archives.map((a) => ({
-                          id: USER,
-                          archive_id: a.id,
-                          profile_id: USER,
-                          role: management ? "editor" : "contributor",
-                          status: "active",
-                          joined_at: a.created_at,
-                          profiles: {
-                            display_name: "Test contributor",
-                            email: user.email,
-                          },
-                        }))
-                      : [];
+      table === "people"
+        ? people
+        : table === "identifications"
+          ? identifications
+          : table === "recollections"
+            ? recollections
+            : table === "import_batches"
+              ? [
+                  {
+                    id: BATCH,
+                    archive_id: ARCHIVE,
+                    context: "Fixture batch",
+                    expected_count: 1,
+                    created_by: USER,
+                    created_at: "2026-01-01T00:00:00Z",
+                  },
+                ]
+              : table === "archives"
+                ? archives
+                : table === "archive_items"
+                  ? rows
+                  : table === "archive_item_files"
+                    ? files
+                    : table === "image_sets"
+                      ? imageSets
+                      : table === "current_image_sets"
+                        ? currentSets()
+                        : table === "item_deletions"
+                          ? deletions
+                          : table === "archive_memberships"
+                            ? archives.map((a) => ({
+                                id: USER,
+                                archive_id: a.id,
+                                profile_id: USER,
+                                role: management ? "editor" : "contributor",
+                                status: "active",
+                                joined_at: a.created_at,
+                                profiles: {
+                                  display_name: "Test contributor",
+                                  email: user.email,
+                                },
+                              }))
+                            : [];
     for (const [key, value] of address.searchParams) {
       if (value.startsWith("eq.") && !key.includes("."))
         data = data.filter((row) => String(row[key]) === value.slice(3));

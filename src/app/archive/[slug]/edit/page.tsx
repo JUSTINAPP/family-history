@@ -5,6 +5,7 @@ import { isDemoMode } from "@/lib/supabase/config";
 import { can } from "@/lib/permissions";
 import { PageIntro, ArchiveImage } from "@/components/ui";
 import { ItemEditor } from "@/components/live/item-editor";
+import { IdentificationForm } from "@/components/live/identification-form";
 export const metadata = { title: "Edit archive item" };
 export default async function EditPage({
   params,
@@ -101,6 +102,19 @@ export default async function EditPage({
             item={item}
             nextId={nextId}
             batchId={batchId}
+          />
+          <IdentificationForm
+            archiveId={item.archive_id}
+            itemId={item.id}
+            people={snapshot.people}
+            identifications={result.identifications}
+            role={role}
+            profileId={snapshot.profileId}
+            canCreate
+            unavailable={
+              result.resourceWarnings.length > 0 ||
+              snapshot.resourceWarnings.includes("People could not load.")
+            }
           />
         </section>
       </div>
