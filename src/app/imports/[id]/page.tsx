@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireSession, loadWorkspace } from "@/lib/backend/repository";
 import { readImportBatch } from "@/lib/import-batches";
-import { PageIntro } from "@/components/ui";
+import { PageIntro, ItemCard } from "@/components/ui";
 import { isDemoMode } from "@/lib/supabase/config";
 export default async function ImportPage({
   params,
@@ -15,7 +15,7 @@ export default async function ImportPage({
   if (!batch) notFound();
   const snapshot = await loadWorkspace({
     archiveId: batch.archiveId,
-    catalogue: false,
+    batchId: batch.id,
   });
   if (!snapshot) notFound();
   const saved = batch.sources.filter((s) => s.status === "saved");
@@ -60,6 +60,32 @@ export default async function ImportPage({
             </Link>
           )}
       </div>
+      <section aria-label="Imported photographs inbox">
+        <h2>Catalogue each photograph</h2>
+        <p>
+          Each photograph has its own title, context, people, date, place and
+          catalogue state.
+        </p>
+        <div className="catalogue-grid">
+          {snapshot.catalogue.map((item, index) => (
+            <div key={item.id}>
+              <ItemCard
+                item={item}
+                index={index}
+                imageSizes="(max-width: 600px) 90vw, (max-width: 1800px) 44vw, 800px"
+              />
+              <p>
+                <Link
+                  className="text-link"
+                  href={`/archive/${item.id}/edit?batch=${batch.id}`}
+                >
+                  Catalogue this photograph ↗
+                </Link>
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
       <ul className="import-list">
         {batch.sources.map((s) => (
           <li key={s.captureId}>

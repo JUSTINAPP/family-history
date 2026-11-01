@@ -11,6 +11,7 @@ export default async function ExplorePage({
 }: {
   searchParams: Promise<{
     batch?: string;
+    state?: string;
     archive?: string;
     q?: string;
     type?: string;
@@ -21,7 +22,11 @@ export default async function ExplorePage({
   const params = await searchParams;
   const snapshot = isDemoMode()
     ? null
-    : await loadWorkspace({ archiveId: params.archive, batchId: params.batch });
+    : await loadWorkspace({
+        archiveId: params.archive,
+        batchId: params.batch,
+        archived: params.state === "archived",
+      });
   if (!isDemoMode() && !snapshot) notFound();
   const filterKey = JSON.stringify(params);
   return (

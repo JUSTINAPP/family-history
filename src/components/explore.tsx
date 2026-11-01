@@ -7,6 +7,7 @@ import { transcriptionPages } from "@/lib/data";
 import { useWorkspace } from "./workspace-provider";
 import { useCatalogue } from "./catalogue";
 import { PageIntro, ItemCard } from "./ui";
+import { can } from "@/lib/permissions";
 const kinds = [
   "All",
   "Photographs",
@@ -97,6 +98,27 @@ export function Explore() {
 
   return (
     <div className="page-shell">
+      {workspace.mode === "live" && can(workspace.role, "editor") && (
+        <p className="help-line">
+          <a
+            href={`/explore?archive=${workspace.archive.id}${params.get("state") === "archived" ? "" : "&state=archived"}`}
+          >
+            {params.get("state") === "archived"
+              ? "View active items"
+              : "Archived items"}{" "}
+            ↗
+          </a>{" "}
+          ·{" "}
+          <Link href={`/admin/deletions?archive=${workspace.archive.id}`}>
+            Deletion progress ↗
+          </Link>
+        </p>
+      )}
+      {params.get("state") === "archived" && (
+        <p className="notice">
+          Archived items · Editors can open, review and restore them.
+        </p>
+      )}
       {params.get("batch") && (
         <p className="notice">
           Showing photographs from this import.{" "}

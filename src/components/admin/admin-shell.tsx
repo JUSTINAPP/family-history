@@ -16,7 +16,9 @@ const links = [
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const path = usePathname();
   const { role, setRole, archive, mode } = useWorkspace();
-  const minimum = path === "/admin/processing" ? "editor" : "admin";
+  const minimum = ["/admin/processing", "/admin/deletions"].includes(path)
+    ? "editor"
+    : "admin";
   const allowed = can(role, minimum);
   return (
     <div className="admin-shell">
@@ -59,7 +61,17 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       </div>
       <div className="admin-layout">
         <nav className="admin-nav" aria-label="Archive administration">
-          {links.map(([label, href]) => (
+          {[
+            ...links,
+            ...(mode === "live" && can(role, "editor")
+              ? [
+                  [
+                    "Deletion progress",
+                    `/admin/deletions?archive=${archive.id}`,
+                  ],
+                ]
+              : []),
+          ].map(([label, href]) => (
             <Link
               href={href}
               key={href}

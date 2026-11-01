@@ -1,7 +1,12 @@
+import type { ImageSet } from "./types";
 // Serialise decoder requests in this tab and deduplicate cards for the same source.
 let queue: Promise<unknown> = Promise.resolve();
-const pending = new Map<string, Promise<void>>();
-export function prepareDisplay(url: string, retry = false): Promise<void> {
+const pending = new Map<string, Promise<ImageSet | undefined>>();
+export function prepareDisplay(
+  url: string,
+  retry = false,
+): Promise<ImageSet | undefined> {
+  url = url.split("?")[0];
   if (retry) pending.delete(url);
   const existing = pending.get(url);
   if (existing) return existing;
@@ -16,10 +21,11 @@ export function prepareDisplay(url: string, retry = false): Promise<void> {
           "Preview interrupted. Original preserved; retry when connected.",
         );
       }
+      const result = await response.json().catch(() => ({}));
       if (!response.ok) {
-        const result = await response.json().catch(() => ({}));
         throw new Error(result.error || "Preview pending. Original preserved.");
       }
+      return result.imageSet as ImageSet | undefined;
     });
   queue = task;
   pending.set(url, task);

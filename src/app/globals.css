@@ -4853,3 +4853,13 @@ main {
 .audio-recording { border-top: 1px solid var(--line, #d8d3c9); padding: 24px 0; overflow-wrap: anywhere; }
 .audio-metadata { margin: 24px 0; }
 .audio-metadata summary { cursor: pointer; padding: 12px 0; }
+
+/* Private image placeholders and existing archive management controls. */
+.archive-image.has-placeholder::before { content: ""; position: absolute; inset: 0; background-image: inherit; background-size: contain; background-repeat: no-repeat; background-position: center; filter: blur(10px); pointer-events: none; }
+.archive-image.has-placeholder .image-unavailable { position: relative; z-index: 1; background: rgba(246,243,234,.88); }
+.management-panel { max-width: 900px; }
+.management-panel .subtle-button { margin: 8px 18px 8px 0; }
+.management-panel label { display: block; margin: 14px 0; font-size: 13px; line-height: 1.8; }
+.management-panel label > input:not([type="checkbox"]) { display: block; border: 1px solid var(--line); padding: 10px; background: transparent; }
+.management-danger { border-top: 1px solid var(--line); margin-top: 40px; padding-top: 25px; }
+@media (prefers-reduced-motion: reduce) { .archive-image img { transition: none !important; } }

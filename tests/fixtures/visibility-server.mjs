@@ -8,7 +8,10 @@ export const USER = "60000000-0000-4000-8000-000000000003";
 export const ITEM = "60000000-0000-4000-8000-000000000004";
 export const BATCH = "60000000-0000-4000-8000-000000000005";
 export const COUNT = 1007;
-export async function fixtureServer(port = 4301, { previewFile } = {}) {
+export async function fixtureServer(
+  port = 4301,
+  { previewFile, management = false } = {},
+) {
   const original = await readFile(previewFile || "public/images/beach.jpg"),
     hash = createHash("sha256").update(original).digest("hex");
   const now = Math.floor(Date.now() / 1000),
@@ -97,11 +100,22 @@ export async function fixtureServer(port = 4301, { previewFile } = {}) {
       created_at: row.created_at,
     })),
   );
+  const imageSets = [];
+  const currentSets = () => [
+    ...new Map(
+      [...imageSets]
+        .filter((s) => s.status === "stored")
+        .sort((a, b) => a.created_at.localeCompare(b.created_at))
+        .map((s) => [s.original_file_id, s]),
+    ).values(),
+  ];
+  const deletions = [];
   const requests = [];
   const objects = new Map(
     files.map((f) => [`${f.bucket_id}/${f.storage_path}`, original]),
   );
   let failPreview = false;
+  let failDelete = false;
   const attempts = new Map();
   let failList = false;
   const server = createServer(async (req, res) => {
@@ -118,6 +132,60 @@ export async function fixtureServer(port = 4301, { previewFile } = {}) {
     if (address.pathname === "/__fixture/failure") {
       failList = address.searchParams.get("list") === "1";
       failPreview = address.searchParams.get("preview") === "1";
+      failDelete = address.searchParams.get("delete") === "1";
+      return send(200, { ok: true });
+    }
+    if (address.pathname === "/__fixture/many" && previewFile && management) {
+      const template = imageSets.find((s) => s.status === "stored"),
+        source = files.find((f) => f.id === template.original_file_id),
+        item = rows.find((r) => r.id === source.item_id);
+      for (let n = 0; n < 96; n++) {
+        const itemId = crypto.randomUUID(),
+          originalId = crypto.randomUUID(),
+          setId = crypto.randomUUID();
+        rows.push({
+          ...item,
+          id: itemId,
+          title: `Lazy-load photograph ${n}`,
+          split_from: null,
+          archived_at: null,
+        });
+        const copy = {
+          ...source,
+          id: originalId,
+          item_id: itemId,
+          storage_path: `${ARCHIVE}/${itemId}/${originalId}`,
+        };
+        files.push(copy);
+        objects.set(`${copy.bucket_id}/${copy.storage_path}`, original);
+        const set = {
+          ...template,
+          id: setId,
+          item_id: itemId,
+          original_file_id: originalId,
+        };
+        for (const key of [
+          "display_file_id",
+          "thumbnail_file_id",
+          "small_file_id",
+        ]) {
+          const old = files.find((f) => f.id === template[key]);
+          const f = {
+            ...old,
+            id: crypto.randomUUID(),
+            item_id: itemId,
+            parent_original_id: originalId,
+          };
+          f.storage_path = `${ARCHIVE}/${itemId}/${f.id}`;
+          files.push(f);
+          objects.set(
+            `${f.bucket_id}/${f.storage_path}`,
+            objects.get(`${old.bucket_id}/${old.storage_path}`),
+          );
+          set[key] = f.id;
+        }
+        imageSets.push(set);
+      }
       return send(200, { ok: true });
     }
     if (address.pathname === "/__fixture/summary")
@@ -125,6 +193,10 @@ export async function fixtureServer(port = 4301, { previewFile } = {}) {
         count: rows.length,
         originalHash: hash,
         attempts: [...attempts.values()],
+        imageSets,
+        deletions,
+        items: rows,
+        files,
         displays: files.filter((f) => f.purpose === "display"),
         originalHashes: files
           .filter((f) => f.purpose === "original")
@@ -154,6 +226,32 @@ export async function fixtureServer(port = 4301, { previewFile } = {}) {
       return send(401, { message: "Not signed in" });
     if (address.pathname.startsWith("/storage/v1/object/")) {
       if (previewFile) {
+        if (req.method === "DELETE") {
+          if (!management) return send(403, { message: "Editor required" });
+          if (failDelete)
+            return send(503, { message: "Synthetic delete interruption" });
+          const chunks = [];
+          for await (const chunk of req) chunks.push(chunk);
+          const body = JSON.parse(Buffer.concat(chunks).toString());
+          const bucket = address.pathname.split("/").pop();
+          for (const path of body.prefixes) {
+            if (
+              !deletions.some(
+                (d) =>
+                  d.status === "pending" &&
+                  d.manifest.some(
+                    (f) => f.bucket === bucket && f.path === path,
+                  ),
+              )
+            )
+              return send(403, { message: "No confirmed deletion" });
+            objects.delete(`${bucket}/${path}`);
+          }
+          return send(
+            200,
+            body.prefixes.map((name) => ({ name, bucket_id: bucket })),
+          );
+        }
         const key = decodeURIComponent(
           address.pathname.replace(
             /^\/storage\/v1\/object\/(?:authenticated\/)?/,
@@ -195,6 +293,186 @@ export async function fixtureServer(port = 4301, { previewFile } = {}) {
       for await (const chunk of req) chunks.push(chunk);
       const body = JSON.parse(Buffer.concat(chunks).toString() || "{}");
       const rpc = address.pathname.split("/").pop();
+
+      if (rpc === "reserve_image_set") {
+        const original = files.find((f) => f.id === body.p_source_id),
+          id = crypto.randomUUID();
+        const ids = {
+          display: crypto.randomUUID(),
+          thumbnail: crypto.randomUUID(),
+          small: crypto.randomUUID(),
+        };
+        for (const key of Object.keys(ids)) {
+          const v = body.p_manifest[key];
+          files.push({
+            ...original,
+            id: ids[key],
+            parent_original_id: original.id,
+            purpose: key === "display" ? "display" : "thumbnail",
+            page_role: key,
+            original_filename: key,
+            mime_type: v.mime,
+            byte_size: v.size,
+            sha256: v.sha256,
+            width: v.width,
+            height: v.height,
+            status: "reserved",
+            bucket_id: "archive-derived",
+            storage_path: `${ARCHIVE}/${original.item_id}/${ids[key]}`,
+          });
+        }
+        imageSets.push({
+          id,
+          archive_id: original.archive_id,
+          item_id: original.item_id,
+          original_file_id: original.id,
+          status: "reserved",
+          generator: "responsive-v1",
+          manifest: body.p_manifest,
+          placeholder: body.p_placeholder,
+          display_file_id: ids.display,
+          thumbnail_file_id: ids.thumbnail,
+          small_file_id: ids.small,
+          created_at: new Date().toISOString(),
+        });
+        return send(200, id);
+      }
+      if (rpc === "complete_image_set") {
+        const set = imageSets.find((s) => s.id === body.p_set_id);
+        set.status = "stored";
+        for (const id of [
+          set.display_file_id,
+          set.thumbnail_file_id,
+          set.small_file_id,
+        ])
+          files.find((f) => f.id === id).status = "stored";
+        return send(200, null);
+      }
+      if (rpc === "item_management_snapshot") {
+        const item = rows.find((r) => r.id === body.p_item_id);
+        if (!management || !item)
+          return send(403, { code: "42501", message: "permission_denied" });
+        const owned = files.filter((f) => f.item_id === item.id);
+        return send(200, {
+          item: {
+            ...item,
+            grouping_kind: item.grouping_kind || "single_object",
+            lifecycle: item.lifecycle || "active",
+            archived_at: item.archived_at || null,
+          },
+          files: owned.map((f) => ({
+            ...f,
+            name: f.original_filename,
+            size: f.byte_size,
+            mime: f.mime_type,
+            bucket: f.bucket_id,
+            path: f.storage_path,
+          })),
+          counts: {
+            originals: owned.filter((f) => f.purpose === "original").length,
+            derivatives: owned.filter((f) => f.parent_original_id).length,
+            recollections: 0,
+            comments: 0,
+            transcriptions: 0,
+            provenance: 0,
+          },
+          version: "fixture-version",
+          children: rows
+            .filter((r) => r.split_from === item.id)
+            .map((r) => ({ id: r.id, title: r.title })),
+          deletion: deletions.find((d) => d.item_id === item.id) || null,
+        });
+      }
+      if (rpc === "set_item_archived") {
+        if (!management)
+          return send(403, { code: "42501", message: "permission_denied" });
+        const item = rows.find((r) => r.id === body.p_item_id);
+        item.archived_at = body.p_archived ? new Date().toISOString() : null;
+        return send(200, null);
+      }
+      if (rpc === "begin_item_deletion") {
+        if (!management || body.p_confirmation !== "DELETE")
+          return send(403, { code: "42501", message: "permission_denied" });
+        const previous = deletions.find((d) => d.item_id === body.p_item_id);
+        if (previous) return send(200, previous);
+        const item = rows.find((r) => r.id === body.p_item_id);
+        if (!item?.archived_at)
+          return send(400, { code: "P0001", message: "archive_before_delete" });
+        const plan = {
+          id: crypto.randomUUID(),
+          archive_id: ARCHIVE,
+          item_id: item.id,
+          status: "pending",
+          manifest: files
+            .filter((f) => f.item_id === item.id)
+            .map((f) => ({
+              id: f.id,
+              bucket: f.bucket_id,
+              path: f.storage_path,
+            })),
+        };
+        plan.remaining = plan.manifest;
+        deletions.push(plan);
+        item.lifecycle = "deleting";
+        return send(200, plan);
+      }
+      if (rpc === "checkpoint_item_deletion") {
+        const plan = deletions.find((d) => d.id === body.p_deletion_id);
+        plan.remaining = plan.remaining.filter(
+          (f) => !body.p_file_ids.includes(f.id),
+        );
+        return send(200, null);
+      }
+      if (rpc === "finish_item_deletion") {
+        const plan = deletions.find((d) => d.id === body.p_deletion_id);
+        if (!management || !plan)
+          return send(403, { code: "42501", message: "permission_denied" });
+        if (plan.manifest.some((f) => objects.has(`${f.bucket}/${f.path}`)))
+          return send(400, {
+            code: "P0001",
+            message: "storage_cleanup_incomplete",
+          });
+        for (let i = files.length - 1; i >= 0; i--)
+          if (files[i].item_id === plan.item_id) files.splice(i, 1);
+        for (let i = imageSets.length - 1; i >= 0; i--)
+          if (imageSets[i].item_id === plan.item_id) imageSets.splice(i, 1);
+        const index = rows.findIndex((r) => r.id === plan.item_id);
+        if (index >= 0) rows.splice(index, 1);
+        plan.status = "complete";
+        plan.manifest = [];
+        return send(200, ARCHIVE);
+      }
+      if (rpc === "split_photographs") {
+        if (!management || body.p_confirmation !== "SPLIT")
+          return send(403, { code: "42501", message: "permission_denied" });
+        const item = rows.find((r) => r.id === body.p_item_id),
+          children = [];
+        for (const original of files.filter(
+          (f) => f.item_id === item.id && f.purpose === "original",
+        )) {
+          const child = crypto.randomUUID();
+          rows.push({
+            ...item,
+            id: child,
+            title: "Photograph, still to be catalogued",
+            split_from: item.id,
+            grouping_kind: "separate_photograph",
+            archived_at: null,
+          });
+          children.push(child);
+          for (const f of files.filter(
+            (f) => f.id === original.id || f.parent_original_id === original.id,
+          ))
+            f.item_id = child;
+          for (const set of imageSets.filter(
+            (s) => s.original_file_id === original.id,
+          ))
+            set.item_id = child;
+        }
+        item.archived_at = new Date().toISOString();
+        item.grouping_kind = "split_context";
+        return send(200, children);
+      }
       if (rpc === "reserve_display") {
         const s = files.find((f) => f.id === body.p_source_id);
         let d = files.find((f) => f.parent_original_id === s.id);
@@ -283,23 +561,36 @@ export async function fixtureServer(port = 4301, { previewFile } = {}) {
             ? rows
             : table === "archive_item_files"
               ? files
-              : table === "archive_memberships"
-                ? archives.map((a) => ({
-                    id: USER,
-                    archive_id: a.id,
-                    profile_id: USER,
-                    role: "contributor",
-                    status: "active",
-                    joined_at: a.created_at,
-                    profiles: {
-                      display_name: "Test contributor",
-                      email: user.email,
-                    },
-                  }))
-                : [];
+              : table === "image_sets"
+                ? imageSets
+                : table === "current_image_sets"
+                  ? currentSets()
+                  : table === "item_deletions"
+                    ? deletions
+                    : table === "archive_memberships"
+                      ? archives.map((a) => ({
+                          id: USER,
+                          archive_id: a.id,
+                          profile_id: USER,
+                          role: management ? "editor" : "contributor",
+                          status: "active",
+                          joined_at: a.created_at,
+                          profiles: {
+                            display_name: "Test contributor",
+                            email: user.email,
+                          },
+                        }))
+                      : [];
     for (const [key, value] of address.searchParams) {
       if (value.startsWith("eq.") && !key.includes("."))
         data = data.filter((row) => String(row[key]) === value.slice(3));
+      if (value.startsWith("in.("))
+        data = data.filter((row) =>
+          value.slice(4, -1).split(",").includes(String(row[key])),
+        );
+      if (value === "is.null") data = data.filter((row) => row[key] == null);
+      if (value === "not.is.null")
+        data = data.filter((row) => row[key] != null);
     }
     if (
       address.searchParams.get("select")?.includes("import_batch_items!inner")

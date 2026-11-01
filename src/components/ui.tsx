@@ -41,9 +41,11 @@ export function ButtonLink({
 export function ItemCard({
   item,
   index = 0,
+  imageSizes,
 }: {
   item: ArchiveItem;
   index?: number;
+  imageSizes?: string;
 }) {
   return (
     <article className={`item-card item-${item.aspect}`}>
@@ -53,6 +55,9 @@ export function ItemCard({
           alt={item.alt}
           href={item.href || `/archive/${item.slug}`}
           originalPreserved={item.sourcePreserved}
+          imageSet={item.imageSet}
+          variant="thumbnail"
+          sizes={imageSizes}
         />
         <span className="image-arrow" style={{ pointerEvents: "none" }}>
           <ArrowUpRight size={20} />

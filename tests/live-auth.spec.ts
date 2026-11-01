@@ -17,6 +17,8 @@ test("private routes fail closed without an authenticated session", async ({
     "/audio/40000000-0000-4000-8000-000000000001/edit",
     "/admin",
     "/admin/members",
+    "/admin/deletions",
+    "/archive/40000000-0000-4000-8000-000000000001/manage",
     "/people",
     "/archive/a-letter-from-home",
   ]) {

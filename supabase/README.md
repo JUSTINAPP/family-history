@@ -1,5 +1,7 @@
 # Supabase foundation
 
+**Current release — migration 009:** [Item management and responsive image sets](../docs/individual-photo-management.md) supersedes the earlier release instructions below. The actual migrations through 009 passed 189 disposable PostgreSQL checks. Confirm the installed 001–008 baseline before manually applying only missing migrations; do not rerun installed SQL. Installation does not split historical items or delete Storage objects. The new code requires 009. No remote SQL was applied by the agent.
+
 **HEIC preview repair:** New additive migration **008** records per-original attempts and processing failures. It depends on the existing 001–005 preview foundation and is independent of optional 006/007. Do not rerun earlier migrations. See [manual deployment and no-reupload smoke test](../docs/hosted-heic-previews.md).
 
 **Bulk-photograph correction (current):** Production inspection confirmed two originals grouped under one item. Capture now explicitly distinguishes one item’s views from separate photographs, with durable import batches and separate batch context. Apply only new migration **007** for bulk; it works without audio migration 006. Existing production sources are unchanged. See [workflow, audit and deployment](../docs/bulk-photograph-import.md).

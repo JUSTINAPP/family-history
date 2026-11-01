@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ArchiveItem } from "../types";
 import { BackendError } from "./errors";
+import { imageSet, type ImageSetRow } from "../preview/types";
 export interface CatalogueRow {
   id: string;
   archive_id: string;
@@ -13,6 +14,7 @@ export interface CatalogueRow {
   evidence_status: ArchiveItem["certainty"];
   notes: string | null;
   ingestion_status: string;
+  archived_at?: string | null;
 }
 export interface OriginalRow {
   id: string;
@@ -62,6 +64,7 @@ export async function readCatalogue(
   client: SupabaseClient,
   archiveId: string,
   batchId?: string,
+  archived = false,
 ) {
   // RLS defines visibility. No metadata, preview, job, catalogue or ingestion-status gate.
   return allRows<CatalogueRow>(
@@ -74,6 +77,9 @@ export async function readCatalogue(
         .eq("archive_id", archiveId)
         .order("created_at", { ascending: false })
         .order("id", { ascending: false });
+      query = archived
+        ? query.not("archived_at", "is", null)
+        : query.is("archived_at", null);
       if (batchId) query = query.eq("import_batch_items.batch_id", batchId);
       return query
         .range(from, to)
@@ -88,6 +94,7 @@ export function catalogueItems(
   files: OriginalRow[],
   batchLinks: { item_id: string; batch_id: string }[],
   batchId?: string,
+  sets: ImageSetRow[] = [],
 ): ArchiveItem[] {
   const originals = new Map<string, OriginalRow>();
   const sourceCounts = new Map<string, number>();
@@ -101,6 +108,12 @@ export function catalogueItems(
   const batches = new Map(
     batchLinks.map((link) => [link.item_id, link.batch_id]),
   );
+  const latestSets = new Map<string, ImageSetRow>();
+  for (const set of sets) {
+    const prior = latestSets.get(set.original_file_id);
+    if (!prior || set.created_at > prior.created_at)
+      latestSets.set(set.original_file_id, set);
+  }
   return rows.map((row) => {
     const original = originals.get(row.id);
     const kind = row.kind || "Other",
@@ -135,6 +148,12 @@ export function catalogueItems(
       tags: [],
       importBatchId: batchId || batches.get(row.id),
       ingestionStatus: row.ingestion_status,
+      imageSet: original
+        ? latestSets.has(original.id)
+          ? imageSet(latestSets.get(original.id)!)
+          : undefined
+        : undefined,
+      archivedAt: row.archived_at || undefined,
       sourceCount: sourceCounts.get(row.id) || 0,
       sourcePreserved: row.ingestion_status === "ready" || !!original,
     };

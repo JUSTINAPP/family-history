@@ -3,6 +3,7 @@ import { readFile, readdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import assert from "node:assert/strict";
+import { managementChecks } from "./test-item-management.mjs";
 const directory = await mkdtemp(join(tmpdir(), "archive-postgres-"));
 let db = new PGlite(directory);
 let checks = 0;
@@ -1078,6 +1079,20 @@ try {
     "decode_failed",
   ]);
   await q(recordPreview, [legacyFiles[0].id, replacement, "complete", null]);
+  const managementCount = await managementChecks({
+    q,
+    asUser,
+    asOwner,
+    denied,
+    users,
+    archive: a,
+    legacy,
+    legacyFiles,
+    manifestFile: groupFile,
+    person,
+    withAudio,
+  });
+  checks += managementCount;
   await asUser(users[0]);
   const owner = (
     await q("select owner_membership_id from public.archives where id=$1", [a])
@@ -1118,7 +1133,7 @@ try {
   const rls = await q(
     "select count(*)::int as n from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind='r' and c.relrowsecurity and c.relforcerowsecurity",
   );
-  assert.equal(rls.rows[0].n, withAudio ? 21 : 19);
+  assert.equal(rls.rows[0].n, withAudio ? 24 : 22);
   checks++;
   if (!withAudio) {
     await db.exec(

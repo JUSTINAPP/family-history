@@ -4,13 +4,25 @@ import { BackendError, safeError } from "@/lib/backend/errors";
 import { UUID_PATTERN } from "@/lib/backend/validation";
 import { convertPreview, PreviewConversionError } from "@/lib/preview/convert";
 import { isSameOriginRequest } from "@/lib/backend/request-origin";
+import { imageSet, type ImageSetRow } from "@/lib/preview/types";
 import { createHash, randomUUID } from "node:crypto";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 const headers = { "Cache-Control": "private, no-store" };
 type Context = { params: Promise<{ id: string }> };
+class PreviewError extends BackendError {
+  constructor(
+    public code: string,
+    message: string,
+    status = 503,
+  ) {
+    super(status, message);
+  }
+}
+const hash = (bytes: Uint8Array) =>
+  createHash("sha256").update(bytes).digest("hex");
 async function source(context: Context) {
-  const { client, user } = await requireSession();
+  const { client } = await requireSession();
   const { id } = await context.params;
   if (!UUID_PATTERN.test(id)) throw new BackendError(404, "Source not found.");
   const { data: original, error } = await client
@@ -24,44 +36,64 @@ async function source(context: Context) {
     .maybeSingle();
   if (error || !original)
     throw new BackendError(404, "Source not found or access is unavailable.");
-  const { data: display, error: displayError } = await client
-    .from("archive_item_files")
-    .select("*")
-    .eq("parent_original_id", id)
-    .eq("purpose", "display")
-    .retry(false)
-    .abortSignal(AbortSignal.timeout(5000))
-    .maybeSingle();
-  if (displayError)
-    throw new BackendError(
-      503,
-      "Preview records could not be read. Please retry.",
-    );
-  return { client, user, original, display };
+  return { client, original };
 }
-function failure(error: unknown) {
-  const safe = safeError(error);
-  return Response.json(
-    { error: safe.message },
-    { status: safe.status, headers },
-  );
-}
-export async function GET(_request: Request, context: Context) {
+export async function GET(request: Request, context: Context) {
   try {
-    const { client, original, display } = await source(context);
-    if (
-      display?.status !== "stored" &&
-      ["image/heic", "image/heif"].includes(original.mime_type)
-    )
+    const { client, original } = await source(context);
+    const variant =
+      new URL(request.url).searchParams.get("variant") || "display";
+    if (!["display", "thumbnail", "small"].includes(variant))
+      throw new BackendError(400, "Unknown image size.");
+    const { data: set, error } = await client
+      .from("image_sets")
+      .select("*")
+      .eq("original_file_id", original.id)
+      .eq("status", "stored")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error)
+      throw new BackendError(
+        503,
+        "Image derivatives could not load. Check migration 009.",
+      );
+    let file;
+    if (set) {
+      const key =
+        variant === "display"
+          ? "display_file_id"
+          : variant === "thumbnail"
+            ? "thumbnail_file_id"
+            : "small_file_id";
+      const result = await client
+        .from("archive_item_files")
+        .select("*")
+        .eq("id", set[key])
+        .eq("status", "stored")
+        .maybeSingle();
+      file = result.data;
+    } else if (variant === "display") {
+      const result = await client
+        .from("archive_item_files")
+        .select("*")
+        .eq("parent_original_id", original.id)
+        .eq("purpose", "display")
+        .eq("status", "stored")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      file = result.data;
+    }
+    if (!file)
       throw new BackendError(
         409,
-        "Preview awaiting preparation. Original preserved.",
+        "Browser derivative awaiting preparation. Original preserved.",
       );
-    const file = display?.status === "stored" ? display : original;
-    const { data, error } = await client.storage
+    const { data, error: storageError } = await client.storage
       .from(file.bucket_id)
-      .download(file.storage_path);
-    if (!data || error)
+      .download(file.storage_path, {}, { signal: AbortSignal.timeout(10000) });
+    if (!data || storageError)
       throw new BackendError(
         503,
         "Preview temporarily unavailable. Please retry.",
@@ -71,37 +103,51 @@ export async function GET(_request: Request, context: Context) {
         ...headers,
         "Content-Type": file.mime_type,
         "X-Content-Type-Options": "nosniff",
-        "Content-Security-Policy": "default-src 'none'; sandbox",
       },
     });
   } catch (error) {
-    return failure(error);
+    const safe = safeError(error);
+    return Response.json(
+      { error: safe.message },
+      { status: safe.status, headers },
+    );
   }
 }
-type Stage =
-  "download" | "integrity" | "decode" | "reserve" | "upload" | "complete";
-class PreviewError extends BackendError {
-  constructor(
-    public code: string,
-    message: string,
-    status = 503,
-  ) {
-    super(status, message);
-  }
-}
-const hash = (value: Uint8Array) =>
-  createHash("sha256").update(value).digest("hex");
 export async function POST(request: NextRequest, context: Context) {
-  const requestId = randomUUID();
-  const deadline = Date.now() + 50000; // Leave time to persist failure before Vercel's 60s limit.
-  function remaining(maximum: number) {
+  const requestId = randomUUID(),
+    deadline = Date.now() + 50000;
+  let stage = "download",
+    attemptId: string | undefined,
+    loaded: Awaited<ReturnType<typeof source>> | undefined;
+  function remaining(max: number) {
     const left = deadline - Date.now();
     if (left <= 0)
       throw new PreviewError(
         "processing_timeout",
         "Preview processing timed out. Original preserved; retry is available.",
       );
-    return Math.min(maximum, left);
+    return Math.min(max, left);
+  }
+  async function record(code?: string) {
+    if (!attemptId || !loaded) return;
+    const { error } = await loaded.client
+      .rpc("record_preview_attempt", {
+        p_source_id: loaded.original.id,
+        p_attempt_id: attemptId,
+        p_stage: stage,
+        p_error_code: code || null,
+      })
+      .retry(false)
+      .abortSignal(AbortSignal.timeout(3000));
+    if (error)
+      console.error(
+        JSON.stringify({
+          event: "preview_state_unavailable",
+          requestId,
+          stage,
+          code: error.code,
+        }),
+      );
   }
   async function bounded<T>(task: PromiseLike<T>): Promise<T> {
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -125,30 +171,6 @@ export async function POST(request: NextRequest, context: Context) {
       clearTimeout(timer);
     }
   }
-  let stage: Stage = "download";
-  let attemptId: string | undefined;
-  let loaded: Awaited<ReturnType<typeof source>> | undefined;
-  async function record(errorCode?: string) {
-    if (!attemptId || !loaded) return;
-    const { error } = await loaded.client
-      .rpc("record_preview_attempt", {
-        p_source_id: loaded.original.id,
-        p_attempt_id: attemptId,
-        p_stage: stage,
-        p_error_code: errorCode || null,
-      })
-      .retry(false)
-      .abortSignal(AbortSignal.timeout(3000));
-    if (error)
-      console.error(
-        JSON.stringify({
-          event: "preview_state_unavailable",
-          requestId,
-          stage,
-          code: error.code,
-        }),
-      );
-  }
   try {
     if (!isSameOriginRequest(request))
       throw new PreviewError(
@@ -157,72 +179,59 @@ export async function POST(request: NextRequest, context: Context) {
         403,
       );
     loaded = await source(context);
-    const { client, original, display } = loaded;
-    if (display?.status === "stored")
-      return Response.json({ id: display.id }, { headers });
-    // The database checks Editor or the contributing item's Contributor, scoped to this source's archive.
-    const { data: lease, error: leaseError } = await client
-      .rpc("begin_preview_attempt", {
-        p_source_id: original.id,
-      })
-      .retry(false)
-      .abortSignal(AbortSignal.timeout(remaining(5000)));
-    if (leaseError || !lease) {
-      if (leaseError?.code === "55P03")
-        throw new PreviewError(
-          "preview_busy",
-          "This preview is already being prepared. Retry shortly.",
-          429,
-        );
-      if (leaseError?.code === "42501")
+    const { client, original } = loaded;
+    const regenerate = request.nextUrl.searchParams.get("regenerate") === "1";
+    if (regenerate) {
+      const { data } = await client.rpc("can_access_archive", {
+        p_archive_id: original.archive_id,
+        p_minimum: "editor",
+      });
+      if (!data)
         throw new PreviewError(
           "permission_denied",
-          "An editor or the item's contributor can prepare this preview.",
+          "Editor access is required to regenerate images.",
           403,
         );
+    }
+    const { data: existing, error: lookupError } = await client
+      .from("image_sets")
+      .select("*")
+      .eq("original_file_id", original.id)
+      .eq("status", "stored")
+      .eq("generator", "responsive-v1")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (lookupError)
       throw new PreviewError(
         "preview_schema_unavailable",
-        "Preview processing is unavailable. An administrator should check migration 008 and the function logs.",
+        "Image processing is unavailable. Check migration 009.",
       );
-    }
+    if (existing && !regenerate)
+      return Response.json(
+        {
+          id: existing.display_file_id,
+          imageSet: imageSet(existing as ImageSetRow),
+        },
+        { headers },
+      );
+    const { data: lease, error: leaseError } = await client
+      .rpc("begin_preview_attempt", { p_source_id: original.id })
+      .retry(false)
+      .abortSignal(AbortSignal.timeout(remaining(5000)));
+    if (leaseError || !lease)
+      throw new PreviewError(
+        leaseError?.code === "55P03" ? "preview_busy" : "permission_denied",
+        leaseError?.code === "55P03"
+          ? "Preview already processing. Retry shortly."
+          : "An editor or the item's contributor can prepare this preview.",
+        leaseError?.code === "55P03" ? 429 : 403,
+      );
     attemptId = lease;
-    // Recover an uploaded-but-unacknowledged derivative without decoding or overwriting it.
-    if (display?.status === "reserved") {
-      const { data: previous } = await client.storage
-        .from(display.bucket_id)
-        .download(
-          display.storage_path,
-          {},
-          { signal: AbortSignal.timeout(remaining(5000)) },
-        );
-      if (previous) {
-        const bytes = new Uint8Array(await previous.arrayBuffer());
-        if (
-          bytes.length !== Number(display.byte_size) ||
-          hash(bytes) !== display.sha256
-        )
-          throw new PreviewError(
-            "reserved_display_integrity",
-            "The reserved preview could not be verified. Original preserved; contact an administrator.",
-            409,
-          );
-        stage = "complete";
-        const { error } = await client
-          .rpc("complete_display", { p_file_id: display.id })
-          .retry(false);
-        if (error)
-          throw new PreviewError(
-            "receipt_failed",
-            "Preview receipt pending. Retry to recover it.",
-          );
-        await record();
-        return Response.json({ id: display.id, requestId }, { headers });
-      }
-    }
     if (Number(original.byte_size) > 30 * 1024 * 1024)
       throw new PreviewError(
         "source_size_limit",
-        "This original exceeds the 30 MB preview limit. It remains preserved.",
+        "Original exceeds the preview size limit; it remains preserved.",
         422,
       );
     const { data: blob, error: downloadError } = await client.storage
@@ -245,83 +254,123 @@ export async function POST(request: NextRequest, context: Context) {
     )
       throw new PreviewError(
         "source_integrity_failed",
-        "Source integrity could not be confirmed. Preview stopped; original unchanged.",
+        "Source integrity could not be confirmed. Original unchanged.",
         409,
       );
     stage = "decode";
     await record();
-    const decodeBudget = remaining(50000) - 15000;
-    if (decodeBudget <= 0)
+    const budget = remaining(50000) - 15000;
+    if (budget <= 0)
       throw new PreviewError(
         "processing_timeout",
-        "Preview processing timed out. Original preserved; retry is available.",
+        "Not enough processing time remains; retry is available.",
       );
-    const preview = await convertPreview(bytes, decodeBudget);
-    const sha256 = hash(preview.bytes);
+    const rendered = await convertPreview(bytes, budget);
+    const variants = {
+      display: {
+        bytes: rendered.bytes,
+        width: rendered.width,
+        height: rendered.height,
+        mime: "image/jpeg",
+      },
+      thumbnail: { ...rendered.thumbnail, mime: "image/webp" },
+      small: { ...rendered.small, mime: "image/webp" },
+    };
+    const manifest = Object.fromEntries(
+      Object.entries(variants).map(([key, v]) => [
+        key,
+        {
+          width: v.width,
+          height: v.height,
+          size: v.bytes.length,
+          sha256: hash(v.bytes),
+          mime: v.mime,
+        },
+      ]),
+    );
     stage = "reserve";
-    const { data: id, error: reservationError } = await client
-      .rpc("reserve_display", {
+    await record();
+    const { data: setId, error: reserveError } = await client
+      .rpc("reserve_image_set", {
         p_source_id: original.id,
-        p_sha256: sha256,
-        p_size: preview.bytes.length,
-        p_width: preview.width,
-        p_height: preview.height,
+        p_manifest: manifest,
+        p_placeholder: rendered.placeholder,
       })
       .retry(false)
       .abortSignal(AbortSignal.timeout(remaining(5000)));
-    if (reservationError || !id)
+    if (reserveError || !setId)
       throw new PreviewError(
         "reservation_failed",
-        "Preview could not be reserved. Original preserved; retry is available.",
+        "Image set could not be reserved. Original preserved.",
       );
-    const { data: reserved, error: reservedError } = await client
-      .from("archive_item_files")
+    const { data: set } = await client
+      .from("image_sets")
       .select("*")
-      .eq("id", id)
-      .retry(false)
-      .abortSignal(AbortSignal.timeout(remaining(5000)))
+      .eq("id", setId)
       .single();
-    if (reservedError || !reserved)
+    if (!set)
       throw new PreviewError(
         "reservation_lookup_failed",
-        "Preview reservation unavailable. Please retry.",
+        "Reserved image set unavailable. Retry is available.",
+      );
+    const ids = [set.display_file_id, set.thumbnail_file_id, set.small_file_id];
+    const { data: files } = await client
+      .from("archive_item_files")
+      .select("*")
+      .in("id", ids);
+    if (files?.length !== 3)
+      throw new PreviewError(
+        "reservation_lookup_failed",
+        "Image receipts incomplete. Retry is available.",
       );
     stage = "upload";
-    const { error: uploadError } = await bounded(
-      client.storage
-        .from(reserved.bucket_id)
-        .upload(reserved.storage_path, preview.bytes, {
-          contentType: "image/jpeg",
-          upsert: false,
-          cacheControl: "0",
-        }),
-    );
-    if (uploadError) {
-      const { data: existing } = await client.storage
-        .from(reserved.bucket_id)
-        .download(
-          reserved.storage_path,
-          {},
-          { signal: AbortSignal.timeout(remaining(5000)) },
-        );
-      if (
-        !existing ||
-        hash(new Uint8Array(await existing.arrayBuffer())) !== sha256
-      )
-        throw new PreviewError(
-          "display_upload_failed",
-          "Preview upload interrupted. Retry; the original is safe.",
-        );
+    await record();
+    for (const [key, v] of Object.entries(variants)) {
+      const id =
+        key === "display"
+          ? set.display_file_id
+          : key === "thumbnail"
+            ? set.thumbnail_file_id
+            : set.small_file_id;
+      const file = files.find((f) => f.id === id)!;
+      const { error } = await bounded(
+        client.storage
+          .from(file.bucket_id)
+          .upload(file.storage_path, v.bytes, {
+            contentType: v.mime,
+            upsert: false,
+            cacheControl: "0",
+          }),
+      );
+      if (error) {
+        const { data: prior } = await client.storage
+          .from(file.bucket_id)
+          .download(
+            file.storage_path,
+            {},
+            { signal: AbortSignal.timeout(remaining(5000)) },
+          );
+        if (
+          !prior ||
+          hash(new Uint8Array(await prior.arrayBuffer())) !==
+            manifest[key].sha256
+        )
+          throw new PreviewError(
+            "display_upload_failed",
+            "Image upload interrupted. Original safe; retry can recover it.",
+          );
+      }
     }
     stage = "complete";
-    const { error } = await client
-      .rpc("complete_display", { p_file_id: id })
+    await record();
+    const { error: completeError } = await client
+      .rpc("complete_image_set", { p_set_id: set.id })
       .retry(false)
       .abortSignal(AbortSignal.timeout(remaining(5000)));
-    if (error)
+    if (completeError)
       throw new PreviewError(
         "receipt_failed",
-        "Preview receipt pending. Retry to recover it.",
+        "Image receipt pending. Retry to recover it.",
       );
     await record();
     console.info(
@@ -332,7 +381,14 @@ export async function POST(request: NextRequest, context: Context) {
         stage,
       }),
     );
-    return Response.json({ id, requestId }, { headers });
+    return Response.json(
+      {
+        id: set.display_file_id,
+        imageSet: imageSet(set as ImageSetRow),
+        requestId,
+      },
+      { headers },
+    );
   } catch (error) {
     const code =
       error instanceof PreviewError || error instanceof PreviewConversionError

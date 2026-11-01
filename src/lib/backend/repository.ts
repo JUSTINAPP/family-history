@@ -1,4 +1,5 @@
 import "server-only";
+import { imageSet, type ImageSetRow } from "../preview/types";
 import { cookies } from "next/headers";
 import { authenticatedClient } from "@/lib/supabase/server";
 import { BackendError } from "./errors";
@@ -42,7 +43,12 @@ export async function requireSession() {
   return auth;
 }
 export async function loadWorkspace(
-  options: { archiveId?: string; batchId?: string; catalogue?: boolean } = {},
+  options: {
+    archiveId?: string;
+    batchId?: string;
+    catalogue?: boolean;
+    archived?: boolean;
+  } = {},
 ): Promise<LiveSnapshot | null> {
   const { client, user } = await requireSession();
   const { data: ars, error: arError } = await client
@@ -108,7 +114,8 @@ export async function loadWorkspace(
       ? Promise.resolve({ data: [] })
       : (batchLookupError
           ? Promise.reject(new Error("batch unavailable"))
-          : readCatalogue(client, row.id, batchId))
+          : readCatalogue(client, row.id, batchId, options.archived)
+        )
           .then((result) => {
             catalogueCount = result.count;
             return { data: result.data };
@@ -177,6 +184,21 @@ export async function loadWorkspace(
         .order("created_at", { ascending: false }),
       "Import grouping is unavailable.",
     ),
+    options.catalogue === false
+      ? Promise.resolve({ data: [] as ImageSetRow[] })
+      : allRows<ImageSetRow>(
+          (from, to) =>
+            client
+              .from("current_image_sets")
+              .select("*", { count: "exact" })
+              .eq("archive_id", row.id)
+              .eq("status", "stored")
+              .order("id")
+              .range(from, to)
+              .retry(false)
+              .abortSignal(AbortSignal.timeout(2500)),
+          (row) => row.id,
+        ).catch(() => ({ data: [] as ImageSetRow[] })),
   ]);
   const members: Member[] = (results[0].data || []).map((m) => ({
     archiveId: m.archive_id,
@@ -196,7 +218,7 @@ export async function loadWorkspace(
     slug: a.slug,
     description: a.description,
     coverImage: a.cover_file_id
-      ? `/api/v1/files/${a.cover_file_id}`
+      ? `/api/v1/assets/${a.cover_file_id}?variant=thumbnail`
       : "/images/empty-archive.svg",
     ownerMembershipId: a.owner_membership_id,
     createdAt: a.created_at,
@@ -214,6 +236,7 @@ export async function loadWorkspace(
     results[2].data,
     results[6].data,
     batchId,
+    results[7].data,
   );
   const people: Person[] = (results[3].data || []).map((p) => ({
     archiveId: p.archive_id,
@@ -230,7 +253,7 @@ export async function loadWorkspace(
       } as const
     )[p.category as "family" | "friend" | "other" | "unidentified"],
     image: p.portrait_file_id
-      ? `/api/v1/files/${p.portrait_file_id}`
+      ? `/api/v1/assets/${p.portrait_file_id}?variant=thumbnail`
       : "/images/empty-archive.svg",
     bio: p.biography,
   }));
@@ -307,41 +330,50 @@ export async function loadItem(id: string) {
     catalogue: false,
   });
   if (!snapshot) return null;
-  const [files, recollections, comments, identifications] = await Promise.all([
-    client
-      .from("archive_item_files")
-      .select("*")
-      .eq("archive_id", snapshot.archive.id)
-      .eq("item_id", id)
-      .eq("status", "stored")
-      .order("page_order")
-      .retry(false)
-      .abortSignal(AbortSignal.timeout(2500)),
-    client
-      .from("recollections")
-      .select("*")
-      .eq("archive_id", snapshot.archive.id)
-      .eq("item_id", id)
-      .order("created_at")
-      .retry(false)
-      .abortSignal(AbortSignal.timeout(2500)),
-    client
-      .from("comments")
-      .select("*")
-      .eq("archive_id", snapshot.archive.id)
-      .eq("item_id", id)
-      .order("created_at")
-      .retry(false)
-      .abortSignal(AbortSignal.timeout(2500)),
-    client
-      .from("identifications")
-      .select("*")
-      .eq("archive_id", snapshot.archive.id)
-      .eq("item_id", id)
-      .order("created_at")
-      .retry(false)
-      .abortSignal(AbortSignal.timeout(2500)),
-  ]);
+  const [files, recollections, comments, identifications, sets] =
+    await Promise.all([
+      client
+        .from("archive_item_files")
+        .select("*")
+        .eq("archive_id", snapshot.archive.id)
+        .eq("item_id", id)
+        .eq("status", "stored")
+        .order("page_order")
+        .retry(false)
+        .abortSignal(AbortSignal.timeout(2500)),
+      client
+        .from("recollections")
+        .select("*")
+        .eq("archive_id", snapshot.archive.id)
+        .eq("item_id", id)
+        .order("created_at")
+        .retry(false)
+        .abortSignal(AbortSignal.timeout(2500)),
+      client
+        .from("comments")
+        .select("*")
+        .eq("archive_id", snapshot.archive.id)
+        .eq("item_id", id)
+        .order("created_at")
+        .retry(false)
+        .abortSignal(AbortSignal.timeout(2500)),
+      client
+        .from("identifications")
+        .select("*")
+        .eq("archive_id", snapshot.archive.id)
+        .eq("item_id", id)
+        .order("created_at")
+        .retry(false)
+        .abortSignal(AbortSignal.timeout(2500)),
+      client
+        .from("current_image_sets")
+        .select("*")
+        .eq("item_id", id)
+        .eq("status", "stored")
+        .order("created_at", { ascending: false })
+        .retry(false)
+        .abortSignal(AbortSignal.timeout(2500)),
+    ]);
   return {
     resourceWarnings: [
       files.error,
@@ -349,6 +381,7 @@ export async function loadItem(id: string) {
       comments.error,
       identifications.error,
     ].filter(Boolean),
+    imageSets: (sets.data || []).map((row) => imageSet(row as ImageSetRow)),
     snapshot,
     item,
     files: files.data || [],

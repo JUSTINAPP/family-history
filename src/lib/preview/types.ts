@@ -1,0 +1,43 @@
+export interface ImageVariant {
+  id: string;
+  width: number;
+  height: number;
+  size: number;
+  mime: string;
+}
+export interface ImageSet {
+  id: string;
+  originalId: string;
+  placeholder: string;
+  display: ImageVariant;
+  thumbnail: ImageVariant;
+  small: ImageVariant;
+}
+export interface ImageSetRow {
+  id: string;
+  original_file_id: string;
+  item_id: string;
+  display_file_id: string;
+  thumbnail_file_id: string;
+  small_file_id: string;
+  placeholder: string;
+  manifest: Record<"display" | "thumbnail" | "small", Omit<ImageVariant, "id">>;
+  created_at: string;
+}
+export function imageSet(row: ImageSetRow): ImageSet {
+  function variant(name: "display" | "thumbnail" | "small", id: string) {
+    const v = row.manifest[name];
+    return { id, width: v.width, height: v.height, size: v.size, mime: v.mime };
+  }
+  return {
+    id: row.id,
+    originalId: row.original_file_id,
+    placeholder: row.placeholder,
+    display: variant("display", row.display_file_id),
+    thumbnail: variant("thumbnail", row.thumbnail_file_id),
+    small: variant("small", row.small_file_id),
+  };
+}
+export function assetUrl(id: string) {
+  return `/api/v1/assets/${id}`;
+}

@@ -21,6 +21,7 @@ const previewFile = process.env.TEST_HEIC_FILE || "tests/fixtures/preview.heic";
 await checkPreviewBundle(".next-test", await readFile(previewFile));
 const { server } = await fixtureServer(4301, {
   previewFile,
+  management: true,
 });
 const app = spawn(
   process.execPath,

@@ -91,6 +91,24 @@ export async function LiveItem({
             reload to retry.
           </p>
         )}
+        {item.archived_at && (
+          <p className="notice">
+            Archived item · removed from normal browsing.
+          </p>
+        )}
+        {can(role, "editor") && (
+          <p>
+            <Link className="text-link" href={`/archive/${item.id}/manage`}>
+              Manage item ↗
+            </Link>
+          </p>
+        )}
+        {item.split_from && (
+          <p className="notice">
+            Separated from a grouped photograph item. Its previous context was
+            retained for editorial review.
+          </p>
+        )}
         {editable && item.kind !== "Audio" && (
           <p>
             <Link className="text-link" href={`/archive/${item.id}/edit`}>
@@ -105,12 +123,16 @@ export async function LiveItem({
             )}
             {files
               .filter((file) => file.purpose === "original")
-              .map((file) => (
+              .map((file, index) => (
                 <div key={file.id} style={{ marginBottom: 25 }}>
                   <ArchiveImage
                     src={`/api/v1/previews/${file.id}`}
                     alt={`${item.title} · ${file.page_role}`}
                     className="saved-original"
+                    imageSet={result.imageSets.find(
+                      (s) => s.originalId === file.id,
+                    )}
+                    priority={index === 0}
                     originalPreserved={true}
                   />
                   <div className="saved-file-list">

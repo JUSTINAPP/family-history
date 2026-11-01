@@ -86,6 +86,10 @@ export default async function EditPage({
           {original && (
             <ArchiveImage
               src={`/api/v1/previews/${original.id}`}
+              imageSet={result.imageSets.find(
+                (s) => s.originalId === original.id,
+              )}
+              priority
               alt={item.title}
               className="saved-original"
             />

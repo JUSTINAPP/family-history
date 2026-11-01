@@ -41,6 +41,7 @@ let stage = "decode";
   }
   stage = "render";
   const result = await pipeline
+    .clone()
     .resize({
       width: 2400,
       height: 2400,
@@ -48,13 +49,36 @@ let stage = "decode";
       withoutEnlargement: true,
     })
     .flatten({ background: "#ffffff" })
-    .jpeg({ quality: 85, mozjpeg: false })
+    .jpeg({ quality: 80, progressive: true, mozjpeg: false })
     .toBuffer({ resolveWithObject: true });
   if (result.data.length > 10 * 1024 * 1024) throw Error("display_size_limit");
+  async function webp(edge, quality) {
+    const output = await pipeline
+      .clone()
+      .resize({
+        width: edge,
+        height: edge,
+        fit: "inside",
+        withoutEnlargement: true,
+      })
+      .webp({ quality, effort: 3 })
+      .toBuffer({ resolveWithObject: true });
+    return {
+      bytes: output.data,
+      width: output.info.width,
+      height: output.info.height,
+    };
+  }
+  const thumbnail = await webp(1200, 74),
+    small = await webp(600, 72),
+    tiny = await webp(24, 30);
   parentPort.postMessage({
     bytes: result.data,
     width: result.info.width,
     height: result.info.height,
+    thumbnail,
+    small,
+    placeholder: `data:image/webp;base64,${tiny.bytes.toString("base64")}`,
   });
 })().catch((error) =>
   parentPort.postMessage({

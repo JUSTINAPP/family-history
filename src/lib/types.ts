@@ -26,6 +26,8 @@ export interface ArchiveFile {
   checksum?: string;
 }
 export interface ArchiveItem {
+  imageSet?: import("./preview/types").ImageSet;
+  archivedAt?: string;
   ingestionStatus?: string;
   sourcePreserved?: boolean;
   sourceCount?: number;

@@ -354,6 +354,11 @@ export function BulkImport() {
                   >
                     View imported photographs ↗
                   </Link>
+                  {workspace.mode === "live" && (
+                    <Link className="text-link" href={`/imports/${batchId}`}>
+                      Review import inbox ↗
+                    </Link>
+                  )}
                   <Link
                     className="text-link"
                     href={
@@ -372,7 +377,10 @@ export function BulkImport() {
             )}
             {imported.length > 0 && !complete && (
               <p>
-                <Link className="text-link" href={`/explore?archive=${archive.id}&batch=${batchId}`}>
+                <Link
+                  className="text-link"
+                  href={`/explore?archive=${archive.id}&batch=${batchId}`}
+                >
                   View successfully imported photographs ↗
                 </Link>
               </p>

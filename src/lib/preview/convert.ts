@@ -16,7 +16,14 @@ export class PreviewConversionError extends BackendError {
 export async function convertPreview(
   source: Uint8Array,
   timeoutMs = 35000,
-): Promise<{ bytes: Uint8Array; width: number; height: number }> {
+): Promise<{
+  bytes: Uint8Array;
+  width: number;
+  height: number;
+  thumbnail: { bytes: Uint8Array; width: number; height: number };
+  small: { bytes: Uint8Array; width: number; height: number };
+  placeholder: string;
+}> {
   if (running) throw new PreviewConversionError("decoder_busy", 429);
   if (!source.length || source.length > 30 * 1024 * 1024)
     throw new PreviewConversionError("source_size_limit");
