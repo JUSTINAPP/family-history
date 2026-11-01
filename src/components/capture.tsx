@@ -77,6 +77,7 @@ export function Capture() {
   const camera = useRef<HTMLInputElement>(null);
   const upload = useRef<HTMLInputElement>(null);
   const letter = kind === "Letter";
+  const document = ["Letter", "Document", "Postcard", "Certificate"].includes(kind);
   const contextText = [
     written,
     voice.editedTranscript ?? voice.machineTranscript,
@@ -95,7 +96,7 @@ export function Capture() {
         file,
         url,
         originalName: file.name,
-        role: letter
+        role: document
           ? "page"
           : kind === "Object"
             ? files.length + i === 0
@@ -221,14 +222,17 @@ export function Capture() {
       />
       <nav className="import-actions" aria-label="Add to archive options">
         <span aria-current="page">Add one item</span>
+        <button className="subtle-button" aria-pressed={document} onClick={() => setKind("Letter")}>Add a letter or document</button>
+        <button className="subtle-button" aria-pressed={kind === "Object"} onClick={() => setKind("Object")}>Add an object</button>
         <Link className="text-link" href="/add/bulk?workflow=import">
-          Bulk import photographs ↗
+          Add photographs ↗
         </Link>
         <Link className="text-link" href="/add/voice">
-          Voice recording ↗
+          Record a memory ↗
         </Link>
       </nav>
       <p className="help-line">
+        Each photograph imported separately becomes its own item. A letter, document or object can have several pages or views together.
         Keep pages, front/back or several views of one item together here.
         Import separate photographs through Bulk import photographs.
       </p>
@@ -427,6 +431,7 @@ export function Capture() {
                       />
                     </button>
                     <div>
+                      <span className="help-line">{i + 1} — </span>
                       <label>
                         <span className="sr-only">
                           Role for {file.originalName}
@@ -443,8 +448,13 @@ export function Capture() {
                             )
                           }
                         >
-                          {letter ? (
+                          {document ? (
                             <>
+                              <option value="image">Unlabelled page</option>
+                              <option value="page-front">Page front</option>
+                              <option value="page-back">Page back</option>
+                              <option value="picture-side">Picture side</option>
+                              <option value="written-side">Written side</option>
                               <option value="page">
                                 Page{" "}
                                 {
@@ -514,7 +524,7 @@ export function Capture() {
                   onClick={() => camera.current?.click()}
                 >
                   <Plus size={17} />
-                  {letter ? "Add another page" : "Add another image / page"}
+                  {document ? "Add another page" : "Add another image / page"}
                 </button>
                 <button
                   className="subtle-button"

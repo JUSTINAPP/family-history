@@ -1,3 +1,6 @@
+import { ReviewedDocumentNotes } from "./reviewed-document-notes";
+import { DocumentReader } from "./document-reader";
+import { documentKinds } from "@/lib/documents/types";
 import { QuickField } from "./quick-field";
 import { FamilyConversation } from "./family-conversation";
 import { cataloguePresentation } from "@/lib/catalogue-presentation";
@@ -149,7 +152,11 @@ export async function LiveItem({
             {item.kind === "Audio" && (
               <Recordings recordings={recordings} snapshot={snapshot} />
             )}
-            {files
+            {documentKinds.includes(item.kind) && <>
+              <DocumentReader pages={files.filter(f => f.purpose === "original")} sets={result.imageSets} title={display.title} />
+              <p><Link className="text-link" href={`/archive/${item.id}/review`}>Transcription and translation ↗</Link></p>
+            </>}
+            {!documentKinds.includes(item.kind) && files
               .filter((file) => file.purpose === "original")
               .map((file, index) => (
                 <div key={file.id} style={{ marginBottom: 25 }}>
@@ -264,6 +271,7 @@ export async function LiveItem({
               separate copies.
             </div></details>
             {item.notes && <p className="prose">{item.notes}</p>}
+            {documentKinds.includes(item.kind) && <ReviewedDocumentNotes itemId={item.id} archiveId={item.archive_id}/>}
             <FamilyConversation archiveId={item.archive_id} itemId={item.id} comments={result.comments}
               profileId={snapshot.profileId} names={Object.fromEntries(snapshot.members.map(m => [m.profileId, m.name]))}
               canComment={can(role, "commenter") && item.lifecycle === "active" && !item.archived_at && item.ingestion_status === "ready"}

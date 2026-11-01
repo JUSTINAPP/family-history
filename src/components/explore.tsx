@@ -54,7 +54,7 @@ export function Explore() {
       (!params.get("batch") || item.importBatchId === params.get("batch")) &&
       (type === "All" || item.kind === type) &&
       (!q ||
-        `${item.title} ${item.reportedPeople || ""} ${item.notes} ${item.place} ${placeNames} ${item.date} ${item.collection} ${item.tags.join(" ")} ${names} ${item.kind === "Letter" ? transcriptionPages.join(" ") : ""}`
+        `${item.title} ${item.reportedPeople || ""} ${item.notes} ${item.place} ${placeNames} ${item.date} ${item.collection} ${item.tags.join(" ")} ${names} ${workspace.mode === "live" ? item.reviewedText || "" : item.kind === "Letter" ? transcriptionPages.join(" ") : ""}`
           .toLowerCase()
           .includes(q.toLowerCase())) &&
       (!person || item.people.includes(person)) &&

@@ -1,3 +1,4 @@
+import { reviewedDocumentSearch } from "@/lib/documents/repository";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { loadWorkspace } from "@/lib/backend/repository";
@@ -49,6 +50,12 @@ export default async function ExplorePage({
         ],
       };
     }
+  }
+  if (snapshot) {
+    try {
+      const text=await reviewedDocumentSearch(snapshot.archive.id);
+      snapshot={...snapshot,catalogue:snapshot.catalogue.map(item=>({...item,reviewedText:(text.get(item.id)||[]).join("\n")}))};
+    } catch {snapshot={...snapshot,resourceWarnings:[...snapshot.resourceWarnings,"Reviewed document text could not load. Title and metadata search remain available."]};}
   }
   reportRender("explore");
   const filterKey = JSON.stringify(params);

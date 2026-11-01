@@ -96,6 +96,7 @@ export function IdentificationForm({
                 <details open={!simple}>
                   <summary>Identification details</summary>
                   <p>{i.status === "accepted" ? "confirmed ✓" : "reported"}</p>
+                  {i.role_context && <p>Connection: {i.role_context}</p>}
                 <p className="help-line">
                   Originally reported by{" "}
                   {i.proposed_by === profileId

@@ -27,6 +27,7 @@ export interface ArchiveFile {
 }
 export interface ArchiveItem {
   rawTitle?: string;
+  reviewedText?: string;
   contributedBy?: string;
   datePrecision?: string;
   titleSource?: "explicit" | "derived";

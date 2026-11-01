@@ -132,6 +132,10 @@ export async function fixtureServer(
   const identifications = [],
     recollections = [],
     comments = [],
+    documentRuns = [],
+    documentTexts = [],
+    documentSuggestions = [],
+    documentVersions = new Map(),
     provenance = [];
   const requests = [];
   const objects = new Map(
@@ -367,6 +371,36 @@ export async function fixtureServer(
       });
       return send(200, { people, materialIds });
     }
+    if (address.pathname === "/__fixture/document-item" && management) {
+      const template=imageSets.find(s=>s.status==="stored"),source=files.find(f=>f.id===template.original_file_id);
+      const id=crypto.randomUUID(),sourceIds=[];
+      rows.push({...rows.find(r=>!r.archived_at),id,kind:"Letter",title:"Fixture four-page letter",grouping_kind:"single_object",archived_at:null,split_from:null,lifecycle:"active",ingestion_status:"ready",reported_date:"",date_precision:"unknown",reported_place:"",people_text:"",notes:"",catalogued_at:null});
+      const roles=["envelope-front","envelope-back","page-front","page-back"];
+      for(let n=0;n<4;n++) {
+        const originalId=crypto.randomUUID();sourceIds.push(originalId);
+        const f={...source,id:originalId,item_id:id,page_order:n,page_role:roles[n],original_filename:`document-${n+1}.heic`,storage_path:`${ARCHIVE}/${id}/${originalId}`};
+        files.push(f);objects.set(`${f.bucket_id}/${f.storage_path}`,original);
+        const set={...template,id:crypto.randomUUID(),item_id:id,original_file_id:originalId};
+        for(const key of ["display_file_id","thumbnail_file_id","small_file_id"]) {
+          const old=files.find(f=>f.id===template[key]),derived={...old,id:crypto.randomUUID(),item_id:id,parent_original_id:originalId,page_order:n};
+          derived.storage_path=`${ARCHIVE}/${id}/${derived.id}`;files.push(derived);objects.set(`${derived.bucket_id}/${derived.storage_path}`,objects.get(`${old.bucket_id}/${old.storage_path}`));set[key]=derived.id;
+        }imageSets.push(set);
+      }
+      let person=people.find(p=>p.display_name==="Jan Allen");
+      if(!person){const pid=crypto.randomUUID();person={id:pid,slug:pid,archive_id:ARCHIVE,display_name:"Jan Allen",category:"family",biography:"",lifespan:""};people.push(person);}
+      let place=places.find(p=>p.name==="Auroville");
+      if(!place){place={id:crypto.randomUUID(),archive_id:ARCHIVE,name:"Auroville",locality:"",city:"",region:"Tamil Nadu",country:"India",notes:"",latitude:null,longitude:null};places.push(place);}
+      const manifest=sourceIds.map((fid,n)=>({id:fid,page_order:n,page_role:roles[n],sha256:hash}));
+      const runId=crypto.randomUUID(),translationId=crypto.randomUUID();
+      const text=["Cher Jan, Auroville, 17 August 1978. [unclear]","Une lettre de notre famille.","We will travel together.","Au revoir."];
+      for(const [operation,rid] of [["transcribe",runId],["translate",translationId]]) {
+        documentRuns.push({id:rid,archive_id:ARCHIVE,item_id:id,source_manifest:manifest,source_version:"fixture-document-v1",source_texts:operation==="translate"?sourceIds.map((fid,n)=>({original_file_id:fid,text:text[n],review_revision:0,transcription_id:documentTexts.find(t=>t.document_run_id===runId&&t.original_file_id===fid)?.id})):[],source_run_id:operation==="translate"?runId:null,operation,provider:"fixture",model:"synthetic-document-v1",status:"complete",created_at:operation==="transcribe"?"2026-01-01T00:00:00Z":"2026-01-02T00:00:00Z",updated_at:"2026-01-02T00:00:00Z",output:Object.fromEntries(sourceIds.map(fid=>[fid,{uncertainty:["Unclear handwriting is retained literally"],language:operation==="translate"?"en":"fr"}]))});
+        for(let n=0;n<4;n++)documentTexts.push({id:crypto.randomUUID(),archive_id:ARCHIVE,item_id:id,document_run_id:rid,original_file_id:sourceIds[n],page_order_snapshot:n,raw_ai_text:operation==="translate"?`English draft page ${n+1}; source remains separate.`:text[n],reviewed_text:null,review_status:"pending",review_revision:0,output_kind:operation==="translate"?"translation":"source",confidence:null,provider:"fixture",model:"synthetic-document-v1",modality:"handwriting",version:operation==="translate"?2:1,processed_at:"2026-01-01T00:00:00Z"});
+      }
+      for(const suggestion of [{kind:"person",value:"Jan",page:1,evidence:"Jan",context:"mentioned"},{kind:"place",value:"Auroville",page:1,evidence:"Auroville",context:"written_in"},{kind:"date",value:"1978-08-17",page:1,evidence:"17 August 1978",context:"written_date"},{kind:"summary",value:"A letter about family travel.",page:3,evidence:"travel",context:""}])
+        documentSuggestions.push({id:crypto.randomUUID(),archive_id:ARCHIVE,item_id:id,document_run_id:runId,source_file_id:sourceIds[suggestion.page-1],field_path:`document.${suggestion.kind}`,status:"pending",suggested_value:suggestion,reviewed_value:null});
+      return send(200,{id,runId,translationId,sourceIds,person,place});
+    }
     if (address.pathname === "/__fixture/quick-photos" && management) {
       const template = imageSets.find(s => s.status === "stored");
       const source = files.find(f => f.id === template.original_file_id);
@@ -513,6 +547,9 @@ export async function fixtureServer(
         identifications,
         recollections,
         comments,
+        documentRuns,
+        documentTexts,
+        documentSuggestions,
         provenance,
         files,
         displays: files.filter((f) => f.purpose === "display"),
@@ -678,6 +715,43 @@ export async function fixtureServer(
           },
         });
         return link.id;
+      }
+      if (rpc === "document_snapshot") {
+        const item=rows.find(r=>r.id===body.p_item_id);
+        if(!item || !["Letter","Document","Postcard","Certificate"].includes(item.kind))return send(403,{code:"42501"});
+        return send(200,{version:`fixture-document-v${documentVersions.get(item.id)||1}`,pages:files.filter(f=>f.item_id===item.id&&f.purpose==="original").sort((a,b)=>a.page_order-b.page_order).map(f=>({id:f.id,page_order:f.page_order,page_role:f.page_role,sha256:f.sha256}))});
+      }
+      if (rpc === "review_document_page") {
+        const t=documentTexts.find(t=>t.id===body.p_transcription_id);
+        if(!t || !management)return send(403,{code:"42501"});
+        if(t.review_revision!==body.p_revision)return send(400,{code:"40001"});
+        t.reviewed_text=body.p_text;t.review_status="reviewed";t.review_revision++;t.reviewed_at=new Date().toISOString();return send(200,null);
+      }
+      if (rpc === "apply_document_suggestions") {
+        const run=documentRuns.find(r=>r.id===body.p_run_id);
+        if(!run || !management)return send(403,{code:"42501"});
+        for(const x of body.p_selections) {
+          const s=documentSuggestions.find(s=>s.id===x.id&&s.document_run_id===run.id);
+          if(!s)return send(400,{code:"P0001"});
+          const k=s.suggested_value.kind;
+          if(x.action==="accept") {
+            if(["person","sender","recipient"].includes(k)) {
+              const person=people.find(p=>p.id===x.canonical_id&&p.archive_id===ARCHIVE);if(!person)return send(400,{code:"23503"});
+              if(!identifications.some(i=>i.item_id===run.item_id&&i.person_id===person.id))identifications.push({id:crypto.randomUUID(),archive_id:ARCHIVE,item_id:run.item_id,person_id:person.id,proposed_name:person.display_name,proposed_by:USER,status:"accepted",role_context:x.context,created_at:new Date().toISOString()});
+            } else if(k==="place") {
+              const place=places.find(p=>p.id===x.canonical_id&&p.archive_id===ARCHIVE);if(!place)return send(400,{code:"23503"});
+              if(!itemPlaces.some(l=>l.item_id===run.item_id&&l.place_id===place.id&&l.role===x.context))itemPlaces.push({id:crypto.randomUUID(),archive_id:ARCHIVE,item_id:run.item_id,place_id:place.id,role:x.context,status:"confirmed",created_by:USER,source:"human_report",created_at:new Date().toISOString()});
+            } else if(k==="date"&&x.context==="written_date") {
+              const item=rows.find(i=>i.id===run.item_id);if(JSON.stringify({value:item.reported_date,precision:item.date_precision})!==JSON.stringify(body.p_expected_date))return send(400,{code:"40001"});
+              item.reported_date=x.value;item.date_precision=x.precision;
+            }
+          }
+          s.status=x.action==="accept"?"accepted":"rejected";s.reviewed_value=x;s.reviewed_at=new Date().toISOString();
+        }return send(200,null);
+      }
+      if (rpc === "order_document_pages") {
+        body.p_ids.forEach((id,n)=>{for(const f of files.filter(f=>f.id===id||f.parent_original_id===id)){f.page_order=n;if(f.id===id)f.page_role=body.p_roles[n];}});
+        documentVersions.set(body.p_item_id,(documentVersions.get(body.p_item_id)||1)+1);return send(200,null);
       }
       if (rpc === "save_archive_place")
         return send(200, writePlace(body.p_details, body.p_place_id).id);
@@ -1096,7 +1170,7 @@ export async function fixtureServer(
     )
       return send(503, { code: "fixture_optional_unavailable" });
     let data =
-      table === "comments" ? comments : table === "places"
+      table === "document_runs" ? documentRuns : table === "transcriptions" ? documentTexts : table === "metadata_suggestions" ? documentSuggestions : table === "comments" ? comments : table === "places"
         ? places
         : table === "item_places"
           ? itemPlaces

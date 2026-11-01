@@ -2,9 +2,12 @@
 import { spawn } from "node:child_process";
 import { fixtureServer } from "../tests/fixtures/visibility-server.mjs";
 import { checkPreviewBundle } from "./check-preview-bundle.mjs";
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 const env = {
   ...process.env,
+  DOCUMENT_AI_PROVIDER: "",
+  DOCUMENT_AI_MODEL: "",
+  OPENAI_API_KEY: "fixture-server-document-key",
   ARCHIVE_DEMO_MODE: "false",
   ARCHIVE_BUILD_DIR: ".next-test",
   NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:4301",
@@ -17,6 +20,10 @@ async function command(args) {
 }
 if (!process.env.TEST_PREVIEW_SKIP_BUILD)
   await command(["node_modules/next/dist/bin/next", "build"]);
+for (const name of await readdir(".next-test/static", {recursive:true})) {
+  if(name.endsWith(".js") && (await readFile(`.next-test/static/${name}`,"utf8")).includes("fixture-server-document-key")) throw new Error("Server document key leaked into client bundle.");
+}
+console.log("Document server-key client-bundle exclusion passed.");
 const previewFile = process.env.TEST_HEIC_FILE || "tests/fixtures/preview.heic";
 await checkPreviewBundle(".next-test", await readFile(previewFile));
 const { server } = await fixtureServer(4301, {

@@ -20,6 +20,7 @@ test("private routes fail closed without an authenticated session", async ({
     "/admin/members",
     "/admin/deletions",
     "/archive/40000000-0000-4000-8000-000000000001/manage",
+    "/archive/40000000-0000-4000-8000-000000000001/review",
     "/people",
     "/places",
     "/places/40000000-0000-4000-8000-000000000001",
@@ -45,6 +46,10 @@ test("private APIs do not accept anonymous uploads or disclose source records", 
   );
   expect(source.status()).toBe(401);
   expect(source.headers()["cache-control"]).toContain("no-store");
+  for(const path of ["/api/v1/documents/40000000-0000-4000-8000-000000000001", "/api/v1/document-runs/40000000-0000-4000-8000-000000000001"]) {
+    expect((await request.post(path)).status()).toBe(401);
+    expect((await request.post(path,{headers:{Origin:"https://untrusted.example"}})).status()).toBe(403);
+  }
   const previewPath = "/api/v1/previews/10000000-0000-4000-8000-000000000001";
   expect((await request.get(previewPath)).status()).toBe(401);
   expect((await request.post(previewPath)).status()).toBe(401);

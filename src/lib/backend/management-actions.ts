@@ -4,6 +4,7 @@ import { requireSession } from "./repository";
 import { safeError } from "./errors";
 import { UUID_PATTERN } from "./validation";
 const errors: Record<string, string> = {
+  document_busy: "This document is processing. Wait for it to finish, or stop the attempt before archiving or deleting it.",
   cross_item_source_dependency:
     "Another item's transcription depends on this source. Resolve that dependency before deletion; no files were removed.",
   permission_denied: "Editor or Admin access is required.",

@@ -9,6 +9,7 @@ export interface Identification {
   proposed_by: string;
   created_at: string;
   status: "reported" | "accepted" | "rejected";
+  role_context?: string;
   source?: "legacy_report" | "human_report";
   linked_by?: string | null;
   linked_at?: string | null;

@@ -5,6 +5,7 @@ import { join } from "node:path";
 import assert from "node:assert/strict";
 import { managementChecks } from "./test-item-management.mjs";
 import { personChecks } from "./test-person-identifications.mjs";
+import { documentChecks } from "./test-documents.mjs";
 import { conversationChecks } from "./test-conversation.mjs";
 import { placeChecks } from "./test-places.mjs";
 const directory = await mkdtemp(join(tmpdir(), "archive-postgres-"));
@@ -1106,6 +1107,8 @@ try {
   checks += placeCount;
   const conversationCount = await conversationChecks({q, asUser, asOwner, denied, users, archive: a, otherArchive: b, manifestFile: groupFile});
   checks += conversationCount;
+  const documentCount = await documentChecks({q, asUser, asOwner, denied, users, archive: a, otherArchive: b, manifestFile: groupFile});
+  checks += documentCount;
   const managementCount = await managementChecks({
     q,
     asUser,
@@ -1160,7 +1163,7 @@ try {
   const rls = await q(
     "select count(*)::int as n from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind='r' and c.relrowsecurity and c.relforcerowsecurity",
   );
-  assert.equal(rls.rows[0].n, withAudio ? 26 : 24);
+  assert.equal(rls.rows[0].n, withAudio ? 27 : 25);
   checks++;
   if (!withAudio) {
     await db.exec(

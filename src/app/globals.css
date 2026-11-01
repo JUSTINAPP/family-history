@@ -4980,3 +4980,18 @@ main {
 .quick-navigation { position: sticky; top: 0; z-index: 20; background: var(--paper); border-bottom: 1px solid var(--line); }
 .quick-photo-layout { scroll-margin-top: 120px; }
 .quick-photo .archive-image { max-height: 75vh; }
+
+.document-reader { min-width: 0; }
+.document-reader .document-page { max-height: 85vh; }
+.document-enlarged { grid-column: 1 / -1; }
+.document-enlarged .document-page { max-height: none; }
+.document-thumbnails { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 10px; margin-block: 20px; }
+.document-thumbnails button { min-width: 0; min-height: 44px; text-align: left; overflow-wrap: anywhere; padding: 6px; }
+.document-thumbnails button[aria-current] { outline: 1px solid currentColor; }
+.document-thumbnails .archive-image { width: 100%; aspect-ratio: 1; min-height: 70px; }
+.document-review-grid { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 32px; }
+.document-review-grid > section { min-width: 0; }
+.document-text { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.8; }
+.document-suggestion { padding: 16px 0; border-top: 1px solid var(--line); }
+.document-suggestion select, .document-suggestion input { max-width: 100%; }
+@media(max-width:820px) { .document-review-grid {grid-template-columns:minmax(0,1fr);} }

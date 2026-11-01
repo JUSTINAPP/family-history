@@ -14,6 +14,9 @@ const app = spawn(
   {
     env: {
       ...process.env,
+      DOCUMENT_AI_PROVIDER: "",
+      DOCUMENT_AI_MODEL: "",
+      OPENAI_API_KEY: "fixture-server-document-key",
       ARCHIVE_DEMO_MODE: "false",
       ARCHIVE_BUILD_DIR: ".next-test",
       NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:4301",

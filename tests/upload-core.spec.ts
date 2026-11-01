@@ -161,3 +161,18 @@ test("changed retry hashes are rejected without overwriting an existing reservat
   });
   expect(fake.objects.size).toBe(0);
 });
+
+for(const count of [2,4])test(`${count}-page letter remains one item with ordered independently preserved original bytes`,async()=>{
+  const fake=backend();const input=form();input.set("kind","Letter");input.set("context","");input.delete("files");
+  const originals=Array.from({length:count},(_,n)=>Buffer.from([...bytes,n]));
+  input.set("roles",JSON.stringify(Array.from({length:count},(_,n)=>n===0?"envelope-front":n===1?"envelope-back":"page")));
+  originals.forEach((body,n)=>input.append("files",new File([new Uint8Array(body)],`letter-${n}.png`,{type:"image/png"})));
+  const saved=await persistUpload(fake.client,input);
+  expect(saved.id).toBe(item);expect(fake.begins).toBe(1);expect(fake.objects.size).toBe(count);
+  fake.reserved.forEach((row,n)=>{
+    expect(row.item_id).toBe(item);
+    expect(row.sha256).toBe(createHash("sha256").update(originals[n]).digest("hex"));
+    expect(fake.objects.get(String(row.storage_path))).toEqual(originals[n]);
+  });
+  await persistUpload(fake.client,input);expect(fake.begins).toBe(1);expect(fake.objects.size).toBe(count);
+});
