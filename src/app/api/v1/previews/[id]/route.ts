@@ -211,7 +211,7 @@ export async function POST(request: NextRequest, context: Context) {
       return Response.json(
         {
           id: existing.display_file_id,
-          imageSet: imageSet(existing as ImageSetRow),
+          imageSet: imageSet({...existing,presentation_rotation:original.presentation_rotation} as ImageSetRow),
         },
         { headers },
       );
@@ -384,7 +384,7 @@ export async function POST(request: NextRequest, context: Context) {
     return Response.json(
       {
         id: set.display_file_id,
-        imageSet: imageSet(set as ImageSetRow),
+        imageSet: imageSet({...set,presentation_rotation:original.presentation_rotation} as ImageSetRow),
         requestId,
       },
       { headers },

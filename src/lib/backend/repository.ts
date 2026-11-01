@@ -182,7 +182,7 @@ const cachedWorkspace = cache(
             (from, to) =>
               client
                 .from("archive_item_files")
-                .select("id,item_id,purpose,status,page_order", {
+                .select("id,item_id,purpose,status,page_order,presentation_rotation", {
                   count: "exact",
                 })
                 .eq("archive_id", row.id)
@@ -298,6 +298,12 @@ const cachedWorkspace = cache(
             warnings.push("Some recollection context could not load.");
             return { data: [] as { id: string; item_id: string }[] };
           }),
+      options.catalogue === false
+        ? Promise.resolve({data: [] as {item_id:string;comment_count:number}[], available:true})
+        : allRows<{item_id:string;comment_count:number}>((from,to)=>client.from("item_conversation_counts")
+          .select("item_id,comment_count",{count:"exact"}).eq("archive_id",row.id).order("item_id").range(from,to).retry(false)
+          .abortSignal(AbortSignal.timeout(2500)),r=>r.item_id)
+          .then(value=>({...value,available:true})).catch(()=>({data:[],available:false})),
     ]);
     const members: Member[] = (results[0].data || []).map((m) => ({
       archiveId: m.archive_id,
@@ -368,7 +374,9 @@ const cachedWorkspace = cache(
     }));
     const recollected = new Set(results[9].data.map(r => r.item_id));
     const personNames = new Map(people.map(p => [p.id, p.name]));
+    const commentCounts=new Map(results[10].data.map(c=>[c.item_id,c.comment_count]));
     catalogueItemsResult.forEach(item => {
+      item.commentCount=results[10].available ? commentCounts.get(item.id)||0 : undefined;
       item.hasRecollection = recollected.has(item.id);
       const display = cataloguePresentation({kind: item.kind, title: item.rawTitle, datePrecision: item.datePrecision,
         people: item.people.map(id => personNames.get(id) || "Person linked"),

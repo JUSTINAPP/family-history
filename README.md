@@ -1,5 +1,7 @@
 # The Allen & Cork Archive
 
+**Current release — conversation access and image rotation (014):** Family conversation is beside the normal item image, cards link to comments, and Quick catalogue is easier to find. Image options save non-destructive quarter turns across private previews and archival stacks; masters and derivative bytes stay unchanged. Only migration 014 is new. See [release, manual Supabase action and exact smoke test](docs/conversation-and-image-rotation.md).
+
 **Current release — letters and optional document AI (013):** Preserve ordered multi-page letters as one item, read original pages, explicitly request transcription/English translation, correct drafts and deliberately confirm metadata. OpenAI is optional and server-only; uploads never start AI. Only migration 013 is new; 001–012 remain unchanged. See [release, configuration, manual Supabase action and smoke test](docs/document-processing.md).
 
 **Current release — Quick catalogue and family conversation (012):** Save People, dates, Places and captions independently while moving through photographs. Private conversation supports attributed comments, shallow replies, own-comment edits and Editor moderation/copying to a recollection. Everyday item pages put archival detail behind expandable sections. Only migration 012 is new; 001–011 are unchanged. See [release, manual Supabase action and exact production smoke test](docs/quick-catalogue-conversation.md).

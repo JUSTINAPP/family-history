@@ -4995,3 +4995,13 @@ main {
 .document-suggestion { padding: 16px 0; border-top: 1px solid var(--line); }
 .document-suggestion select, .document-suggestion input { max-width: 100%; }
 @media(max-width:820px) { .document-review-grid {grid-template-columns:minmax(0,1fr);} }
+
+/* Presentation corrections share the same private bytes and placeholder. */
+.image-presentation { background-repeat: no-repeat; }
+.image-options { margin-block: 10px 16px; }
+.image-options summary, .image-options button { min-height: 44px; }
+.family-conversation { scroll-margin-top: 90px; }
+.conversation-link { display: inline-block; min-height: 44px; font-size: 12px; line-height: 1.5; padding-block: 10px; text-decoration: underline; text-underline-offset: 3px; }
+.comment-actions .subtle-button { min-height: 44px; }
+.home-help { margin-block: 0 24px; }
+.quick-photo-strip { margin-block: 16px 24px; }

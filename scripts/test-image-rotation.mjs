@@ -1,0 +1,34 @@
+import assert from "node:assert/strict";
+export async function rotationChecks({q,asUser,asOwner,denied,users,archive,manifestFile}) {
+ let checks=0;const eq=(a,b)=>{assert.deepEqual(a,b);checks++;};
+ const one=async(sql,args=[])=>(await q(sql,args)).rows[0];
+ await asUser(users[3]);
+ const item=(await one("select public.begin_ingestion($1,gen_random_uuid(),'Rotation fixture','Photograph','','{}',$2::jsonb) id",[archive,JSON.stringify([manifestFile])])).id;
+ const file=await one("select * from public.archive_item_files where item_id=$1",[item]);
+ await q("insert into storage.objects(bucket_id,name,metadata) values($1,$2,$3::jsonb)",[file.bucket_id,file.storage_path,JSON.stringify({size:file.byte_size,mimetype:file.mime_type})]);
+ await q("select public.complete_ingestion($1,$2)",[archive,item]);
+ const rotate="select public.rotate_item_image($1,$2,$3) angle";
+ eq((await one(rotate,[file.id,90,0])).angle,90);
+ await denied(rotate,[file.id,90,0]);
+ eq((await one(rotate,[file.id,-90,90])).angle,0);
+ for(const angle of [0,90,180,270])eq((await one(rotate,[file.id,90,angle])).angle,(angle+90)%360);
+ await denied(rotate,[file.id,45,0]);await denied(rotate,[file.id,90,null]);
+ const after=await one("select * from public.archive_item_files where id=$1",[file.id]);
+ for(const key of ['sha256','byte_size','storage_path','bucket_id','mime_type','width','height','page_order','page_role'])eq(after[key],file[key]);
+ eq((await one("select count(*)::int n from storage.objects where bucket_id=$1 and name=$2",[file.bucket_id,file.storage_path])).n,1);
+ const post="select public.post_item_comment($1,$2,$3,$4,gen_random_uuid()) id";
+ const parent=(await one(post,[archive,item,'A familiar place.',null])).id;
+ const reply=(await one(post,[archive,item,'Yes, outside the house.',parent])).id;
+ eq((await one("select comment_count from public.item_conversation_counts where item_id=$1",[item])).comment_count,2);
+ await asUser(users[4]);await q("select public.change_item_comment($1,'archive',null,1)",[reply]);
+ eq((await one("select comment_count from public.item_conversation_counts where item_id=$1",[item])).comment_count,1);
+ eq((await one(rotate,[file.id,-90,0])).angle,270);
+ await asUser(users[2]);await denied(rotate,[file.id,90,270]);
+ await asUser(users[1]);await denied(rotate,[file.id,90,270]);
+ eq((await one("select count(*)::int n from public.item_conversation_counts where item_id=$1",[item])).n,0);
+ await asUser(null);await denied(rotate,[file.id,90,270]);await denied(post,[archive,item,'Forbidden',null]);
+ await asUser(users[4]);await q("select public.set_item_archived($1,true)",[item]);await denied(rotate,[file.id,90,270]);
+ await asOwner();eq((await one("select count(*)::int n from public.provenance where item_id=$1 and field_path='image_rotation'",[item])).n,7);
+ await asUser(users[4]);
+ console.log(`Rotation assertions passed: ${checks}; permission denials counted in main suite.`);return checks;
+}

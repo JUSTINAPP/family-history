@@ -176,7 +176,7 @@ export function Explore() {
         eyebrow="THE COLLECTION"
         title="An archive of us."
         description="The big days. The ordinary afternoons. The things we thought to keep."
-      />
+      >{workspace.mode === "live" && <Link prefetch={false} className="text-link" href={`/quick-catalogue?archive=${workspace.archive.id}`}>Quick catalogue ↗</Link>}</PageIntro>
       <div className="archive-controls">
         <div className="search-field">
           <Search size={20} />

@@ -1,4 +1,5 @@
 "use client";
+import { presentationRatio } from "@/lib/preview/types";
 import { ArchiveImage } from "./archive-image";
 import type { StackMaterial } from "@/lib/people-material";
 export function PersonMaterialStack({
@@ -22,11 +23,11 @@ export function PersonMaterialStack({
             key={item.id}
             data-item-id={item.id}
             style={{
-              aspectRatio: `${item.imageSet!.small.width}/${item.imageSet!.small.height}`,
-              width: `${Math.min(78, (item.imageSet!.small.width / item.imageSet!.small.height) * 60)}%`,
+              aspectRatio: `${presentationRatio(item.imageSet!)}`,
+              width: `${Math.min(78, presentationRatio(item.imageSet!) * 60)}%`,
               ...(items.length === 1
                 ? {
-                    left: `${(100 - Math.min(78, (item.imageSet!.small.width / item.imageSet!.small.height) * 60)) / 2}%`,
+                    left: `${(100 - Math.min(78, presentationRatio(item.imageSet!) * 60)) / 2}%`,
                   }
                 : {}),
             }}

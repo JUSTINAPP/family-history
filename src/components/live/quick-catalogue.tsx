@@ -6,6 +6,7 @@ import type { ArchivePlace, ItemPlace } from "@/lib/places";
 import type { Identification } from "@/lib/identifications";
 import { needsInformation, type FamilyComment } from "@/lib/conversation";
 import { can } from "@/lib/permissions";
+import { ImageOptions } from "./image-options";
 import { ArchiveImage } from "../archive-image";
 import { IdentificationForm } from "./identification-form";
 import { PlacePicker } from "./place-picker";
@@ -39,9 +40,13 @@ export function QuickCatalogue({archiveId, items, people, places, placeLinks, id
         {nextNeeding >= 0 ? <button className="subtle-button" onClick={() => choose(nextNeeding)}>Next needing information</button>
           : <Link prefetch={false} href={`/quick-catalogue?archive=${archiveId}&needs=1`}>Find more needing information ↗</Link>}
       </nav>
+      <nav className="quick-photo-strip" aria-label="Photographs in this group">{items.map((photo,n) => <button key={photo.id} aria-current={n===index ? "true" : undefined} aria-label={`Choose photograph ${n+1}: ${photo.title}`} onClick={() => choose(n)}>
+        <ArchiveImage src={photo.image} imageSet={photo.imageSet} rotation={photo.rotation} variant="small" autoPrepare={false} alt="" />
+      </button>)}</nav>
       <div ref={photo} className="quick-photo-layout" key={item.id}>
         <section className="quick-photo">
-          <ArchiveImage src={item.image} imageSet={item.imageSet} variant="small" autoPrepare={false} priority alt={item.title} />
+          <ArchiveImage src={item.image} imageSet={item.imageSet} rotation={item.rotation} variant="small" autoPrepare={false} priority alt={item.title} />
+          {item.originalId && <ImageOptions sourceId={item.originalId} rotation={item.rotation} editable={editableIds.includes(item.id)} />}
           <h2>{item.title}</h2><Link prefetch={false} className="text-link" href={item.href!}>Open full record ↗</Link>
         </section>
         <section className="quick-context" aria-label="Quick photograph details">
@@ -54,9 +59,7 @@ export function QuickCatalogue({archiveId, items, people, places, placeLinks, id
           <FamilyConversation archiveId={archiveId} itemId={item.id} comments={comments.filter(c => c.item_id === item.id)} profileId={profileId} names={names} canComment={can(role,"commenter") && item.ingestionStatus === "ready"} editor={can(role,"editor")} />
         </section>
       </div>
-      <nav className="quick-photo-strip" aria-label="Photographs in this group">{items.map((photo,n) => <button key={photo.id} aria-current={n===index ? "true" : undefined} aria-label={`Choose photograph ${n+1}: ${photo.title}`} onClick={() => choose(n)}>
-        <ArchiveImage src={photo.image} imageSet={photo.imageSet} variant="small" autoPrepare={false} alt="" />
-      </button>)}</nav>
+
     </>}
   </div>;
 }

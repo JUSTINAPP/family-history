@@ -151,7 +151,7 @@ test("production build retrospectively converts two preserved HEICs and privatel
   expect(await gridImage.getAttribute("srcset")).not.toContain(
     summary.imageSets[0].display_file_id,
   );
-  await expect(page.locator(".item-card .has-placeholder")).toHaveCSS(
+  await expect(page.locator(".item-card .has-placeholder .image-presentation")).toHaveCSS(
     "background-image",
     /data:image\/webp/,
   );
@@ -641,7 +641,7 @@ test("People use real archival stacks, small private thumbnails, batched reads a
       nodes.map((n) => (n as HTMLElement).dataset.itemId),
     ))
     expect(seed.materialIds).toContain(id);
-  await expect(many.locator(".has-placeholder").first()).toHaveCSS(
+  await expect(many.locator(".has-placeholder .image-presentation").first()).toHaveCSS(
     "background-image",
     /data:image\/webp/,
   );
@@ -806,7 +806,7 @@ test("Places are scoped archive entry points with relational filtering, preserve
     "data-image-variant",
     "small",
   );
-  await expect(cards.first().locator(".has-placeholder").first()).toHaveCSS(
+  await expect(cards.first().locator(".has-placeholder .image-presentation").first()).toHaveCSS(
     "background-image",
     /data:image\/webp/,
   );
@@ -1018,7 +1018,7 @@ test("home is a deterministic private scrapbook using real small variants and wo
   const smallIds = new Set(state.imageSets.map((s: {small_file_id: string}) => s.small_file_id));
   const links = await pieces.locator(".scrapbook-caption").evaluateAll(nodes => nodes.map(n => n.getAttribute("href")));
   for (const link of links) expect(state.items.some((i: {id: string; archived_at?: string}) => link?.includes(i.id) && !i.archived_at)).toBe(true);
-  await expect(pieces.first().locator(".has-placeholder")).toHaveCSS("background-image", /data:image\/webp/);
+  await expect(pieces.first().locator(".has-placeholder .image-presentation")).toHaveCSS("background-image", /data:image\/webp/);
   await expect(pieces.last().locator("img")).toHaveAttribute("loading", "lazy");
   await expect(pieces.first().locator("img")).toHaveAttribute("data-image-variant", "small");
   await expect(pieces.first().locator("img")).not.toHaveAttribute("srcset");
@@ -1269,4 +1269,48 @@ test("saved letters read as ordered objects with separate AI drafts, human revie
   await page.goto(`/archive/${seed.id}`);await expect(page.getByText("A letter about family travel.",{exact:true})).toBeVisible();
   await page.getByRole("button",{name:"Demo profile"}).click();await page.getByRole("button",{name:"Sign out",exact:true}).click();await expect(page).toHaveURL(/sign-in/);
   expect((await page.request.post(`/api/v1/documents/${seed.id}`)).status()).toBe(401);
+});
+
+test("family conversation is reachable from cards and persisted presentation rotation follows every private image surface",async({page,request})=>{
+  test.setTimeout(120000);page.setDefaultTimeout(10000);
+  const seed=await(await request.post("http://127.0.0.1:4301/__fixture/quick-photos")).json();
+  const summary=async()=>(await request.get("http://127.0.0.1:4301/__fixture/summary")).json();
+  await page.route("**/*",route=>{const h=route.request().headers();return h["next-router-prefetch"]==="1"||h.purpose==="prefetch"?route.abort():route.continue();});
+  await page.context().addCookies([{name:"active_archive",value:archive,url:"http://127.0.0.1:4300"}]);
+  await page.goto("/sign-in?next="+encodeURIComponent(`/archive/${seed.ids[0]}`));
+  await page.getByLabel("Email",{exact:true}).fill("visibility@example.test");await page.getByLabel("Password",{exact:true}).fill("local-fixture-password");await page.locator("form").getByRole("button",{name:"Sign in",exact:true}).click();
+  const before=await summary();const original=before.files.find((f:{item_id:string;purpose:string})=>f.item_id===seed.ids[0]&&f.purpose==="original");
+  const image=page.locator(".saved-original").first();
+  await page.locator(".image-options summary").first().click();
+  await page.getByRole("button",{name:"Rotate right",exact:true}).click();
+  await expect(page.getByRole("status").filter({hasText:"Image rotated"})).toBeVisible();
+  await expect(image).toHaveAttribute("data-presentation-rotation","90");
+  await expect(image.locator(".image-presentation")).toHaveCSS("transform",/^matrix\(0, 1, -1, 0,/);
+  await expect(image.locator(".image-presentation")).toHaveCSS("background-image",/data:image\/webp/);
+  await page.reload();await expect(image).toHaveAttribute("data-presentation-rotation","90");
+  await page.locator(".image-options summary").first().click();
+  await page.getByRole("button",{name:"Rotate left",exact:true}).click();await expect(image).toHaveAttribute("data-presentation-rotation","0");
+  for(const angle of [90,180,270,0]){await page.getByRole("button",{name:"Rotate right",exact:true}).click();await expect(image).toHaveAttribute("data-presentation-rotation",String(angle));}
+  await page.getByRole("button",{name:"Rotate right",exact:true}).click();await expect(image).toHaveAttribute("data-presentation-rotation","90");
+  const conversation=page.getByRole("region",{name:"Family conversation",exact:true});
+  await expect(conversation).toBeVisible();await conversation.getByLabel("Add a comment",{exact:true}).fill("I recognise this doorway.");await conversation.getByRole("button",{name:"Post comment",exact:true}).click();await expect(conversation.getByText("I recognise this doorway.",{exact:true})).toBeVisible();
+  await conversation.getByRole("button",{name:"Reply to Test contributor",exact:true}).click();await conversation.getByLabel("Reply to Test contributor",{exact:true}).fill("Yes, the family home.");await conversation.getByRole("button",{name:"Post reply",exact:true}).click();await expect(conversation.getByText("Yes, the family home.",{exact:true})).toBeVisible();
+  const person=seed.people.find((p:{display_name:string})=>p.display_name==="03 No material"),who=page.getByRole("region",{name:"People in this item",exact:true});
+  await who.getByRole("button",{name:"+ Add person",exact:true}).click();await who.getByLabel("Search People in this archive").fill(person.display_name);await who.getByRole("list",{name:"Matching People"}).getByRole("button").first().click();await expect(who.getByRole("status")).toHaveText("Person saved.");
+  const where=page.getByRole("region",{name:"Places in this item",exact:true});await where.getByRole("button",{name:"+ Add place",exact:true}).click();await where.getByLabel("Search Places in this archive").fill("Rotation family home");await where.getByRole("button",{name:"+ Add new place",exact:true}).click();await where.getByRole("button",{name:"Create Place and link to this item",exact:true}).click();await expect(where.getByRole("status")).toHaveText("Place saved.");
+  await page.goto(`/explore?archive=${archive}`);await expect(page.getByRole("link",{name:"Quick catalogue ↗",exact:true})).toBeVisible();
+  const card=page.locator(".item-card").filter({has:page.locator(`a[href*="${seed.ids[0]}"]`)});
+  await expect(card.locator(".archive-image")).toHaveAttribute("data-presentation-rotation","90");await expect(card.getByRole("link",{name:/3 comments on/})).toBeVisible();
+  await card.getByRole("link",{name:/3 comments on/}).click();await expect(page).toHaveURL(/#family-conversation$/);await expect(conversation.getByText("I recognise this doorway.",{exact:true})).toBeInViewport();
+  await page.goto(`/quick-catalogue?archive=${archive}`);await expect(page.locator(".quick-photo .archive-image")).toHaveAttribute("data-presentation-rotation","90");
+  await page.setViewportSize({width:375,height:850});expect(await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth)).toBeLessThanOrEqual(0);await page.screenshot({path:"/private/tmp/rotation-quick-mobile.png",fullPage:true});
+  await page.goto("/");await expect(page.getByRole("link",{name:"Help identify photographs ↗",exact:true})).toBeVisible();
+  const piece=page.locator(".scrapbook-piece").filter({has:page.locator(`a[href*="${seed.ids[0]}"]`)});await expect(piece.locator(".archive-image")).toHaveAttribute("data-presentation-rotation","90");await expect(piece.getByRole("link",{name:/3 comments on/})).toBeVisible();
+  await page.waitForLoadState("networkidle");await request.get("http://127.0.0.1:4301/__fixture/metrics?reset=1");await page.reload();await page.waitForLoadState("networkidle");const metrics=await(await request.get("http://127.0.0.1:4301/__fixture/metrics")).json();expect(metrics["/rest/v1/item_conversation_counts"]).toBe(1);expect(metrics["/rest/v1/comments"]||0).toBe(0);
+  await page.goto(`/people?archive=${archive}`);await expect(page.locator(`.material-leaf[data-item-id="${seed.ids[0]}"] .archive-image`).first()).toHaveAttribute("data-presentation-rotation","90");
+  await page.goto(`/places?archive=${archive}`);await expect(page.locator(`.material-leaf[data-item-id="${seed.ids[0]}"] .archive-image`).first()).toHaveAttribute("data-presentation-rotation","90");
+  const after=await summary();const stored=after.files.find((f:{id:string})=>f.id===original.id);expect(stored.sha256).toBe(original.sha256);expect(stored.storage_path).toBe(original.storage_path);expect(after.imageSets.length).toBe(before.imageSets.length);
+  const bytes=await page.request.get(`/api/v1/files/${original.id}`);expect(createHash("sha256").update(await bytes.body()).digest("hex")).toBe(original.sha256);
+  await page.getByRole("button",{name:"Demo profile"}).click();await page.getByRole("button",{name:"Sign out",exact:true}).click();await expect(page).toHaveURL(/sign-in/);
+  await page.goto("/sign-in?next="+encodeURIComponent(`/archive/${seed.ids[0]}`));await page.getByLabel("Email",{exact:true}).fill("visibility@example.test");await page.getByLabel("Password",{exact:true}).fill("local-fixture-password");await page.locator("form").getByRole("button",{name:"Sign in",exact:true}).click();await expect(image).toHaveAttribute("data-presentation-rotation","90");
 });

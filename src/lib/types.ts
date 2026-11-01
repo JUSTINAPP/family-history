@@ -28,6 +28,9 @@ export interface ArchiveFile {
 export interface ArchiveItem {
   rawTitle?: string;
   reviewedText?: string;
+  commentCount?: number;
+  originalId?: string;
+  rotation?: number;
   contributedBy?: string;
   datePrecision?: string;
   titleSource?: "explicit" | "derived";

@@ -50,7 +50,7 @@ export function FamilyConversation({archiveId, itemId, comments, profileId, name
       </form>}
     </article>;
   }
-  return <section className="family-conversation" aria-label="Family conversation">
+  return <section id="family-conversation" className="family-conversation" aria-label="Family conversation">
     <h2>Family conversation</h2>
     {unavailable ? <p role="alert">Conversation could not load. Reload before adding a comment.</p> : <>
       {!comments.length && <p>A question, a familiar face, something you remember…</p>}

@@ -1,11 +1,12 @@
 "use client";
 import { useState } from "react";
+import { ImageOptions } from "./image-options";
 import { ArchiveImage } from "../archive-image";
 import { pageLabel } from "@/lib/documents/types";
 import type { ImageSet } from "@/lib/preview/types";
-export function DocumentReader({pages, sets, title}: {
-  pages: {id: string; page_role: string; page_order: number; original_filename: string; sha256: string; byte_size: number}[];
-  sets: ImageSet[]; title: string;
+export function DocumentReader({pages, sets, title, editable=false}: {
+  pages: {id: string; page_role: string; page_order: number; original_filename: string; sha256: string; byte_size: number; presentation_rotation?:number}[];
+  sets: ImageSet[]; title: string; editable?:boolean;
 }) {
   const [selected, setSelected] = useState(0), [enlarged, setEnlarged] = useState(false);
   const current = pages[Math.min(selected, pages.length-1)];
@@ -18,9 +19,10 @@ export function DocumentReader({pages, sets, title}: {
       <button className="subtle-button" disabled={selected>=pages.length-1} onClick={() => setSelected(selected+1)}>Next page</button>
       <button className="subtle-button" onClick={() => setEnlarged(!enlarged)}>{enlarged ? "Fit page" : "Enlarge page"}</button>
     </nav>
-    <ArchiveImage key={current.id} className="saved-original document-page" src={`/api/v1/previews/${current.id}`} alt={`${title} · ${label}`} imageSet={sets.find(s => s.originalId===current.id)} priority originalPreserved />
+    <ArchiveImage key={current.id} className="saved-original document-page" src={`/api/v1/previews/${current.id}`} alt={`${title} · ${label}`} imageSet={sets.find(s => s.originalId===current.id)} rotation={current.presentation_rotation || 0} priority originalPreserved />
+    <ImageOptions sourceId={current.id} rotation={current.presentation_rotation || 0} editable={editable} />
     <nav className="document-thumbnails" aria-label="Choose a document page">{pages.map((p,i) => <button className="subtle-button" key={p.id} aria-current={i===selected ? "true" : undefined} onClick={() => {setSelected(i);setEnlarged(false);}}>
-      <ArchiveImage src={`/api/v1/previews/${p.id}`} imageSet={sets.find(s => s.originalId===p.id)} variant="small" autoPrepare={false} alt="" />
+      <ArchiveImage src={`/api/v1/previews/${p.id}`} imageSet={sets.find(s => s.originalId===p.id)} rotation={p.presentation_rotation || 0} variant="small" autoPrepare={false} alt="" />
       {i+1} — {pageLabel(p.page_role,i)}
     </button>)}</nav>
     <details className="archive-information"><summary>Original file information</summary><div className="saved-file-list">

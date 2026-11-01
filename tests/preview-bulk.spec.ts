@@ -32,6 +32,10 @@ test("JPEG EXIF orientation is applied to a display copy only", async () => {
     .toBuffer();
   const preview = await convertPreview(original);
   expect([preview.width, preview.height]).toEqual([8, 12]);
+  expect([preview.small.width,preview.small.height]).toEqual([8,12]);
+  expect([preview.thumbnail.width,preview.thumbnail.height]).toEqual([8,12]);
+  const tiny=await sharp(Buffer.from(preview.placeholder.split(",")[1],"base64")).metadata();
+  expect([tiny.width,tiny.height]).toEqual([8,12]);
   expect((await sharp(original).metadata()).orientation).toBe(6);
   expect((await sharp(preview.bytes).metadata()).orientation).toBeUndefined();
 });

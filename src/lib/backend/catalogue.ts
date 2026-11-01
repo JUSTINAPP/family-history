@@ -27,6 +27,7 @@ export interface OriginalRow {
   purpose: string;
   status: string;
   page_order?: number;
+  presentation_rotation?: number;
 }
 export async function allRows<T>(
   page: (
@@ -126,6 +127,8 @@ export function catalogueItems(
     return {
       ...presentation,
       rawTitle: row.title || "",
+      originalId: original?.id,
+      rotation: original?.presentation_rotation || 0,
       contributedBy: row.contributed_by,
       datePrecision: row.date_precision,
       createdAt: row.created_at,

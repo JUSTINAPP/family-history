@@ -17,6 +17,7 @@ export function ArchiveImage({
   variant: requestedVariant = "display",
   sizes,
   autoPrepare = true,
+  rotation: fallbackRotation = 0,
 }: {
   src: string;
   alt: string;
@@ -29,6 +30,7 @@ export function ArchiveImage({
   variant?: "thumbnail" | "display" | "small";
   sizes?: string;
   autoPrepare?: boolean;
+  rotation?: number;
 }) {
   const variant = src.includes("variant=thumbnail")
     ? "thumbnail"
@@ -47,6 +49,15 @@ export function ArchiveImage({
     prepared?.source === src && prepared.base === suppliedSet
       ? prepared.set
       : suppliedSet;
+  const rotation = suppliedSet?.rotation ?? set?.rotation ?? fallbackRotation;
+  const quarter = rotation % 180 !== 0;
+  const frame = useRef<HTMLDivElement>(null);
+  const [box,setBox]=useState({width:0,height:0});
+  useEffect(()=>{
+    if(!rotation || !frame.current)return;
+    const observer=new ResizeObserver(([entry])=>setBox({width:entry.contentRect.width,height:entry.contentRect.height}));
+    observer.observe(frame.current);return ()=>observer.disconnect();
+  },[rotation]);
   const primary = set ? set[variant] : null;
   const delivery = primary
     ? assetUrl(primary.id)
@@ -112,14 +123,13 @@ export function ArchiveImage({
   }
   return (
     <div
+      ref={frame}
+      data-presentation-rotation={rotation}
       className={`archive-image ${className} ${set ? "has-placeholder" : ""}`}
       style={
         set
           ? {
-              backgroundImage: `url("${set.placeholder}")`,
-              backgroundSize: "contain",
-              backgroundPosition: "center",
-              aspectRatio: `${set[variant].width}/${set[variant].height}`,
+              aspectRatio: quarter ? `${set[variant].height}/${set[variant].width}` : `${set[variant].width}/${set[variant].height}`,
               height: "auto",
             }
           : undefined
@@ -159,6 +169,13 @@ export function ArchiveImage({
         </div>
       ) : (
         <PreviewLink href={href}>
+          <div className="image-presentation" style={{
+            position:"absolute",left:"50%",top:"50%",
+            width:quarter && box.height ? box.height : "100%",
+            height:quarter && box.width ? box.width : "100%",
+            transform:`translate(-50%,-50%) rotate(${rotation}deg)`,
+            ...(set ? {backgroundImage:`url("${set.placeholder}")`,backgroundSize:"contain",backgroundPosition:"center",backgroundRepeat:"no-repeat"} : {}),
+          }}>
           {derived && set ? (
             // Authenticated responsive variants are already optimized; bypass Next's shared optimizer cache.
             // eslint-disable-next-line @next/next/no-img-element
@@ -218,6 +235,7 @@ export function ArchiveImage({
               style={{ objectFit: "cover", objectPosition: position }}
             />
           )}
+          </div>
         </PreviewLink>
       )}
     </div>

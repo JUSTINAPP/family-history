@@ -1,3 +1,4 @@
+import { ConversationLink } from "./conversation-link";
 import { ArchiveImage } from "./archive-image";
 export { ArchiveImage } from "./archive-image";
 import Link from "next/link";
@@ -56,6 +57,7 @@ export function ItemCard({
           href={item.href || `/archive/${item.slug}`}
           originalPreserved={item.sourcePreserved}
           imageSet={item.imageSet}
+          rotation={item.rotation}
           variant="thumbnail"
           sizes={imageSizes}
         />
@@ -81,6 +83,7 @@ export function ItemCard({
           <p>
             {item.kind} <span>·</span> {item.date}
           </p>
+          <ConversationLink item={item} />
           {item.ingestionStatus && item.ingestionStatus !== "ready" && (
             <p className="help-line">
               {item.sourcePreserved

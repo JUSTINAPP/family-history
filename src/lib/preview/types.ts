@@ -6,6 +6,7 @@ export interface ImageVariant {
   mime: string;
 }
 export interface ImageSet {
+  rotation?: number;
   id: string;
   originalId: string;
   placeholder: string;
@@ -14,6 +15,7 @@ export interface ImageSet {
   small: ImageVariant;
 }
 export interface ImageSetRow {
+  presentation_rotation?: number;
   id: string;
   original_file_id: string;
   item_id: string;
@@ -31,6 +33,7 @@ export function imageSet(row: ImageSetRow): ImageSet {
   }
   return {
     id: row.id,
+    rotation: row.presentation_rotation || 0,
     originalId: row.original_file_id,
     placeholder: row.placeholder,
     display: variant("display", row.display_file_id),
@@ -40,4 +43,9 @@ export function imageSet(row: ImageSetRow): ImageSet {
 }
 export function assetUrl(id: string) {
   return `/api/v1/assets/${id}`;
+}
+
+export function presentationRatio(set: ImageSet, variant: "small" | "thumbnail" | "display" = "small") {
+  const image=set[variant];
+  return (set.rotation || 0)%180 ? image.height/image.width : image.width/image.height;
 }

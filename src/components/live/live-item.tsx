@@ -2,6 +2,7 @@ import { ReviewedDocumentNotes } from "./reviewed-document-notes";
 import { DocumentReader } from "./document-reader";
 import { documentKinds } from "@/lib/documents/types";
 import { QuickField } from "./quick-field";
+import { ImageOptions } from "./image-options";
 import { FamilyConversation } from "./family-conversation";
 import { cataloguePresentation } from "@/lib/catalogue-presentation";
 import { loadPlaceData } from "@/lib/backend/places";
@@ -153,7 +154,7 @@ export async function LiveItem({
               <Recordings recordings={recordings} snapshot={snapshot} />
             )}
             {documentKinds.includes(item.kind) && <>
-              <DocumentReader pages={files.filter(f => f.purpose === "original")} sets={result.imageSets} title={display.title} />
+              <DocumentReader pages={files.filter(f => f.purpose === "original")} sets={result.imageSets} title={display.title} editable={editable && !item.archived_at && item.ingestion_status === "ready"} />
               <p><Link className="text-link" href={`/archive/${item.id}/review`}>Transcription and translation ↗</Link></p>
             </>}
             {!documentKinds.includes(item.kind) && files
@@ -167,9 +168,11 @@ export async function LiveItem({
                     imageSet={result.imageSets.find(
                       (s) => s.originalId === file.id,
                     )}
+                    rotation={file.presentation_rotation || 0}
                     priority={index === 0}
                     originalPreserved={true}
                   />
+                  <ImageOptions sourceId={file.id} rotation={file.presentation_rotation || 0} editable={editable && !item.archived_at && item.ingestion_status === "ready"} />
                   <details className="archive-information"><summary>Original file information</summary>
                   <div className="saved-file-list">
                     <a
@@ -189,6 +192,10 @@ export async function LiveItem({
               ))}
           </section>
           <section className="saved-context">
+            <FamilyConversation archiveId={item.archive_id} itemId={item.id} comments={result.comments}
+              profileId={snapshot.profileId} names={Object.fromEntries(snapshot.members.map(m => [m.profileId, m.name]))}
+              canComment={can(role, "commenter") && item.lifecycle === "active" && !item.archived_at && item.ingestion_status === "ready"}
+              editor={can(role, "editor")} unavailable={result.commentsUnavailable} />
             <IdentificationForm
               archiveId={snapshot.archive.id}
               itemId={item.id}
@@ -272,10 +279,7 @@ export async function LiveItem({
             </div></details>
             {item.notes && <p className="prose">{item.notes}</p>}
             {documentKinds.includes(item.kind) && <ReviewedDocumentNotes itemId={item.id} archiveId={item.archive_id}/>}
-            <FamilyConversation archiveId={item.archive_id} itemId={item.id} comments={result.comments}
-              profileId={snapshot.profileId} names={Object.fromEntries(snapshot.members.map(m => [m.profileId, m.name]))}
-              canComment={can(role, "commenter") && item.lifecycle === "active" && !item.archived_at && item.ingestion_status === "ready"}
-              editor={can(role, "editor")} unavailable={result.commentsUnavailable} />
+
             <details className="add-memory"><summary>Add a memory</summary><p>A longer recollection becomes part of the archive, separately from the conversation.</p><AddRecollection archiveId={snapshot.archive.id} itemId={item.id} /></details>
             {audioUnavailable && (
               <p className="help-line">

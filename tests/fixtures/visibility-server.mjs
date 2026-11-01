@@ -101,6 +101,7 @@ export async function fixtureServer(
     })),
   );
   const imageSets = [];
+  let quickSeedCount=0;
   const currentSets = () => [
     ...new Map(
       [...imageSets]
@@ -402,13 +403,14 @@ export async function fixtureServer(
       return send(200,{id,runId,translationId,sourceIds,person,place});
     }
     if (address.pathname === "/__fixture/quick-photos" && management) {
+      const quickYear=2026+quickSeedCount++;
       const template = imageSets.find(s => s.status === "stored");
       const source = files.find(f => f.id === template.original_file_id);
       const ids = [];
       for (let n=0;n<14;n++) {
         const id=crypto.randomUUID(), originalId=crypto.randomUUID();
         rows.push({...rows.find(r => !r.archived_at),id,kind:"Photograph",title:`Quick photograph ${n+1}`,archived_at:null,split_from:null,
-          lifecycle:"active",ingestion_status:"ready",reported_date:"",date_precision:"unknown",reported_place:"",people_text:"",notes:"",catalogued_at:null,created_at:`2026-12-${String(31-n).padStart(2,"0")}T00:00:00Z`});
+          lifecycle:"active",ingestion_status:"ready",reported_date:"",date_precision:"unknown",reported_place:"",people_text:"",notes:"",catalogued_at:null,created_at:`${quickYear}-12-${String(31-n).padStart(2,"0")}T00:00:00Z`});
         const originalCopy={...source,id:originalId,item_id:id,storage_path:`${ARCHIVE}/${id}/${originalId}`};
         files.push(originalCopy); objects.set(`${source.bucket_id}/${originalCopy.storage_path}`,original);
         const set={...template,id:crypto.randomUUID(),item_id:id,original_file_id:originalId};
@@ -648,6 +650,13 @@ export async function fixtureServer(
       for await (const chunk of req) chunks.push(chunk);
       const body = JSON.parse(Buffer.concat(chunks).toString() || "{}");
       const rpc = address.pathname.split("/").pop();
+      if(rpc === "rotate_item_image") {
+        const f=files.find(f=>f.id===body.p_source_id&&f.purpose==="original");
+        if(!f)return send(403,{code:"42501"});
+        if((f.presentation_rotation||0)!==body.p_expected)return send(409,{code:"40001"});
+        f.presentation_rotation=((f.presentation_rotation||0)+body.p_turn+360)%360;
+        return send(200,f.presentation_rotation);
+      }
       function writePlace(details, id) {
         let p = places.find(
           (p) => p.id === id && p.archive_id === body.p_archive_id,
@@ -1170,7 +1179,9 @@ export async function fixtureServer(
     )
       return send(503, { code: "fixture_optional_unavailable" });
     let data =
-      table === "document_runs" ? documentRuns : table === "transcriptions" ? documentTexts : table === "metadata_suggestions" ? documentSuggestions : table === "comments" ? comments : table === "places"
+      table === "item_conversation_counts" ? Object.values(comments.filter(c=>!c.archived_at).reduce((all,c)=>{
+        all[c.item_id] ||= {archive_id:c.archive_id,item_id:c.item_id,comment_count:0};all[c.item_id].comment_count++;return all;
+      },{})) : table === "document_runs" ? documentRuns : table === "transcriptions" ? documentTexts : table === "metadata_suggestions" ? documentSuggestions : table === "comments" ? comments : table === "places"
         ? places
         : table === "item_places"
           ? itemPlaces
@@ -1200,7 +1211,7 @@ export async function fixtureServer(
                         : table === "image_sets"
                           ? imageSets
                           : table === "current_image_sets"
-                            ? currentSets()
+                            ? currentSets().map(g=>({...g,presentation_rotation:files.find(f=>f.id===g.original_file_id)?.presentation_rotation||0}))
                             : table === "item_deletions"
                               ? deletions
                               : table === "archive_memberships"
