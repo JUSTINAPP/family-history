@@ -4869,3 +4869,33 @@ main {
 .people-associations > li { border: 1px solid var(--line); border-radius: 8px; padding: 16px; margin: 12px 0; overflow-wrap: anywhere; }
 .item-people .subtle-button { margin: 6px 14px 6px 0; }
 .item-people ul[aria-label="Matching People"] { list-style: none; padding: 0; max-height: 280px; overflow-y: auto; }
+
+/* People as entry points into real linked material. Each leaf keeps its source ratio. */
+.archival-people-grid { gap: 58px 36px; }
+.person-material-stack { position: relative; width: 100%; aspect-ratio: 1.18; overflow: hidden; isolation: isolate; }
+.material-leaf { position: absolute; height: auto; box-shadow: 0 3px 12px #27231915; }
+.material-leaf .archive-image, .person-card:nth-child(n) .material-leaf .archive-image { width: 100%; height: 100% !important; aspect-ratio: auto !important; background-repeat: no-repeat; }
+.material-leaf .archive-image img { object-fit: contain !important; }
+.material-leaf.leaf-0 { z-index: 4; top: 14%; left: 12%; transform: rotate(-4deg); }
+.material-leaf.leaf-1 { z-index: 3; top: 6%; left: 20%; transform: rotate(6deg); }
+.material-leaf.leaf-2 { z-index: 2; top: 24%; left: 5%; transform: rotate(-8deg); }
+.material-leaf.leaf-3 { z-index: 1; top: 18%; left: 20%; transform: rotate(10deg); }
+.stack-1 .leaf-0 { top: 9%; transform: none; box-shadow: none; }
+.person-material-empty { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 1px solid var(--line); color: var(--muted); }
+.person-material-empty > span { font-family: var(--serif); font-size: 30px; opacity: .45; }
+.person-material-empty p, .person-material-count { font-size: 11px; letter-spacing: .04em; color: var(--muted); margin-top: 12px; }
+.archival-people-grid .person-card h2 { margin-top: 16px; }
+.person-material-section { border-top: 1px solid var(--line); padding: 32px 0; }
+.person-material-section > h3 { font-family: var(--serif); font-size: clamp(26px, 3vw, 34px); font-weight: 400; margin-bottom: 24px; }
+.person-recollection { border-left: 1px solid var(--line); padding: 12px 20px; margin: 20px 0; }
+@media (max-width: 820px) {
+ .archival-people-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 36px 20px; }
+ .archival-people-grid .person-card h2 { font-size: 27px; }
+ .archival-people-grid .person-meta { flex-wrap: wrap; gap: 8px; }
+}
+@media (max-width: 480px) {
+ .archival-people-grid { grid-template-columns: minmax(0,1fr); gap: 40px; }
+ .person-material-stack { aspect-ratio: 1.35; }
+ .archival-people-grid .person-card { display: block; min-width: 0; }
+ .archival-people-grid .person-card h2 { font-size: 32px; }
+}

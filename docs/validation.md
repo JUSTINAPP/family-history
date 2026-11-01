@@ -1,4 +1,24 @@
-# Person relationships / legacy-photo split UX — release 010 validation, 1 November 2026
+# People material stacks / private-page performance — 1 November 2026
+
+Base: `e769afd`. Existing schema 001–010 is unchanged; **no migration 011**. No production account/project was accessed, no migration or Storage change applied remotely, and nothing staged, committed, pushed or deployed. The starting working tree contained only generated `next-env.d.ts`, which remains excluded from the proposed commit.
+
+- **84 full regressions pass** against explicit local demo localhost:4100. Five new tests verify zero/one/many representative items, deterministic confirmed-first/source-diverse ordering, exclusion of archived/foreign/rejected/unlinked material, honest pending previews and lean payloads. Existing capture/bulk/audio/catalogue/Person/visibility/image/origin/mobile/accessibility checks remain.
+- **Production build, isolated traced HEIC decoder and 3 authenticated browser flows pass** against loopback-only synthetic Auth/PostgREST/Storage. The two retained image/Person/split/delete flows pass. The new flow covers 33 People, zero/one/four-leaf cards, actual association membership, two paginated relationship reads rather than per-Person chains, one archives/memberships/People read, no hydration workspace request, 600px small variants only, LQIP before image bytes, lazy below-fold images, 375px overflow, real Person sections and desktop/mobile screenshots.
+- **Conditional private caching passes:** authorized derivative 200 carries private revalidation headers and ETag; a matching ETag produces 304 after a fresh RLS file lookup with no Storage request. The same ETag signed out returns 401, never 304. Existing private original/page boundaries remain.
+- **4 authentication-boundary tests pass** on the final local production build with loopback configuration, including private pages/APIs, unsafe origins/redirects and mobile sign-in accessibility.
+- **1 authenticated 1,007-row discoverability flow passes**, retaining capped pagination, item/edit reload, archive scoping and detail access during an independent catalogue outage after removing the hydration catalogue request.
+- **225 disposable PostgreSQL checks pass** across unchanged migrations 001–010, preserving source integrity, same-archive relationships, permissions, lifecycle/split/delete and provenance. The browser protocol fixture does not itself prove SQL/RLS; this actual-SQL suite covers those boundaries independently.
+- **Lint, strict TypeScript and `git diff --check` pass.** Development-only operation timings/render counters and browser resource/derivative diagnostics were also smoke-tested on Home, Explore, People and Person detail with `PROFILE_DEV=1 node scripts/profile-pages.mjs`. No such diagnostic component/log is enabled in production.
+
+Controlled old/new local measurements (same fixture, speculative prefetch blocked) show database HTTP requests: **Home 26→9, Explore 26→9, People 16→8, Person 25→8**. Hydration workspace fetches drop from one to zero per page. These are HTTP query counts, not internal PostgreSQL/RLS statement counts. Loopback timings are noisy; a hosted speed improvement, Vercel cold-start/region effects and actual family-image performance are not claimed from them.
+
+The first conditional-cache check exposed the proxy overriding the route's response header with no-store. The proxy now delegates only the asset path's cache headers to its authenticated/RLS-enforcing route; the final browser check passes. Visual review also removed slot-shaped borders around natural image edges. No test expectation was weakened to bypass either issue. Existing demo layout, names and fixtures remain isolated from live material.
+
+A repeated development regression run was interrupted by Fast Refresh while clicking an existing invitation dialog; its trace shows the rebuild detaching the control. With all repository writes paused, the unchanged final suite passed **84/84 in 29.8 seconds**. No invitation implementation or assertion was changed.
+
+[Release behaviour, measurements, cache trade-offs and exact production smoke test](people-material-performance.md) · [exact commit manifest](people-material-commit-manifest.md). Hosted Supabase/Vercel behaviour and physical iPhone/Safari remain manual acceptance checks; neither actual family HEIC was downloaded or processed.
+
+# Person relationships / legacy-photo split UX — previous release 010 validation, 1 November 2026
 
 Base commit: `8df781c`. The user reports migration 009 is now installed in production. This release was developed and validated locally; no live project was accessed, no SQL applied remotely, and nothing staged, committed, pushed or deployed by the agent. Migrations 001–009 are byte-identical to HEAD. Only 010 is new.
 

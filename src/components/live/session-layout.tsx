@@ -7,6 +7,7 @@ import { CreateArchive } from "./create-archive";
 import { loadWorkspace, requireSession } from "@/lib/backend/repository";
 import { safeError } from "@/lib/backend/errors";
 import { signOut } from "@/app/sign-in/actions";
+import { DevelopmentPerformance } from "./development-performance";
 export function PublicChrome({ children }: { children: React.ReactNode }) {
   return (
     <>
@@ -38,7 +39,15 @@ export async function SessionLayout({
   }
   let snapshot;
   try {
-    snapshot = await loadWorkspace({ catalogue: false });
+    const pageLoadsMaterial =
+      ["/", "/explore", "/people"].includes(path) ||
+      path.startsWith("/people/") ||
+      path.startsWith("/archive/");
+    snapshot = await loadWorkspace({
+      catalogue: !pageLoadsMaterial,
+      shell: pageLoadsMaterial,
+      archiveId: (await headers()).get("x-archive-id") || undefined,
+    });
   } catch (error) {
     return (
       <PublicChrome>
@@ -76,6 +85,10 @@ export async function SessionLayout({
     >
       <Header />
       <main id="main">{children}</main>
+      {process.env.NODE_ENV === "development" &&
+        process.env.ARCHIVE_PERF_DIAGNOSTICS === "1" && (
+          <DevelopmentPerformance />
+        )}
       <Footer />
     </LiveWorkspaceProvider>
   );

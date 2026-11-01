@@ -1,17 +1,22 @@
 import "server-only";
+import { cache } from "react";
+import { measuredFetch } from "@/lib/backend/performance";
 import { createServerClient } from "@supabase/ssr";
 import { cookies, headers } from "next/headers";
 import { supabaseConfig } from "./config";
-export async function serverSupabase() {
+export const serverSupabase = cache(async function serverSupabase() {
   const config = supabaseConfig();
   if (!config) throw new Error("Supabase configuration is required.");
   const store = await cookies();
   const incoming = await headers();
   const bearer = incoming.get("authorization");
   return createServerClient(config.url, config.key, {
-    ...(bearer?.startsWith("Bearer ")
-      ? { global: { headers: { Authorization: bearer } } }
-      : {}),
+    global: {
+      fetch: measuredFetch,
+      ...(bearer?.startsWith("Bearer ")
+        ? { headers: { Authorization: bearer } }
+        : {}),
+    },
     cookieOptions: {
       path: "/",
       sameSite: "lax",
@@ -30,8 +35,8 @@ export async function serverSupabase() {
       },
     },
   });
-}
-export async function authenticatedClient() {
+});
+export const authenticatedClient = cache(async function authenticatedClient() {
   const client = await serverSupabase();
   const bearer = (await headers()).get("authorization");
   const { data, error } = await client.auth.getUser(
@@ -39,4 +44,4 @@ export async function authenticatedClient() {
   );
   if (error || !data.user) return null;
   return { client, user: data.user };
-}
+});

@@ -22,7 +22,7 @@ export async function GET(
     const { data: file, error } = await client
       .from("archive_item_files")
       .select(
-        "bucket_id,storage_path,mime_type,byte_size,width,height,purpose,parent_original_id",
+        "bucket_id,storage_path,mime_type,byte_size,width,height,purpose,parent_original_id,sha256,variant",
       )
       .eq("id", id)
       .eq("status", "stored")
@@ -45,6 +45,26 @@ export async function GET(
         },
       });
     const queried = performance.now();
+    // Always authenticate and enforce file RLS before permitting browser-byte reuse.
+    const etag = /^[a-f0-9]{64}$/.test(file.sha256 || "")
+      ? `"${file.sha256}"`
+      : undefined;
+    const privateHeaders = {
+      ...headers,
+      "Cache-Control": "private, no-cache, must-revalidate",
+      Vary: "Cookie, Authorization",
+      "X-Archive-Variant": ["small", "thumbnail", "display"].includes(
+        file.variant?.split(":").pop(),
+      )
+        ? file.variant.split(":").pop()
+        : file.purpose === "thumbnail" && file.width <= 600
+          ? "small"
+          : file.purpose,
+      ...(etag ? { ETag: etag } : {}),
+      "Server-Timing": `auth;dur=${(authenticated - started).toFixed(1)}, db;dur=${(queried - authenticated).toFixed(1)}`,
+    };
+    if (etag && request.headers.get("if-none-match") === etag)
+      return new Response(null, { status: 304, headers: privateHeaders });
     const { data: blob, error: storageError } = await client.storage
       .from(file.bucket_id)
       .download(file.storage_path, {}, { signal: AbortSignal.timeout(10000) });
@@ -53,7 +73,7 @@ export async function GET(
     const downloaded = performance.now();
     return new Response(blob, {
       headers: {
-        ...headers,
+        ...privateHeaders,
         "Content-Type": file.mime_type,
         "Content-Length": String(blob.size),
         "X-Archive-Asset": file.purpose,

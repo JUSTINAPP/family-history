@@ -1,5 +1,6 @@
 import "server-only";
-import { linkedPersonIds, type Identification } from "../identifications";
+import { cache } from "react";
+import type { PersonLink } from "../people-material";
 import { imageSet, type ImageSetRow } from "../preview/types";
 import { cookies } from "next/headers";
 import { authenticatedClient } from "@/lib/supabase/server";
@@ -28,6 +29,7 @@ interface PersonRow {
   biography: string;
 }
 export interface LiveSnapshot {
+  identifications?: PersonLink[];
   peopleLinksAvailable?: boolean;
   catalogueBatchId?: string;
   catalogueLoaded: boolean;
@@ -45,7 +47,7 @@ export interface LiveSnapshot {
   activity: Activity[];
   jobs: ReviewJob[];
 }
-export async function requireSession() {
+export const requireSession = cache(async function requireSession() {
   const auth = await authenticatedClient();
   if (!auth)
     throw new BackendError(
@@ -53,293 +55,344 @@ export async function requireSession() {
       "Your session has expired. Sign in again; your selected files are still on this page.",
     );
   return auth;
-}
-export async function loadWorkspace(
+});
+const readArchives = cache(async () => {
+  const { client } = await requireSession();
+  return await client
+    .from("archives")
+    .select("*")
+    .order("created_at")
+    .retry(false)
+    .abortSignal(AbortSignal.timeout(5000));
+});
+const readMemberships = cache(async (archiveId: string) => {
+  const { client } = await requireSession();
+  return await client
+    .from("archive_memberships")
+    .select("*, profiles(display_name,email)")
+    .eq("archive_id", archiveId)
+    .retry(false)
+    .abortSignal(AbortSignal.timeout(2500));
+});
+export function loadWorkspace(
   options: {
     archiveId?: string;
     batchId?: string;
     catalogue?: boolean;
     archived?: boolean;
+    shell?: boolean;
+    materialOnly?: boolean;
   } = {},
 ): Promise<LiveSnapshot | null> {
-  const { client, user } = await requireSession();
-  const { data: ars, error: arError } = await client
-    .from("archives")
-    .select("*")
-    .order("created_at");
-  if (arError)
-    throw new BackendError(
-      503,
-      "The database foundation is not ready, or the archive could not be reached. Apply the migrations in docs/supabase-setup.md, then try again.",
-    );
-  if (!ars?.length) return null;
-  let requestedArchive = options.archiveId;
-  let batchLookupError = false;
-  if (options.batchId && !requestedArchive) {
-    const { data, error } = await client
-      .from("import_batches")
-      .select("archive_id")
-      .eq("id", options.batchId)
-      .retry(false)
-      .abortSignal(AbortSignal.timeout(2500))
-      .maybeSingle();
-    if (error) batchLookupError = true;
-    else if (!data) return null;
-    else requestedArchive = data.archive_id;
-  }
-  const selected = (await cookies()).get("active_archive")?.value;
-  const row = requestedArchive
-    ? ars.find((a) => a.id === requestedArchive)
-    : ars.find((a) => a.id === selected) || ars[0];
-  if (!row) return null;
-  const batchId = options.batchId;
-  const warnings: string[] = [];
-  const optional = async <T>(
-    task: PromiseLike<{ data: T[] | null; error: unknown }> & {
-      retry?: (enabled: boolean) => unknown;
-      abortSignal?: (signal: AbortSignal) => unknown;
-    },
-    label: string,
-  ) => {
-    try {
-      task.retry?.(false);
-      task.abortSignal?.(AbortSignal.timeout(2500));
-      const result = await task;
-      if (result.error) throw result.error;
-      return { data: result.data || [] };
-    } catch {
-      warnings.push(label);
-      return { data: [] as T[] };
+  return cachedWorkspace(
+    options.archiveId,
+    options.batchId,
+    options.catalogue !== false,
+    !!options.archived,
+    !!options.shell,
+    !!options.materialOnly,
+  );
+}
+const cachedWorkspace = cache(
+  async (
+    archiveId: string | undefined,
+    requestedBatch: string | undefined,
+    catalogue: boolean,
+    archived: boolean,
+    shell: boolean,
+    materialOnly: boolean,
+  ): Promise<LiveSnapshot | null> => {
+    const options = { archiveId, batchId: requestedBatch, catalogue, archived };
+    const { client, user } = await requireSession();
+    const { data: ars, error: arError } = await readArchives();
+    if (arError)
+      throw new BackendError(
+        503,
+        "The database foundation is not ready, or the archive could not be reached. Apply the migrations in docs/supabase-setup.md, then try again.",
+      );
+    if (!ars?.length) return null;
+    let requestedArchive = options.archiveId;
+    let batchLookupError = false;
+    if (options.batchId && !requestedArchive) {
+      const { data, error } = await client
+        .from("import_batches")
+        .select("archive_id")
+        .eq("id", options.batchId)
+        .retry(false)
+        .abortSignal(AbortSignal.timeout(2500))
+        .maybeSingle();
+      if (error) batchLookupError = true;
+      else if (!data) return null;
+      else requestedArchive = data.archive_id;
     }
-  };
-  let available = true,
-    catalogueCount: number | null = null;
-  const results = await Promise.all([
-    optional(
-      client
-        .from("archive_memberships")
-        .select("*, profiles(display_name,email)")
-        .eq("archive_id", row.id),
-      "Member details could not load.",
-    ),
-    options.catalogue === false
-      ? Promise.resolve({ data: [] })
-      : (batchLookupError
-          ? Promise.reject(new Error("batch unavailable"))
-          : readCatalogue(client, row.id, batchId, options.archived)
-        )
-          .then((result) => {
-            catalogueCount = result.count;
-            return { data: result.data };
-          })
-          .catch(() => {
-            available = false;
+    const selected = (await cookies()).get("active_archive")?.value;
+    const row = requestedArchive
+      ? ars.find((a) => a.id === requestedArchive)
+      : ars.find((a) => a.id === selected) || ars[0];
+    if (!row) return null;
+    const batchId = options.batchId;
+    const warnings: string[] = [];
+    const optional = async <T>(
+      task: PromiseLike<{ data: T[] | null; error: unknown }> & {
+        retry?: (enabled: boolean) => unknown;
+        abortSignal?: (signal: AbortSignal) => unknown;
+      },
+      label: string,
+    ) => {
+      try {
+        task.retry?.(false);
+        task.abortSignal?.(AbortSignal.timeout(2500));
+        const result = await task;
+        if (result.error) throw result.error;
+        return { data: result.data || [] };
+      } catch {
+        warnings.push(label);
+        return { data: [] as T[] };
+      }
+    };
+    let available = true,
+      catalogueCount: number | null = null;
+    const results = await Promise.all([
+      optional(readMemberships(row.id), "Member details could not load."),
+      options.catalogue === false
+        ? Promise.resolve({ data: [] })
+        : (batchLookupError
+            ? Promise.reject(new Error("batch unavailable"))
+            : readCatalogue(client, row.id, batchId, options.archived)
+          )
+            .then((result) => {
+              catalogueCount = result.count;
+              return { data: result.data };
+            })
+            .catch(() => {
+              available = false;
+              warnings.push(
+                "The archive list could not load completely. Please retry.",
+              );
+              return { data: [] };
+            }),
+      options.catalogue === false
+        ? Promise.resolve({ data: [] as OriginalRow[] })
+        : allRows<OriginalRow>(
+            (from, to) =>
+              client
+                .from("archive_item_files")
+                .select("id,item_id,purpose,status,page_order", {
+                  count: "exact",
+                })
+                .eq("archive_id", row.id)
+                .eq("purpose", "original")
+                .eq("status", "stored")
+                .order("id")
+                .range(from, to)
+                .retry(false)
+                .abortSignal(AbortSignal.timeout(2500)),
+            (f) => f.id,
+          ).catch(() => {
             warnings.push(
-              "The archive list could not load completely. Please retry.",
+              "Some source previews could not load. Items remain available.",
             );
+            return { data: [] as OriginalRow[] };
+          }),
+      shell
+        ? Promise.resolve({ data: [] as PersonRow[] })
+        : allRows<PersonRow>(
+            (from, to) =>
+              client
+                .from("people")
+                .select("*", { count: "exact" })
+                .eq("archive_id", row.id)
+                .order("display_name")
+                .order("id")
+                .range(from, to)
+                .retry(false)
+                .abortSignal(AbortSignal.timeout(2500)),
+            (p) => p.id,
+          ).catch(() => {
+            warnings.push("People could not load.");
             return { data: [] };
           }),
-    options.catalogue === false
-      ? Promise.resolve({ data: [] as OriginalRow[] })
-      : allRows<OriginalRow>(
-          (from, to) =>
+      shell || materialOnly
+        ? Promise.resolve({ data: [] })
+        : optional(
             client
-              .from("archive_item_files")
-              .select("id,item_id,purpose,status,page_order", {
-                count: "exact",
-              })
+              .from("activity_log")
+              .select("*")
               .eq("archive_id", row.id)
-              .eq("purpose", "original")
-              .eq("status", "stored")
-              .order("id")
-              .range(from, to)
-              .retry(false)
-              .abortSignal(AbortSignal.timeout(2500)),
-          (f) => f.id,
-        ).catch(() => {
-          warnings.push(
-            "Some source previews could not load. Items remain available.",
-          );
-          return { data: [] as OriginalRow[] };
-        }),
-    allRows<PersonRow>(
-      (from, to) =>
-        client
-          .from("people")
-          .select("*", { count: "exact" })
-          .eq("archive_id", row.id)
-          .order("display_name")
-          .order("id")
-          .range(from, to)
-          .retry(false)
-          .abortSignal(AbortSignal.timeout(2500)),
-      (p) => p.id,
-    ).catch(() => {
-      warnings.push("People could not load.");
-      return { data: [] };
-    }),
-    optional(
-      client
-        .from("activity_log")
-        .select("*")
-        .eq("archive_id", row.id)
-        .order("created_at", { ascending: false })
-        .limit(100),
-      "Activity could not load.",
-    ),
-    optional(
-      client
-        .from("processing_jobs")
-        .select("*")
-        .eq("archive_id", row.id)
-        .order("created_at", { ascending: false })
-        .limit(100),
-      "Processing information could not load.",
-    ),
-    optional(
-      client
-        .from("import_batch_items")
-        .select("batch_id,item_id")
-        .eq("archive_id", row.id)
-        .order("created_at", { ascending: false }),
-      "Import grouping is unavailable.",
-    ),
-    options.catalogue === false
-      ? Promise.resolve({ data: [] as ImageSetRow[] })
-      : allRows<ImageSetRow>(
-          (from, to) =>
+              .order("created_at", { ascending: false })
+              .limit(100),
+            "Activity could not load.",
+          ),
+      shell || materialOnly
+        ? Promise.resolve({ data: [] })
+        : optional(
             client
-              .from("current_image_sets")
-              .select("*", { count: "exact" })
+              .from("processing_jobs")
+              .select("*")
               .eq("archive_id", row.id)
-              .eq("status", "stored")
-              .order("id")
-              .range(from, to)
-              .retry(false)
-              .abortSignal(AbortSignal.timeout(2500)),
-          (row) => row.id,
-        ).catch(() => ({ data: [] as ImageSetRow[] })),
-    options.catalogue === false
-      ? Promise.resolve({ data: [] as Identification[], available: true })
-      : allRows<Identification>(
-          (from, to) =>
+              .order("created_at", { ascending: false })
+              .limit(100),
+            "Processing information could not load.",
+          ),
+      shell
+        ? Promise.resolve({ data: [] })
+        : optional(
             client
-              .from("identifications")
-              .select("*", { count: "exact" })
+              .from("import_batch_items")
+              .select("batch_id,item_id")
               .eq("archive_id", row.id)
-              .in("status", ["reported", "accepted"])
-              .order("id")
-              .range(from, to)
-              .retry(false)
-              .abortSignal(AbortSignal.timeout(2500)),
-          (i) => i.id,
-        )
-          .then((value) => ({ ...value, available: true }))
-          .catch(() => {
-            warnings.push(
-              "Person associations could not load. Reload before filtering by People.",
-            );
-            return { data: [] as Identification[], available: false };
-          }),
-  ]);
-  const members: Member[] = (results[0].data || []).map((m) => ({
-    archiveId: m.archive_id,
-    id: m.id,
-    profileId: m.profile_id,
-    name: m.profiles?.display_name || "Archive member",
-    email: m.profiles?.email || "",
-    role: m.role,
-    status: m.status,
-    linkedPersonId: m.linked_person_id,
-    joinedAt: m.joined_at.slice(0, 10),
-    lastActive: "Not tracked",
-  }));
-  const archives: Archive[] = ars.map((a) => ({
-    id: a.id,
-    name: a.name,
-    slug: a.slug,
-    description: a.description,
-    coverImage: a.cover_file_id
-      ? `/api/v1/assets/${a.cover_file_id}?variant=thumbnail`
-      : "/images/empty-archive.svg",
-    ownerMembershipId: a.owner_membership_id,
-    createdAt: a.created_at,
-    privacy: a.privacy,
-    settings: {
-      defaultRole: a.settings.defaultRole || "contributor",
-      ai: false,
-      transcription: false,
-      locations: false,
-      invitations: false,
-    },
-  }));
-  const catalogue = catalogueItems(
-    results[1].data,
-    results[2].data,
-    results[6].data,
-    batchId,
-    results[7].data,
-  );
-  catalogue.forEach((item) => {
-    item.people = linkedPersonIds(results[8].data, item.id);
-  });
-  const people: Person[] = (results[3].data || []).map((p) => ({
-    archiveId: p.archive_id,
-    id: p.id,
-    slug: p.slug,
-    name: p.display_name,
-    lifespan: p.lifespan || "Dates not yet known",
-    category: (
-      {
-        family: "Family",
-        friend: "Friends",
-        other: "Other",
-        unidentified: "Unidentified",
-      } as const
-    )[p.category as "family" | "friend" | "other" | "unidentified"],
-    image: p.portrait_file_id
-      ? `/api/v1/assets/${p.portrait_file_id}?variant=thumbnail`
-      : "/images/empty-archive.svg",
-    bio: p.biography,
-  }));
-  return {
-    peopleLinksAvailable: results[8].available,
-    catalogueBatchId: batchId,
-    catalogueLoaded: options.catalogue !== false,
-    catalogueAvailable: available,
-    catalogueCount,
-    resourceWarnings: warnings,
-    profileId: user.id,
-    profileName:
-      user.user_metadata?.display_name ||
-      user.email?.split("@")[0] ||
-      "Archive member",
-    profileEmail: user.email || "",
-    archive: archives.find((a) => a.id === row.id)!,
-    archives,
-    members,
-    catalogue,
-    people,
-    activity: (results[4].data || []).map((a) => ({
-      archiveId: a.archive_id,
+              .order("created_at", { ascending: false }),
+            "Import grouping is unavailable.",
+          ),
+      options.catalogue === false
+        ? Promise.resolve({ data: [] as ImageSetRow[] })
+        : allRows<ImageSetRow>(
+            (from, to) =>
+              client
+                .from("current_image_sets")
+                .select("*", { count: "exact" })
+                .eq("archive_id", row.id)
+                .eq("status", "stored")
+                .order("id")
+                .range(from, to)
+                .retry(false)
+                .abortSignal(AbortSignal.timeout(2500)),
+            (row) => row.id,
+          ).catch(() => ({ data: [] as ImageSetRow[] })),
+      options.catalogue === false
+        ? Promise.resolve({ data: [] as PersonLink[], available: true })
+        : allRows<PersonLink>(
+            (from, to) =>
+              client
+                .from("identifications")
+                .select("id,archive_id,item_id,person_id,status", {
+                  count: "exact",
+                })
+                .eq("archive_id", row.id)
+                .in("status", ["reported", "accepted"])
+                .order("id")
+                .range(from, to)
+                .retry(false)
+                .abortSignal(AbortSignal.timeout(2500)),
+            (i) => i.id,
+          )
+            .then((value) => ({ ...value, available: true }))
+            .catch(() => {
+              warnings.push(
+                "Person associations could not load. Reload before filtering by People.",
+              );
+              return { data: [] as PersonLink[], available: false };
+            }),
+    ]);
+    const members: Member[] = (results[0].data || []).map((m) => ({
+      archiveId: m.archive_id,
+      id: m.id,
+      profileId: m.profile_id,
+      name: m.profiles?.display_name || "Archive member",
+      email: m.profiles?.email || "",
+      role: m.role,
+      status: m.status,
+      linkedPersonId: m.linked_person_id,
+      joinedAt: m.joined_at.slice(0, 10),
+      lastActive: "Not tracked",
+    }));
+    const archives: Archive[] = ars.map((a) => ({
       id: a.id,
-      actor: a.actor_id === user.id ? "You" : "Archive member",
-      action: a.summary,
-      at: a.created_at,
-      layer: a.event_type.includes("membership") ? "access" : "source",
-      itemId: a.item_id,
-    })),
-    jobs: (results[5].data || []).map((j) => ({
-      archiveId: j.archive_id,
-      id: j.id,
-      title: catalogue.find((i) => i.id === j.item_id)?.title || "Archive item",
-      kind: "Source material",
-      status: j.status,
-      stage: j.stage,
-      href: `/archive/${j.item_id}`,
-    })),
-  };
-}
+      name: a.name,
+      slug: a.slug,
+      description: a.description,
+      coverImage: a.cover_file_id
+        ? `/api/v1/assets/${a.cover_file_id}?variant=thumbnail`
+        : "/images/empty-archive.svg",
+      ownerMembershipId: a.owner_membership_id,
+      createdAt: a.created_at,
+      privacy: a.privacy,
+      settings: {
+        defaultRole: a.settings.defaultRole || "contributor",
+        ai: false,
+        transcription: false,
+        locations: false,
+        invitations: false,
+      },
+    }));
+    const catalogueItemsResult = catalogueItems(
+      results[1].data,
+      results[2].data,
+      results[6].data,
+      batchId,
+      results[7].data,
+    );
+    const peopleByItem = new Map<string, Set<string>>();
+    for (const link of results[8].data)
+      if (link.person_id) {
+        const ids = peopleByItem.get(link.item_id) || new Set<string>();
+        ids.add(link.person_id);
+        peopleByItem.set(link.item_id, ids);
+      }
+    catalogueItemsResult.forEach((item) => {
+      item.people = [...(peopleByItem.get(item.id) || [])];
+    });
+    const people: Person[] = (results[3].data || []).map((p) => ({
+      archiveId: p.archive_id,
+      id: p.id,
+      slug: p.slug,
+      name: p.display_name,
+      lifespan: p.lifespan || "Dates not yet known",
+      category: (
+        {
+          family: "Family",
+          friend: "Friends",
+          other: "Other",
+          unidentified: "Unidentified",
+        } as const
+      )[p.category as "family" | "friend" | "other" | "unidentified"],
+      image: p.portrait_file_id
+        ? `/api/v1/assets/${p.portrait_file_id}?variant=thumbnail`
+        : "/images/empty-archive.svg",
+      bio: p.biography,
+    }));
+    return {
+      identifications: results[8].data,
+      peopleLinksAvailable: results[8].available,
+      catalogueBatchId: batchId,
+      catalogueLoaded: options.catalogue !== false,
+      catalogueAvailable: available,
+      catalogueCount,
+      resourceWarnings: warnings,
+      profileId: user.id,
+      profileName:
+        user.user_metadata?.display_name ||
+        user.email?.split("@")[0] ||
+        "Archive member",
+      profileEmail: user.email || "",
+      archive: archives.find((a) => a.id === row.id)!,
+      archives,
+      members,
+      catalogue: catalogueItemsResult,
+      people,
+      activity: (results[4].data || []).map((a) => ({
+        archiveId: a.archive_id,
+        id: a.id,
+        actor: a.actor_id === user.id ? "You" : "Archive member",
+        action: a.summary,
+        at: a.created_at,
+        layer: a.event_type.includes("membership") ? "access" : "source",
+        itemId: a.item_id,
+      })),
+      jobs: (results[5].data || []).map((j) => ({
+        archiveId: j.archive_id,
+        id: j.id,
+        title:
+          catalogueItemsResult.find((i) => i.id === j.item_id)?.title ||
+          "Archive item",
+        kind: "Source material",
+        status: j.status,
+        stage: j.stage,
+        href: `/archive/${j.item_id}`,
+      })),
+    };
+  },
+);
 export async function requireArchiveRole(
   archiveId: string,
   minimum: MemberRole = "viewer",

@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { PageIntro, ItemCard, TextLink } from "../ui";
 import { loadWorkspace } from "@/lib/backend/repository";
+import { reportRender } from "@/lib/backend/performance";
 export async function LiveHome() {
-  const workspace = await loadWorkspace();
+  const workspace = await loadWorkspace({ materialOnly: true });
+  reportRender("home");
   if (!workspace) return null;
   return (
     <div className="page-shell">

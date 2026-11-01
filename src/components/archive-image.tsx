@@ -16,6 +16,7 @@ export function ArchiveImage({
   imageSet: suppliedSet,
   variant: requestedVariant = "display",
   sizes,
+  autoPrepare = true,
 }: {
   src: string;
   alt: string;
@@ -25,8 +26,9 @@ export function ArchiveImage({
   href?: string;
   originalPreserved?: boolean;
   imageSet?: ImageSet;
-  variant?: "thumbnail" | "display";
+  variant?: "thumbnail" | "display" | "small";
   sizes?: string;
+  autoPrepare?: boolean;
 }) {
   const variant = src.includes("variant=thumbnail")
     ? "thumbnail"
@@ -52,9 +54,11 @@ export function ArchiveImage({
       ? `${src.split("?")[0]}?variant=${variant}&v=${revision}`
       : src;
   const candidates = set
-    ? variant === "thumbnail"
-      ? [set.small, set.thumbnail]
-      : [set.small, set.thumbnail, set.display]
+    ? variant === "small"
+      ? [set.small]
+      : variant === "thumbnail"
+        ? [set.small, set.thumbnail]
+        : [set.small, set.thumbnail, set.display]
     : [];
   const byWidth = new Map(candidates.map((v) => [v.width, v]));
   const srcSet = [...byWidth.values()]
@@ -65,7 +69,13 @@ export function ArchiveImage({
     derived = src.startsWith("/api/v1/previews/"),
     local = src.startsWith("blob:");
   useEffect(() => {
-    if (!derived || failed !== src || attempted.current.has(src)) return;
+    if (
+      !autoPrepare ||
+      !derived ||
+      failed !== src ||
+      attempted.current.has(src)
+    )
+      return;
     attempted.current.add(src);
     let active = true;
     void prepareDisplay(src)
@@ -83,7 +93,7 @@ export function ArchiveImage({
     return () => {
       active = false;
     };
-  }, [derived, failed, src, suppliedSet]);
+  }, [autoPrepare, derived, failed, src, suppliedSet]);
   async function retry() {
     setBusy(true);
     setMessage("");
@@ -136,7 +146,7 @@ export function ArchiveImage({
             </Link>
           )}
           {derived && message && <small>{message}</small>}
-          {derived && message && (
+          {derived && autoPrepare && message && (
             <button
               type="button"
               className="subtle-button"
@@ -158,7 +168,8 @@ export function ArchiveImage({
                   queueMicrotask(() => setLoaded(delivery));
               }}
               src={delivery}
-              srcSet={srcSet}
+              data-image-variant={variant}
+              srcSet={variant === "small" ? undefined : srcSet}
               sizes={
                 sizes ||
                 (variant === "thumbnail"

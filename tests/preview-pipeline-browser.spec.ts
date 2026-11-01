@@ -564,3 +564,195 @@ test("People link relationally, preserve reported provenance and stay independen
   await page.goto(`/explore?archive=${archive}&person=${jina.id}`);
   await expect(page.locator(".item-card")).toHaveCount(1);
 });
+
+test("People use real archival stacks, small private thumbnails, batched reads and immediate placeholders", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120000);
+  const seed = await (
+    await request.post("http://127.0.0.1:4301/__fixture/people-material")
+  ).json();
+  await page
+    .context()
+    .addCookies([
+      {
+        name: "active_archive",
+        value: archive,
+        url: "http://127.0.0.1:4300",
+        httpOnly: true,
+      },
+    ]);
+  await page.route("**/*", (route) => {
+    const h = route.request().headers();
+    return h["next-router-prefetch"] === "1" || h.purpose === "prefetch"
+      ? route.abort()
+      : route.continue();
+  });
+  await page.goto("/sign-in");
+  await page
+    .getByLabel("Email", { exact: true })
+    .fill("visibility@example.test");
+  await page
+    .getByLabel("Password", { exact: true })
+    .fill("local-fixture-password");
+  await page
+    .locator("form")
+    .getByRole("button", { name: "Sign in", exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/$/);
+  await page.waitForLoadState("networkidle");
+  const state = await (
+    await request.get("http://127.0.0.1:4301/__fixture/summary")
+  ).json();
+  const smallIds = new Set(
+    state.imageSets.map((s: { small_file_id: string }) => s.small_file_id),
+  );
+  const requested: string[] = [];
+  page.on("request", (r) => {
+    if (r.resourceType() === "image" && r.url().includes("/api/v1/"))
+      requested.push(r.url());
+  });
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route("**/api/v1/assets/*", async (route) => {
+    await gate;
+    await route.continue();
+  });
+  await request.get("http://127.0.0.1:4301/__fixture/metrics?reset=1");
+  await page.setViewportSize({ width: 375, height: 850 });
+  await page.goto(`/people?archive=${archive}`, {
+    waitUntil: "domcontentloaded",
+  });
+  const cards = page.locator(".archival-people-grid .person-card");
+  await expect(cards).toHaveCount(33);
+  const many = cards.filter({
+    has: page.getByRole("heading", { name: "01 Many materials", exact: true }),
+  });
+  const single = cards.filter({
+    has: page.getByRole("heading", { name: "02 One material", exact: true }),
+  });
+  const empty = cards.filter({
+    has: page.getByRole("heading", { name: "03 No material", exact: true }),
+  });
+  await expect(many.locator(".material-leaf")).toHaveCount(4);
+  await expect(single.locator(".material-leaf")).toHaveCount(1);
+  await expect(empty.locator("img")).toHaveCount(0);
+  await expect(empty.getByText("A story still to gather")).toBeVisible();
+  for (const id of await many
+    .locator(".material-leaf")
+    .evaluateAll((nodes) =>
+      nodes.map((n) => (n as HTMLElement).dataset.itemId),
+    ))
+    expect(seed.materialIds).toContain(id);
+  await expect(many.locator(".has-placeholder").first()).toHaveCSS(
+    "background-image",
+    /data:image\/webp/,
+  );
+  expect(
+    await many
+      .locator("img")
+      .first()
+      .evaluate((n) => (n as HTMLImageElement).naturalWidth),
+  ).toBe(0);
+  await expect(many.locator("img").first()).not.toHaveAttribute("srcset");
+  expect(
+    await page.evaluate(
+      () =>
+        document.documentElement.scrollWidth -
+        document.documentElement.clientWidth,
+    ),
+  ).toBeLessThanOrEqual(0);
+  const last = cards.last().locator("img").first();
+  await expect(last).toHaveAttribute("loading", "lazy");
+  expect(await last.evaluate((n) => (n as HTMLImageElement).naturalWidth)).toBe(
+    0,
+  );
+  release();
+  await expect
+    .poll(() =>
+      many
+        .locator("img")
+        .first()
+        .evaluate((n) => (n as HTMLImageElement).naturalWidth),
+    )
+    .toBeGreaterThan(0);
+  const queries = await (
+    await request.get("http://127.0.0.1:4301/__fixture/metrics")
+  ).json();
+  expect(queries["/rest/v1/people"]).toBe(1);
+  expect(queries["/rest/v1/archives"]).toBe(1);
+  expect(queries["/rest/v1/archive_memberships"]).toBe(1);
+  expect(queries["/rest/v1/identifications"]).toBe(2); // >127 links, paged once per result page, never once per Person.
+  expect(
+    await page.evaluate(
+      () =>
+        performance
+          .getEntriesByType("resource")
+          .filter((r) => r.name.includes("/api/v1/workspace")).length,
+    ),
+  ).toBe(0);
+  await last.scrollIntoViewIfNeeded();
+  await expect
+    .poll(() => last.evaluate((n) => (n as HTMLImageElement).naturalWidth))
+    .toBeGreaterThan(0);
+  for (const url of requested) {
+    expect(url).toContain("/api/v1/assets/");
+    expect(smallIds.has(new URL(url).pathname.split("/").pop())).toBe(true);
+  }
+  const firstUrl = await many.locator("img").first().getAttribute("src");
+  const first = await page.request.get(firstUrl!);
+  expect(first.status()).toBe(200);
+  expect(first.headers()["cache-control"]).toBe(
+    "private, no-cache, must-revalidate",
+  );
+  await request.get("http://127.0.0.1:4301/__fixture/metrics?reset=1");
+  const cached = await page.request.get(firstUrl!, {
+    headers: { "If-None-Match": first.headers().etag },
+  });
+  expect(cached.status()).toBe(304);
+  const counts = await (
+    await request.get("http://127.0.0.1:4301/__fixture/metrics")
+  ).json();
+  expect(Object.keys(counts).some((p) => p.startsWith("/storage/"))).toBe(
+    false,
+  );
+  expect(counts["/rest/v1/archive_item_files"]).toBe(1);
+  expect(
+    (
+      await request.get(firstUrl!, {
+        headers: { "If-None-Match": first.headers().etag },
+      })
+    ).status(),
+  ).toBe(401);
+  await many.click();
+  await expect(
+    page
+      .getByRole("region", { name: "Items featuring this Person" })
+      .getByRole("heading", { name: "Photographs", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Letters & documents", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Recollections", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Words preserved with this linked photograph"),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Dates in the material", exact: true }),
+  ).toBeVisible();
+  await page.screenshot({
+    path: "/private/tmp/archive-people-person.png",
+    fullPage: true,
+  });
+  await page.goto(`/people?archive=${archive}`);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.screenshot({
+    path: "/private/tmp/archive-people-stacks.png",
+    fullPage: false,
+  });
+});

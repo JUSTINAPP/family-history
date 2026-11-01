@@ -6,6 +6,15 @@ export async function proxy(request: NextRequest) {
   function forwardedHeaders() {
     const headers = new Headers(request.headers);
     headers.set("x-archive-path", pathname);
+    headers.delete("x-archive-id");
+    const archive = request.nextUrl.searchParams.get("archive");
+    if (
+      archive &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        archive,
+      )
+    )
+      headers.set("x-archive-id", archive);
     // Replace incoming values; only the current Explore URL may scope its gallery.
     headers.delete("x-archive-batch");
     const batch = request.nextUrl.searchParams.get("batch");
@@ -71,7 +80,10 @@ export async function proxy(request: NextRequest) {
     redirect.headers.set("Cache-Control", "private, no-store");
     return redirect;
   }
-  response.headers.set("Cache-Control", "private, no-store");
+  // Asset GET controls conditional private caching after auth + file RLS.
+  // All of its errors and redirects remain no-store in the route itself.
+  if (!pathname.startsWith("/api/v1/assets/"))
+    response.headers.set("Cache-Control", "private, no-store");
   return response;
 }
 export const config = {

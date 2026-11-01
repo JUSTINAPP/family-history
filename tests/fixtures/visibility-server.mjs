@@ -149,6 +149,120 @@ export async function fixtureServer(
       res.writeHead(status, { "Content-Type": "application/json", ...headers });
       res.end(value === null ? "" : JSON.stringify(value));
     }
+    if (address.pathname === "/__fixture/metrics") {
+      const counts = {};
+      for (const entry of requests.filter(
+        (r) => !r.path.startsWith("/__fixture/"),
+      ))
+        counts[entry.path] = (counts[entry.path] || 0) + 1;
+      if (address.searchParams.has("reset")) requests.length = 0;
+      return send(200, counts);
+    }
+    if (address.pathname === "/__fixture/people-material" && management) {
+      const template = imageSets.find((s) => s.status === "stored");
+      const source = files.find((f) => f.id === template.original_file_id);
+      people.length = 0;
+      for (let n = 0; n < 33; n++) {
+        const id = crypto.randomUUID();
+        people.push({
+          id,
+          slug: id,
+          archive_id: ARCHIVE,
+          display_name:
+            n === 0
+              ? "01 Many materials"
+              : n === 1
+                ? "02 One material"
+                : n === 2
+                  ? "03 No material"
+                  : `Person ${String(n).padStart(2, "0")}`,
+          category: "family",
+          biography: "",
+          lifespan: "",
+        });
+      }
+      const materialIds = [];
+      for (const [index, kind] of [
+        "Photograph",
+        "Photograph",
+        "Letter",
+        "Document",
+        "Object",
+      ].entries()) {
+        const id = crypto.randomUUID(),
+          originalId = crypto.randomUUID();
+        rows.push({
+          ...rows.find((r) => !r.archived_at),
+          id,
+          title: `Linked ${kind} ${index}`,
+          kind,
+          archived_at: null,
+          split_from: null,
+          reported_date: "1965",
+          catalogued_at: null,
+        });
+        const originalCopy = {
+          ...source,
+          id: originalId,
+          item_id: id,
+          storage_path: `${ARCHIVE}/${id}/${originalId}`,
+        };
+        files.push(originalCopy);
+        objects.set(
+          `${source.bucket_id}/${originalCopy.storage_path}`,
+          original,
+        );
+        const set = {
+          ...template,
+          id: crypto.randomUUID(),
+          item_id: id,
+          original_file_id: originalId,
+        };
+        for (const key of [
+          "display_file_id",
+          "thumbnail_file_id",
+          "small_file_id",
+        ]) {
+          const old = files.find((f) => f.id === template[key]);
+          const file = {
+            ...old,
+            id: crypto.randomUUID(),
+            item_id: id,
+            parent_original_id: originalId,
+          };
+          file.storage_path = `${ARCHIVE}/${id}/${file.id}`;
+          files.push(file);
+          objects.set(
+            `${file.bucket_id}/${file.storage_path}`,
+            objects.get(`${old.bucket_id}/${old.storage_path}`),
+          );
+          set[key] = file.id;
+        }
+        imageSets.push(set);
+        materialIds.push(id);
+        for (const person of people.filter(
+          (p, n) => n === 0 || (n === 1 && index === 0) || n > 2,
+        ))
+          identifications.push({
+            id: crypto.randomUUID(),
+            archive_id: ARCHIVE,
+            item_id: id,
+            person_id: person.id,
+            proposed_name: person.display_name,
+            proposed_by: USER,
+            status: index === 0 ? "accepted" : "reported",
+            created_at: "2026-01-01T00:00:00Z",
+          });
+      }
+      recollections.push({
+        id: crypto.randomUUID(),
+        archive_id: ARCHIVE,
+        item_id: materialIds[0],
+        original_text: "Words preserved with this linked photograph",
+        recorded_at: "2026-01-01T00:00:00Z",
+      });
+      return send(200, { people, materialIds });
+    }
     if (address.pathname === "/__fixture/failure") {
       failList = address.searchParams.get("list") === "1";
       failPreview = address.searchParams.get("preview") === "1";

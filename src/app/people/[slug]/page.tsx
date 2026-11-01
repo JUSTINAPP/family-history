@@ -6,6 +6,11 @@ import { notFound } from "next/navigation";
 import { ArrowUpRight } from "lucide-react";
 import { people, items } from "@/lib/data";
 import { ArchiveImage, Eyebrow, ItemCard, TextLink } from "@/components/ui";
+import {
+  personRecollections,
+  type PersonRecollection,
+} from "@/lib/backend/person-material";
+import { reportRender } from "@/lib/backend/performance";
 export function generateStaticParams() {
   return people.map((p) => ({ slug: p.slug }));
 }
@@ -27,12 +32,36 @@ export default async function PersonPage({
   const { slug } = await params;
   if (!isDemoMode()) {
     const data = await loadWorkspace({
+      materialOnly: true,
       archiveId: (await searchParams).archive,
     });
+    if (!data) notFound();
     const p = data?.people.find(
       (person) => person.slug === slug || person.id === slug,
     );
     if (!p) notFound();
+    const related = data.catalogue.filter((item) => item.people.includes(p.id));
+    let words: PersonRecollection[] = [];
+    let wordsUnavailable = false;
+    try {
+      words = await personRecollections(
+        data.archive.id,
+        related.map((i) => i.id),
+      );
+    } catch {
+      wordsUnavailable = true;
+    }
+    const photographs = related.filter((i) => i.kind === "Photograph");
+    const documents = related.filter((i) =>
+      ["Letter", "Document", "Postcard", "Certificate"].includes(i.kind),
+    );
+    const other = related.filter(
+      (i) => !photographs.includes(i) && !documents.includes(i),
+    );
+    const dated = related
+      .filter((i) => i.year)
+      .sort((a, b) => a.year! - b.year! || a.id.localeCompare(b.id));
+    reportRender("person");
     return (
       <div className="page-shell">
         <PageIntro
@@ -59,13 +88,58 @@ export default async function PersonPage({
                 Reported and Editor-confirmed associations. Unlinked name
                 reports do not appear here.
               </p>
-              <div className="recent-grid">
-                {data?.catalogue
-                  .filter((item) => item.people.includes(p.id))
-                  .map((item, index) => (
-                    <ItemCard key={item.id} item={item} index={index} />
+              {[
+                ["Photographs", photographs],
+                ["Letters & documents", documents],
+                ["Other linked material", other],
+              ].map(
+                ([heading, group]) =>
+                  Array.isArray(group) &&
+                  group.length > 0 && (
+                    <section
+                      className="person-material-section"
+                      key={String(heading)}
+                    >
+                      <h3>{String(heading)}</h3>
+                      <div className="recent-grid">
+                        {group.map((item, index) => (
+                          <ItemCard key={item.id} item={item} index={index} />
+                        ))}
+                      </div>
+                    </section>
+                  ),
+              )}
+              {words.length > 0 && (
+                <section className="person-material-section">
+                  <h3>Recollections</h3>
+                  {words.map((r) => (
+                    <blockquote className="person-recollection" key={r.id}>
+                      <p>{r.original_text}</p>
+                      <Link href={`/archive/${r.item_id}`}>
+                        Read in its original item context ↗
+                      </Link>
+                    </blockquote>
                   ))}
-              </div>
+                </section>
+              )}
+              {wordsUnavailable && (
+                <p>Recollections could not load. Reload to retry.</p>
+              )}
+              {dated.length > 0 && (
+                <section className="person-material-section">
+                  <h3>Dates in the material</h3>
+                  <ol className="timeline-list">
+                    {dated.map((i) => (
+                      <li key={i.id}>
+                        <span>{i.date}</span>
+                        <Link href={i.href || `/archive/${i.id}`}>
+                          {i.title} ↗
+                        </Link>
+                      </li>
+                    ))}
+                  </ol>
+                </section>
+              )}
               {!data?.catalogue.some((item) => item.people.includes(p.id)) && (
                 <p>No archive items linked yet.</p>
               )}

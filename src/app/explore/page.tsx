@@ -4,6 +4,7 @@ import { LiveWorkspaceProvider } from "@/components/live/live-workspace";
 import { isDemoMode } from "@/lib/supabase/config";
 import { Suspense } from "react";
 import { Explore } from "@/components/explore";
+import { reportRender } from "@/lib/backend/performance";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Explore the archive" };
 export default async function ExplorePage({
@@ -24,11 +25,13 @@ export default async function ExplorePage({
   const snapshot = isDemoMode()
     ? null
     : await loadWorkspace({
+        materialOnly: true,
         archiveId: params.archive,
         batchId: params.batch,
         archived: params.state === "archived",
       });
   if (!isDemoMode() && !snapshot) notFound();
+  reportRender("explore");
   const filterKey = JSON.stringify(params);
   return (
     <Suspense

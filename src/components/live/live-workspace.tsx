@@ -35,23 +35,6 @@ export function LiveWorkspaceProvider({
   const attempt = useRef<{ signature: string; id: string } | null>(null);
   // A new server snapshot always replaces an older optimistic refresh, even when its count is smaller.
   const current = fresh?.base === snapshot ? fresh.value : snapshot;
-  useEffect(() => {
-    if (snapshot.catalogueLoaded) return;
-    let active = true;
-    void fetch(`/api/v1/workspace?archive=${snapshot.archive.id}`, {
-      cache: "no-store",
-    })
-      .then(async (response) => {
-        if (!response.ok) throw new Error("unavailable");
-        const value = await response.json();
-        if (active && value?.archive.id === snapshot.archive.id)
-          setFresh({ base: snapshot, value });
-      })
-      .catch(() => {});
-    return () => {
-      active = false;
-    };
-  }, [snapshot]);
   const role =
     current.members.find(
       (m) => m.profileId === current.profileId && m.status === "active",
