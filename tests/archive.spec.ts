@@ -20,7 +20,7 @@ const routes = [
   "/tree",
   "/about",
 ];
-for (const width of [320, 375, 768, 1024, 1440]) {
+for (const width of [320, 360, 375, 390, 430, 768, 1024, 1440]) {
   test(`routes fit at ${width}px and source images load`, async ({ page }) => {
     test.setTimeout(120000);
     await page.emulateMedia({ reducedMotion: "reduce" });

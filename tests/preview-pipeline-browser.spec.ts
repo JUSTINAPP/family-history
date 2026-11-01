@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import AxeBuilder from "@axe-core/playwright";
 import { createHash } from "node:crypto";
 import sharp from "sharp";
 const archive = "60000000-0000-4000-8000-000000000001";
@@ -1443,4 +1444,72 @@ test("correspondence review links a sender, keeps a recipient as reviewed text a
  const original=await page.request.get(`/api/v1/files/${seed.sourceIds[0]}`);expect(createHash("sha256").update(await original.body()).digest("hex")).toBe(before.originalHash);
  const anonymous=await request.get(`http://127.0.0.1:4300${urls[0]}`,{headers:{"if-none-match":derivative.headers().etag}});expect(anonymous.status()).toBe(401);
  expect((await page.request.get("/api/v1/assets/60000000-0000-4000-8000-000000009999",{headers:{"if-none-match":derivative.headers().etag}})).status()).toBe(404);
+});
+
+test.describe("site-wide phone audit",()=>{
+ let phoneCookies:Awaited<ReturnType<import("@playwright/test").BrowserContext["cookies"]>>;
+ let routes:string[],letterId:string,runId:string,photoId:string;
+ const bounds=async(page:import("@playwright/test").Page)=>{
+  const result=await page.evaluate(()=>({viewport:document.documentElement.clientWidth,document:document.documentElement.scrollWidth}));
+  expect(result.document,`${page.url()} width ${result.viewport}`).toBeLessThanOrEqual(result.viewport);
+ };
+ const hit=async(locator:import("@playwright/test").Locator)=>{
+  const box=await locator.boundingBox();expect(box).not.toBeNull();expect(box!.width).toBeGreaterThanOrEqual(43);expect(box!.height).toBeGreaterThanOrEqual(43);
+ };
+ test.beforeAll(async({browser,request})=>{
+  const context=await browser.newContext({baseURL:"http://127.0.0.1:4300"});
+  await context.addCookies([{name:"active_archive",value:archive,url:"http://127.0.0.1:4300"}]);const page=await context.newPage();
+  await page.goto("/sign-in?next=%2Fadd");await page.getByLabel("Email",{exact:true}).fill("visibility@example.test");await page.getByLabel("Password",{exact:true}).fill("local-fixture-password");await page.locator("form").getByRole("button",{name:"Sign in",exact:true}).click();await page.waitForURL(url=>url.pathname==="/add");
+  const initial=await(await request.get("http://127.0.0.1:4301/__fixture/summary")).json();
+  if(!initial.imageSets.some((s:{status:string})=>s.status==="stored"))expect((await page.request.post(`/api/v1/previews/${sources[0]}`,{headers:{origin:"http://127.0.0.1:4300"}})).ok()).toBe(true);
+  const doc=await(await request.post("http://127.0.0.1:4301/__fixture/document-item?correspondence=1")).json();letterId=doc.id;runId=doc.runId;
+  const people=await(await request.post("http://127.0.0.1:4301/__fixture/people-material")).json();
+  const places=await(await request.post("http://127.0.0.1:4301/__fixture/places-material")).json();
+  const photos=await(await request.post("http://127.0.0.1:4301/__fixture/quick-photos")).json();photoId=photos.ids[0];
+  routes=["/","/explore","/quick-catalogue","/people",`/people/${people.people[0].id}`,"/places",`/places/${places.places[0].id}`,`/archive/${photoId}`,`/archive/${people.materialIds[4]}`,`/archive/${letterId}`,`/archive/${letterId}/review?run=${runId}`,"/add","/add/voice","/admin","/admin/settings","/admin/members","/admin/invitations","/admin/processing",`/archive/${letterId}/edit`];
+  phoneCookies=await context.cookies();await context.close();
+ });
+ for(const width of [320,360,375,390,430])test(`phone ${width}px: routes, expanded controls, text and paper stay contained`,async({page})=>{
+  test.setTimeout(180000);await page.context().addCookies(phoneCookies);await page.setViewportSize({width,height:844});
+  for(const route of routes){await page.goto(route);await page.locator("h1").waitFor();await page.evaluate(()=>document.fonts.ready);await bounds(page);}
+  await page.goto("/");
+  for(const selector of [".header-actions .icon-button",".header-actions .add-button",".header-actions .avatar"])for(const control of await page.locator(selector).all())await hit(control);
+  await page.locator(".archive-current-name").evaluate(e=>e.textContent="The Allen & Cork Family History Archive");
+  const name=await page.locator(".archive-current-name").evaluate(e=>({height:e.clientHeight,scroll:e.scrollHeight,rect:e.getBoundingClientRect().toJSON()}));expect(name.scroll).toBeLessThanOrEqual(name.height+1);expect(name.rect.x).toBeGreaterThanOrEqual(0);expect(name.rect.right).toBeLessThanOrEqual(width);
+  await page.getByRole("button",{name:"Demo profile"}).click();const panel=await page.locator(".profile-panel").boundingBox();expect(panel!.x).toBeGreaterThanOrEqual(0);expect(panel!.x+panel!.width).toBeLessThanOrEqual(width);await bounds(page);await page.keyboard.press("Escape");await expect(page.getByRole("button",{name:"Demo profile"})).toBeFocused();
+  await expect(page.getByRole("navigation",{name:"Mobile navigation",exact:true})).toHaveCount(0);
+  await page.getByRole("button",{name:"Open menu",exact:true}).click();await expect(page.getByRole("navigation",{name:"Mobile navigation",exact:true})).toBeVisible();await bounds(page);await page.keyboard.press("Escape");await expect(page.getByRole("button",{name:"Open menu",exact:true})).toBeFocused();
+  await page.getByLabel("Current archive: Test archive",{exact:true}).click();await bounds(page);await page.keyboard.press("Escape");
+  await page.locator(".scrapbook-piece .archive-image").evaluateAll(es=>es.forEach(e=>(e as HTMLElement).style.aspectRatio="0.06"));await bounds(page);
+  const geometry=await page.locator(".scrapbook-piece > .archive-image").first().evaluate(e=>({transform:getComputedStyle(e).transform,height:e.getBoundingClientRect().height}));expect(geometry.transform).not.toBe("none");expect(geometry.height).toBeLessThan(600);
+  if(width===375){await page.goto("/");await page.locator(".home-scrapbook .archive-image img").first().evaluate(img=>(img as HTMLImageElement).decode());await page.screenshot({path:"/private/tmp/mobile-home-375.png",fullPage:true});}
+  await page.goto(`/explore?archive=${archive}&q=${encodeURIComponent("Quick photograph")}`);
+  const card=page.locator(".item-card").first();await card.getByRole("button",{name:/comments on|comment on/}).click();const conversation=card.getByRole("region",{name:"Family conversation",exact:true});await expect(conversation).toBeVisible();
+  const textarea=conversation.getByLabel("Add a comment",{exact:true});expect(await textarea.evaluate(e=>parseFloat(getComputedStyle(e).fontSize))).toBeGreaterThanOrEqual(16);
+  await page.setViewportSize({width,height:440});await textarea.fill("Phone width "+width+": "+"a-long-family-memory-".repeat(8));await textarea.focus();await bounds(page);
+  await hit(conversation.getByRole("button",{name:"Post comment",exact:true}));await conversation.getByRole("button",{name:"Post comment",exact:true}).click();await expect(textarea).toBeFocused();await bounds(page);
+  const comment=conversation.locator(".family-comment").filter({hasText:"Phone width "+width});await expect(comment).toBeVisible();expect(await comment.locator(".comment-body").evaluate(e=>parseFloat(getComputedStyle(e).fontSize))).toBeGreaterThanOrEqual(16);
+  await hit(comment.getByRole("button",{name:/^Reply to/}));await comment.getByRole("button",{name:/^Reply to/}).click();await bounds(page);
+  await page.setViewportSize({width,height:844});
+  await page.goto(`/archive/${photoId}`);
+  expect(await page.getByRole("region",{name:"People in this item",exact:true}).evaluate(el=>!!(el.compareDocumentPosition(document.querySelector('.saved-context .family-conversation')!)&Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
+  await page.getByText("Image options",{exact:true}).click();await hit(page.getByRole("button",{name:"Rotate left",exact:true}));await hit(page.getByRole("button",{name:"Rotate right",exact:true}));await bounds(page);
+  await page.goto("/people");for(const metadata of await page.locator(".person-card .person-meta span").all())expect(await metadata.evaluate(e=>parseFloat(getComputedStyle(e).fontSize))).toBeGreaterThanOrEqual(14);
+  await page.goto("/quick-catalogue");expect(await page.getByRole("link",{name:/Back to Explore/}).evaluate(e=>parseFloat(getComputedStyle(e).fontSize))).toBeGreaterThanOrEqual(14);await hit(page.getByRole("navigation",{name:"Photograph navigation",exact:true}).getByRole("button",{name:"Next",exact:true}));await bounds(page);
+  await page.goto(`/archive/${letterId}/review?run=${runId}`);await page.getByText("Advanced review",{exact:true}).click();await bounds(page);
+  for(const control of await page.locator(".document-suggestion input:not([type=checkbox]),.document-suggestion select").all())expect(await control.evaluate(e=>parseFloat(getComputedStyle(e).fontSize))).toBeGreaterThanOrEqual(16);
+  if(width===375){expect((await new AxeBuilder({page}).withTags(["wcag2a","wcag2aa","wcag21aa"]).analyze()).violations).toEqual([]);await page.screenshot({path:"/private/tmp/mobile-review-375.png",fullPage:true});}
+  await page.goto("/add");await page.getByLabel("Upload existing images",{exact:true}).setInputFiles(["public/images/letter.jpg","public/images/beach.jpg"]);await page.getByLabel("Material type",{exact:true}).selectOption("Letter");await page.getByText("Add a note or details (optional)",{exact:true}).click();await bounds(page);
+  if(width===375)expect((await new AxeBuilder({page}).withTags(["wcag2a","wcag2aa","wcag21aa"]).analyze()).violations).toEqual([]);
+  await page.evaluate(()=>document.documentElement.style.fontSize="24px");await bounds(page);expect(await page.getByLabel("Material type",{exact:true}).evaluate(e=>parseFloat(getComputedStyle(e).fontSize))).toBeGreaterThanOrEqual(24);
+ });
+ test("Retina gallery uses a correctly sized private derivative; desktop composition is retained",async({browser,page})=>{
+  const context=await browser.newContext({baseURL:"http://127.0.0.1:4300",viewport:{width:390,height:844},deviceScaleFactor:3,isMobile:true,hasTouch:true});await context.addCookies(phoneCookies);const phone=await context.newPage();
+  await phone.goto(`/explore?archive=${archive}&q=Quick%20photograph`);const image=phone.locator(".item-card img[data-image-variant=thumbnail]").first();await expect(image).toBeVisible();await image.evaluate(img=>(img as HTMLImageElement).decode());await expect(image).toHaveAttribute("sizes",/90vw/);
+  const current=await image.evaluate(img=>(img as HTMLImageElement).currentSrc);const summary=await(await phone.request.get("http://127.0.0.1:4301/__fixture/summary")).json();expect(summary.imageSets.some((s:{thumbnail_file_id:string;manifest:{thumbnail:{width:number}}})=>current.endsWith(s.thumbnail_file_id)&&s.manifest.thumbnail.width>=1000)).toBe(true);await bounds(phone);await context.close();
+  await page.context().addCookies(phoneCookies);await page.setViewportSize({width:1440,height:960});await page.goto("/");await expect(page.locator(".home-scrapbook")).toBeVisible();await bounds(page);
+  expect(await page.locator(".home-scrapbook").evaluate(e=>getComputedStyle(e).gridTemplateColumns.split(" ").length)).toBe(3);
+  expect(await page.locator(".scrapbook-piece").first().evaluate(e=>getComputedStyle(e).transform)).not.toBe("none");expect((await page.locator(".site-header").boundingBox())!.height).toBe(111);
+  await page.goto("/explore");await expect(page.locator(".conversation-grid")).toBeVisible();expect(await page.locator(".conversation-grid").evaluate(e=>getComputedStyle(e).gridTemplateColumns.split(" ").length)).toBe(4);await bounds(page);
+ });
 });

@@ -226,7 +226,7 @@ export function ArchiveImage({
               src={delivery}
               alt={alt}
               fill
-              sizes="(max-width: 600px) 95vw, (max-width: 1000px) 48vw, 40vw"
+              sizes={sizes || "(max-width: 600px) 95vw, (max-width: 1000px) 48vw, 40vw"}
               loading={priority ? "eager" : "lazy"}
               fetchPriority={fetchPriority || (priority ? "high" : undefined)}
               unoptimized={local || src.startsWith("/api/v1/")}

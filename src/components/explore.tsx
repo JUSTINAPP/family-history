@@ -304,7 +304,7 @@ export function Explore() {
       {filtered.length ? (
         <div className={`masonry ${workspace.mode === "live" ? "conversation-grid" : ""}`}>
           {filtered.map((item, i) => (
-            <ItemCard key={item.id} item={item} index={i} inlineConversation={workspace.mode === "live"} />
+            <ItemCard key={item.id} item={item} index={i} inlineConversation={workspace.mode === "live"} imageSizes={workspace.mode === "live"?"(max-width: 600px) 90vw, (max-width: 820px) 44vw, (max-width: 1100px) 29vw, (max-width: 1800px) 22vw, 385px":undefined} />
           ))}
         </div>
       ) : (

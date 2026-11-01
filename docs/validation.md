@@ -1,3 +1,32 @@
+# Site-wide mobile responsive audit — 2 November 2026
+
+## Restart recovery
+
+After the VS Code interruption, the working tree and recent commits were inspected against base `82ddc7c`. All mobile application/test changes below were already present; no application or test code was rewritten during recovery. The missing `docs/mobile-responsive-commit-manifest.md` was added and the retained 375px Home screenshot was inspected.
+
+Original completion evidence survives in `/private/tmp/mobile-production-final.log` (successful production build and 17 browser flows), `/private/tmp/mobile-regressions-final.log` (121 regressions), `/private/tmp/mobile-auth-final.log` (4 authentication checks) and `/private/tmp/mobile-visibility.log` (1 discoverability flow). These are local logs, not committed artifacts. Recovery reran lint, TypeScript and `git diff --check` successfully. A fresh `npm run test:previews` attempt, including a retry requesting loopback-port permission, failed before browser execution because the environment denied Turbopack's CSS worker port (`binding to a port: Operation not permitted`). The fresh attempt does not supersede the original passing build/test evidence and is not reported as a new pass. Its log is `/private/tmp/mobile-recovery-previews.log`. No further browser suite reruns were needed for unchanged application/test sources.
+
+Physical iPhone Safari smoke testing remains pending after an approved deployment. No production, commit, push or deployment action was taken. Generated `next-env.d.ts` remains excluded; SQL and migrations are unchanged.
+
+## Completed validation before interruption
+
+Base `82ddc7c`. No migration, dependency/environment change, production access, live AI request, commit, push or deployment. Migrations 001–016 and backend/provider/storage primitives are unchanged. Existing generated `next-env.d.ts` is excluded.
+
+- **Lint, strict TypeScript, production build and `git diff --check` pass.**
+- **121 full regressions pass (26.5s)** against the final built app in local demo mode. Existing archive/capture/bulk-photo/audio/document/provider/People/Places/conversation/rotation/search/source-preservation/accessibility checks remain. The demo route sweep now includes **320/360/375/390/430/768/1024/1440px**, extending coverage of stories, tree and source-review views as well as the live route matrix.
+- **17 authenticated production browser flows pass (57.4s)**. Eleven existing image/document/relationship/catalogue/conversation/rotation/classification workflows remain. Five new width tests check **19 routes at 320/360/375/390/430px**, plus expanded header panels and full archive names, Escape/focus, extreme tall-paper geometry, comments/post/reply and reduced-height keyboard assumptions, metadata-before-conversation order, rotation controls, Quick Catalogue navigation, Advanced review/capture fields and 150% text sizing. Important controls are measured around 44px; inputs/comments at least 16px and People metadata/back links at least 14px. Axe checks pass on active review/capture. A separate check verifies a 390px/DPR3 gallery selects a private 1,200px thumbnail and preserves 1440px desktop scrapbook/Explore grids, paper rotation and header height.
+- **4 authentication checks pass (1.3s)** on the final build, including private page/API denial, unsafe origin/redirect handling and mobile sign-in accessibility.
+- **1 authenticated 1,007-row discoverability/performance flow passes (10.9s)**, retaining pagination, archive/batch scope, edit/reload/sign-in and independent metadata/preview failure behavior. No new server query or hidden alternate content tree is introduced.
+- **Private image checks remain green:** dummy OpenAI/Anthropic keys excluded from client JavaScript, isolated production HEIC decoder trace at **1,280 × 854 JPEG / 287,570 bytes**, native responsive/private assets, LQIP, lazy loading, bounded adjacent document prefetch, conditional 304/no Storage work, anonymous denial and unchanged original checksum. Provider tests remain mocked; no live API was consumed.
+- **Measured overflow:** ordinary local fixtures already fit the initial sixteen-route/five-width scan. Tall-paper stress reproduced document widths **341/393/412/431/483px** at **320/360/375/390/430px**; final widths match the five viewports. The 320px profile panel's -24px left edge is corrected, and a long archive name no longer has scrollable text hidden behind a line clamp. There is no body/html overflow-x hiding workaround.
+- **Typography/visual inspection:** phone Home/review screenshots reviewed with synthetic material. A final 375px visible leaf-text sample across sixteen live routes has no samples below 12px. Shared tokens use 16px body/input, 14px interface/metadata and 12px eyebrows. Physical iPhone Safari, native keyboard/chooser behavior and real dynamic type remain manual acceptance.
+
+One early desktop-grid assertion read a not-yet-visible Suspense layout; it now waits for visible layout before measuring the same expected column counts. The first full regression run passed 117 and caught one 320px story-detail overflow after the readability change: an inline three-column grid overrode phone rules. That grid now uses a responsive class and shrinkable tracks. The final full 121-test and 17-flow production runs pass together with the original assertions retained.
+
+CSS source overhead is **9,791 bytes / approximately 1,952 additional gzip bytes**; this is a source-file comparison, not a compiled wire-size benchmark. No new dependencies/queries. Correct Retina sizing deliberately permits a larger thumbnail on high-DPR full-width cards; no universal payload reduction is claimed. See the release document for details and before/after measurements. No SQL changes require database migration testing in this pass; previous SQL results below are historical.
+
+[Audit, route/device matrix, performance limits and exact production iPhone smoke test](mobile-responsive-audit.md) · [exact proposed commit contents](mobile-responsive-commit-manifest.md).
+
 # Letter reading and correspondence — release 016, 1 November 2026
 
 Base `5edd775`. Only new migration **016** changes SQL: it enables explicitly reviewed sender/recipient text in the existing review primitive. Migrations 001–015, provider adapters, original/derivative bytes, checksums, page order and search persistence are unchanged. No production access, live AI request, secret inspection, commit, push or deployment was performed. Existing generated `next-env.d.ts` remains excluded.

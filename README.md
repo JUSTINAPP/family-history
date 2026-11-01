@@ -1,5 +1,7 @@
 # The Allen & Cork Archive
 
+**Site-wide mobile audit:** Phone gutters, readable type, a full-name/two-row header, contained paper rotations and popovers, accessible touch areas, wrapped forms/conversation and correctly sized Retina gallery images. No migration; 001–016 remain unchanged. See [measurements, validation and exact iPhone smoke test](docs/mobile-responsive-audit.md).
+
 **Letter reading and correspondence (016):** Reviewed From/To/Date/Place, meaningful Letter labels, prominent Read transcription, concise AI review with Advanced review retained, and bounded private page prefetch/revalidation. Migration 016 enables reviewed sender/recipient text without forcing Person creation; no old migration or source bytes change. See [release, performance measurements and exact smoke test](docs/letter-reading-and-correspondence.md).
 
 **Capture-first UX correction:** Take photo and Choose from library work immediately. Choose material first, then classify; multiple photographs reuse the independent-item import pipeline, while letter pages and object views stay together. Saved letters lead with original images and optional transcription afterwards. No new migration; 001–015 remain unchanged. See [release and exact production smoke test](docs/capture-first.md). Earlier entry-flow descriptions below are historical.

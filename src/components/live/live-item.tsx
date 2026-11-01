@@ -195,12 +195,6 @@ export async function LiveItem({
               ))}
           </section>
           <section className="saved-context">
-{!documentKinds.includes(item.kind) && <>
-            <FamilyConversation archiveId={item.archive_id} itemId={item.id} comments={result.comments}
-              profileId={snapshot.profileId} names={Object.fromEntries(snapshot.members.map(m => [m.profileId, m.name]))}
-              canComment={can(role, "commenter") && item.lifecycle === "active" && !item.archived_at && item.ingestion_status === "ready"}
-              editor={can(role, "editor")} unavailable={result.commentsUnavailable} />
-            </>}
             {item.kind==="Letter"&&<section aria-label="Correspondence"><h2>Correspondence</h2><dl className="letter-correspondence">
               {([["From",from],["To",to]] as const).map(([label,entries])=><div key={label}><dt>{label}</dt><dd>{entries.length?entries.map((p,n)=><span key={p.personId||p.name}>{n?", ":""}{p.personId?<Link href={`/people/${snapshot.people.find(person=>person.id===p.personId)?.slug||p.personId}`}>{p.name}</Link>:p.name}</span>):"Not yet identified"}</dd></div>)}
               <div><dt>Date</dt><dd>{correspondenceDate(item.reported_date||"",item.date_precision)||"Not yet known"}</dd></div>
@@ -231,12 +225,10 @@ export async function LiveItem({
               simple
             />
             <details><summary>Edit caption</summary><QuickField archiveId={item.archive_id} itemId={item.id} field="caption" value={item.title || ""} editable={editable} /></details>
-            {documentKinds.includes(item.kind) && <>
             <FamilyConversation archiveId={item.archive_id} itemId={item.id} comments={result.comments}
               profileId={snapshot.profileId} names={Object.fromEntries(snapshot.members.map(m => [m.profileId, m.name]))}
               canComment={can(role, "commenter") && item.lifecycle === "active" && !item.archived_at && item.ingestion_status === "ready"}
               editor={can(role, "editor")} unavailable={result.commentsUnavailable} />
-            </>}
             <p className="eyebrow">MEMORIES FROM THE FAMILY</p>
             <h2>What we know so far.</h2>
             {written.length ? (

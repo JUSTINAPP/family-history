@@ -40,7 +40,7 @@ export default async function StoryPage({
       <div className="story-body">
         <p
           className="demo-note"
-          style={{ fontFamily: "var(--sans)", fontSize: 11 }}
+          style={{ fontFamily: "var(--sans)" }}
         >
           Fictional demo narrative. Names, dates and connections are examples,
           not a historical account of the pictured people.
@@ -87,8 +87,7 @@ export default async function StoryPage({
           The pieces of this story.
         </h2>
         <div
-          className="recent-grid"
-          style={{ gridTemplateColumns: "repeat(3,1fr)" }}
+          className="recent-grid story-material-grid"
         >
           {story.itemSlugs.map((slug, i) => (
             <ItemCard

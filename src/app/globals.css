@@ -5065,3 +5065,134 @@ main {
 .document-review .section-top h1 { font-family:var(--serif); font-size:clamp(30px,4vw,54px); line-height:1.12; overflow-wrap:anywhere; }
 .document-review-grid h2 { font-family:var(--serif); font-size:26px; margin-bottom:16px; }
 .document-review-summary > h2 { font-family:var(--serif); font-size:32px; line-height:1.15; }
+
+/* Story material has explicit shrinkable tracks instead of an inline fixed column rule. */
+.story-material-grid { grid-template-columns: repeat(3,minmax(0,1fr)); }
+
+/* Shared phone rhythm. Desktop composition and type remain unchanged. */
+@media (max-width: 600px) {
+  :root {
+    --gutter: clamp(16px, 5vw, 22px);
+    --phone-body: 1rem;
+    --phone-interface: .875rem;
+    --phone-caption: .75rem;
+    --phone-hit: 44px;
+  }
+  body { font-size: var(--phone-body); line-height: 1.55; }
+  .page-shell, .capture-studio, .admin-layout, .admin-content,
+  .saved-material-layout > *, .item-layout > *, .person-hero > *,
+  .quick-photo-layout > *, .settings-section > *, .section-top > * { min-width: 0; }
+  main h1, main h2, main h3, main h4, .breadcrumb, .member-row, .invitation-row,
+  .metadata-grid dd, .saved-file-list, .profile-panel, .archive-switcher-panel { overflow-wrap: anywhere; }
+  main p:not(.eyebrow):not(.help-line):not(.muted-small):not(.comment-byline):not(.material-label),
+  .prose, .intro-description, .comment-body, .document-text, .notice,
+  .voice-invitation p, .story-body p { font-size: var(--phone-body); line-height: 1.65; }
+  .help-line, .muted-small, .comment-byline, .comment-byline time, .search-count,
+  .person-meta, .person-material-count, .person-material-empty p, .caption-meta,
+  .card-caption, .saved-file-list, .metadata-grid, .live-connection-note,
+  .footer-links, .site-footer p, .footer-note p, .site-footer span,
+  .archive-switcher-panel small, .source-ref, .photo-credit { font-size: var(--phone-interface); line-height: 1.55; }
+  .section-top > .text-link, .admin-masthead > .text-link, .field-hint,
+  .person-card .person-meta, .person-card .person-meta span, .person-card .person-meta span:last-child,
+  .breadcrumb, .breadcrumb a, .breadcrumb span, .saved-file-list > a, .metadata-grid dt,
+  .admin-preview > span, .admin-preview label, .home-divider span, .footer-note a, main small,
+  .status-tag, .status-pill { font-size: var(--phone-interface); }
+  .eyebrow, .scrapbook-caption span, .image-label, .material-label, .caption-number {
+    font-size: var(--phone-caption); line-height: 1.5; letter-spacing: .08em;
+  }
+  .page-intro h1, .capture-heading h1, .hero-copy h1, .item-info h1,
+  .person-hero h1, .admin-page-heading h1, .quick-catalogue h1,
+  .story-heading h1, .story-header h1, .review-page-title, .document-review .section-top h1 {
+    font-size: clamp(2.25rem, 10vw, 3.25rem); line-height: 1.08; letter-spacing: -.025em;
+  }
+  .section-title, .story-feature-copy h2, .story-index h2, .two-col-section > h2 {
+    font-size: clamp(1.875rem, 8vw, 2.625rem); line-height: 1.15;
+  }
+  .section-top, .intro-row, .breadcrumb, .import-actions, .background-status { flex-wrap: wrap; }
+  .button, .subtle-button, .text-link, .reset-button, .filter-tabs a, .filter-tabs button,
+  .conversation-link, .admin-nav a, .document-thumbnails button, .footer-links a {
+    min-height: var(--phone-hit); font-size: var(--phone-interface);
+    max-width: 100%; white-space: normal; line-height: 1.5;
+  }
+  .button, .subtle-button, .text-link { gap: 12px; }
+  .text-link { padding-block: 10px; }
+  .subtle-button, .reset-button { padding: 10px 8px; }
+  main summary { min-height: var(--phone-hit); padding-block: 12px; font-size: var(--phone-interface); }
+  main :is(button,a,summary,input,select,textarea):focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  input, select, textarea { font-size: var(--phone-body); max-width: 100%; min-width: 0; }
+  .field { display: flex; flex-direction: column; gap: 8px; min-width: 0; font-size: var(--phone-interface); }
+  .field > span, .field > label, .catalogue-form label { font-size: var(--phone-interface); }
+  .field input:not([type=checkbox]):not([type=radio]), .field select, .field textarea,
+  .search-field input, .capture-page select {
+    width: 100%; min-width: 0; max-width: 100%; min-height: 48px;
+    font-size: var(--phone-body); line-height: 1.5;
+  }
+  .field input:not([type=checkbox]):not([type=radio]), .field select, .field textarea { padding: 12px; }
+  input[type=checkbox], input[type=radio] { width: 22px; height: 22px; flex: 0 0 22px; vertical-align: middle; margin: 8px 8px 8px 0; }
+  label:has(> input[type=checkbox]), label:has(> input[type=radio]) { display: block; min-height: var(--phone-hit); font-size: var(--phone-interface); line-height: 1.65; }
+  main img, main video, main audio { max-width: 100%; }
+
+  /* A full-width name row avoids squeezing/clamping it between four controls. */
+  .site-header { display: grid; grid-template-columns: minmax(0,1fr); gap: 12px; height: auto; padding-block: 16px; }
+  .site-header .archive-switcher { width: 100%; max-width: none; min-width: 0; }
+  .site-header .archive-switcher > summary { min-height: 44px; gap: 10px; }
+  .site-header .archive-current-name { display: block; -webkit-line-clamp: unset; overflow: visible; font-size: 1rem; line-height: 1.3; letter-spacing: -.02em; }
+  .site-header .header-actions { min-width: 0; width: 100%; justify-content: space-between; gap: 8px; }
+  .site-header .icon-button, .site-header .add-button, .site-header .avatar { width: 44px; min-width: 44px; height: 44px; min-height: 44px; padding: 8px; }
+  .site-header .avatar { font-size: var(--phone-interface); }
+  .site-header .profile-wrap { position: static; }
+  .site-header .profile-panel { top: calc(100% + 8px); left: 0; right: 0; width: auto; max-width: 100%; }
+  .site-header .profile-panel a, .site-header .profile-panel p { font-size: var(--phone-interface); }
+  .site-header .archive-switcher-panel { width: 100%; max-width: 100%; padding: 20px; }
+  .site-header .archive-switcher-panel :is(button,a,p) { font-size: var(--phone-interface); }
+  .site-header .mobile-nav { top: 100%; left: 0; right: 0; padding: 12px 16px 24px; max-height: 75svh; overflow-y: auto; }
+  .site-header .mobile-nav a { min-height: 48px; font-size: 1.5rem; }
+
+  /* Bound the decorative paper, rather than rotating arbitrarily tall captions. */
+  .home-scrapbook { overflow: clip; padding: 20px 16px 44px; gap: 32px; }
+  .home-scrapbook .scrapbook-piece { transform: none; background: transparent; box-shadow: none; width: calc(100% - 12px); margin: 0 12px 0 0; padding: 8px; --paper-turn: -1.5deg; }
+  .home-scrapbook .scrapbook-piece:nth-child(even) { margin: 0 0 0 12px; --paper-turn: 1.5deg; }
+  .home-scrapbook .scrapbook-piece > .archive-image { transform: rotate(var(--paper-turn)); max-height: min(65svh,560px); box-shadow: 0 5px 14px #28201818; }
+  .home-scrapbook .scrapbook-caption { padding-inline: 0; }
+  .home-scrapbook .scrapbook-caption h2 { font-size: 1.375rem; }
+  .scrapbook-recent-list article { grid-template-columns: 80px minmax(0,1fr); gap: 14px; }
+  .scrapbook-recent-list .archive-image, .scrapbook-preview-pending { width: 80px; }
+  .scrapbook-recent-list h3 { font-size: 1.375rem; }
+
+  .filter-row { flex-direction: column; align-items: stretch; gap: 16px; }
+  .filter-selects { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; width: 100%; min-width: 0; }
+  .select-filter { min-width: 0; display: flex; flex-direction: column; align-items: stretch; padding: 8px; gap: 4px; font-size: var(--phone-interface); }
+  .select-filter select { font-size: var(--phone-body); width: 100%; max-width: 100%; min-width: 0; min-height: 44px; }
+  .masonry.conversation-grid { grid-template-columns: minmax(0,1fr); }
+  .recent-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .story-material-grid { grid-template-columns: minmax(0,1fr); }
+  .recent-grid .item-card, .card-caption, .card-caption > div { min-width: 0; }
+  .card-caption h2 { font-size: 1.5rem; line-height: 1.25; }
+  .inline-conversation { padding-inline: 0; }
+  .inline-conversation .comment-body, .family-conversation .comment-body { font-size: var(--phone-body); }
+  .comment-reply, .inline-conversation .comment-reply { margin-left: 8px; padding-left: 10px; }
+  .comment-composer, .family-comment form { width: 100%; min-width: 0; }
+  .comment-byline time { font-size: var(--phone-interface); }
+  .comment-composer textarea { min-height: 112px; width: 100%; }
+  .comment-composer .button { width: 100%; }
+  .saved-material-layout, .item-layout, .person-hero, .two-col-section, .settings-section, .quick-photo-layout { grid-template-columns: minmax(0,1fr); gap: 28px; }
+  .saved-material-layout { row-gap: 32px; }
+  .quick-catalogue > .quick-navigation { display: grid; grid-template-columns: minmax(0,1fr) auto minmax(0,1fr); gap: 6px 10px; padding-block: 8px; }
+  .quick-catalogue > .quick-navigation > :last-child { grid-column: 1/-1; }
+  .quick-photo-strip { grid-template-columns: repeat(4,minmax(0,1fr)); gap: 8px; }
+  .quick-photo-strip button { min-height: 44px; }
+  .document-reader .quick-navigation, .document-review .quick-navigation { gap: 8px; padding-block: 12px; }
+  .document-thumbnails { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .document-thumbnails button { font-size: var(--phone-interface); }
+  .document-review-summary label, .document-suggestion label { font-size: var(--phone-interface); }
+  .document-review-summary .subtle-button, .image-options button { min-width: 44px; }
+  .item-people button, .item-places button, .quick-field button { min-height: 44px; font-size: var(--phone-interface); }
+  .admin-nav { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .admin-preview, .admin-masthead, .member-row, .admin-invite-note { flex-wrap: wrap; }
+  .member-row > *, .member-row dl > *, .job-row > *, .invitation-row > * { min-width: 0; }
+  .member-row dl { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .site-footer { overflow-wrap: anywhere; }
+  .site-footer > * { min-width: 0; }
+  .story-body p { font-size: 1.25rem; }
+  .footer-links { padding-left: 0; gap: 4px; }
+}

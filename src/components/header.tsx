@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { signOut } from "@/app/sign-in/actions";
 import { ArchiveSwitcher } from "./archive-switcher";
 import { useWorkspace } from "./workspace-provider";
@@ -16,6 +16,7 @@ const nav = [
 export function Header() {
   const path = usePathname();
   const { role, mode, profileName, profileEmail } = useWorkspace();
+  const menuButton=useRef<HTMLButtonElement>(null),profileButton=useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
   const [profile, setProfile] = useState(false);
   return (
@@ -23,7 +24,7 @@ export function Header() {
       <a href="#main" className="skip-link">
         Skip to content
       </a>
-      <header className="site-header">
+      <header className="site-header" onKeyDown={e=>{if(e.key==="Escape"){if(open){setOpen(false);menuButton.current?.focus();}else if(profile){setProfile(false);profileButton.current?.focus();}}}}>
         <ArchiveSwitcher />
         <nav className="desktop-nav" aria-label="Main navigation">
           {nav.map(([name, href]) => (
@@ -55,10 +56,11 @@ export function Header() {
           </Link>
           <div className="profile-wrap">
             <button
+              ref={profileButton}
               className="avatar"
               aria-label="Demo profile"
               aria-expanded={profile}
-              onClick={() => setProfile(!profile)}
+              onClick={() => {setProfile(!profile);setOpen(false);}}
             >
               {profileName
                 .split(" ")
@@ -94,27 +96,29 @@ export function Header() {
             )}
           </div>
           <button
+            ref={menuButton}
             className="icon-button mobile-menu"
             aria-label={open ? "Close menu" : "Open menu"}
+            aria-controls="mobile-navigation"
             aria-expanded={open}
-            onClick={() => setOpen(!open)}
+            onClick={() => {setOpen(!open);setProfile(false);}}
           >
             {open ? <X size={23} /> : <Menu size={23} />}
           </button>
         </div>
         {open && (
-          <nav className="mobile-nav" aria-label="Mobile navigation">
+          <nav id="mobile-navigation" className="mobile-nav" aria-label="Mobile navigation">
             {nav.map(([name, href]) => (
-              <Link key={href} href={href} onClick={() => setOpen(false)}>
+              <Link prefetch={false} key={href} href={href} onClick={() => setOpen(false)}>
                 {name}
                 <ArrowUpRight size={20} />
               </Link>
             ))}
-            <Link href="/admin" onClick={() => setOpen(false)}>
+            <Link prefetch={false} href="/admin" onClick={() => setOpen(false)}>
               Admin
               <ArrowUpRight size={20} />
             </Link>
-            <Link href="/tree" onClick={() => setOpen(false)}>
+            <Link prefetch={false} href="/tree" onClick={() => setOpen(false)}>
               Family tree
               <ArrowUpRight size={20} />
             </Link>
