@@ -39,6 +39,7 @@ async function source(context: Context) {
   return { client, original };
 }
 export async function GET(request: Request, context: Context) {
+  const started=performance.now();
   try {
     const { client, original } = await source(context);
     const variant =
@@ -90,6 +91,12 @@ export async function GET(request: Request, context: Context) {
         409,
         "Browser derivative awaiting preparation. Original preserved.",
       );
+    // source() and the derivative lookup enforce session/RLS even on a conditional read.
+    const queried=performance.now();
+    const etag=/^[a-f0-9]{64}$/.test(file.sha256||"")?`"${file.sha256}"`:undefined;
+    const privateHeaders={...headers,"Cache-Control":"private, no-cache, must-revalidate",Vary:"Cookie, Authorization",
+      ...(etag?{ETag:etag}:{}),"Server-Timing":`access;dur=${(queried-started).toFixed(1)}`};
+    if(etag&&request.headers.get("if-none-match")===etag)return new Response(null,{status:304,headers:privateHeaders});
     const { data, error: storageError } = await client.storage
       .from(file.bucket_id)
       .download(file.storage_path, {}, { signal: AbortSignal.timeout(10000) });
@@ -100,7 +107,8 @@ export async function GET(request: Request, context: Context) {
       );
     return new Response(data, {
       headers: {
-        ...headers,
+        ...privateHeaders,
+        "Server-Timing":`access;dur=${(queried-started).toFixed(1)}, storage;dur=${(performance.now()-queried).toFixed(1)}`,
         "Content-Type": file.mime_type,
         "X-Content-Type-Options": "nosniff",
       },

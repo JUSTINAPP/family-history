@@ -1,12 +1,13 @@
 import "server-only";
+import {readingOutput} from "./reading-output";
 import { requireSession } from "../backend/repository";
 import { allRows } from "../backend/catalogue";
 import { documentProvider } from "./provider";
 import { rpcResult, runPages } from "./server";
-import type { DocumentRun, DocumentRunSummary, DocumentSuggestion } from "./types";
+import type { DocumentRun, DocumentRunSummary, DocumentSuggestion, DocumentPageText } from "./types";
 export interface StoredDocumentSuggestion {
   id: string; document_run_id: string; source_file_id: string; status: string;
-  suggested_value: DocumentSuggestion; reviewed_value: {value?:string;canonical_id?:string;context?:string}|null;
+  suggested_value: DocumentSuggestion; reviewed_value: {value?:string;canonical_id?:string;context?:string;text_only?:boolean;precision?:string}|null;
 }
 export async function documentState(itemId:string, selected?:string) {
   const {client}=await requireSession();
@@ -16,12 +17,16 @@ export async function documentState(itemId:string, selected?:string) {
   ]);
   const source=rpcResult(snapshot) as {version:string;pages:import("./types").DocumentSource[]};
   const chosen=selected?runs.data.find(r=>r.id===selected):runs.data[0];
-  let run:DocumentRun|null=null;
-  if(chosen)run=rpcResult(await client.from("document_runs").select("*").eq("item_id",itemId).eq("id",chosen.id).single()) as DocumentRun;
-  const [pages,suggestions]=run?await Promise.all([
-    runPages(client,run.id),
-    allRows<StoredDocumentSuggestion>((from,to)=>client.from("metadata_suggestions").select("id,document_run_id,source_file_id,status,suggested_value,reviewed_value",{count:"exact"}).eq("document_run_id",run.id).order("id").range(from,to).retry(false),s=>s.id).then(r=>r.data),
-  ]):[[],[]];
+  let run:DocumentRun|null=null,pages:DocumentPageText[]=[],suggestions:StoredDocumentSuggestion[]=[];
+  if(chosen){
+    const [record,readings,drafts]=await Promise.all([
+      client.from("document_runs").select("*").eq("item_id",itemId).eq("id",chosen.id).single(),
+      runPages(client,chosen.id),
+      allRows<StoredDocumentSuggestion>((from,to)=>client.from("metadata_suggestions").select("id,document_run_id,source_file_id,status,suggested_value,reviewed_value",{count:"exact"}).eq("document_run_id",chosen.id).order("id").range(from,to).retry(false),s=>s.id),
+    ]);
+    const persisted=rpcResult(record) as DocumentRun;
+    run={...persisted,output:readingOutput(persisted.output)};pages=readings;suggestions=drafts.data;
+  }
   return {source,runs:runs.data,run,pages,suggestions,configured:!!documentProvider()};
 }
 export async function reviewedDocumentSearch(archiveId:string) {

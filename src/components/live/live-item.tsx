@@ -1,3 +1,5 @@
+import {documentContext} from "@/lib/documents/context";
+import {correspondents,correspondenceDate} from "@/lib/documents/correspondence";
 import { ItemTypeField } from "./item-type-field";
 import { DocumentActions } from "./document-actions";
 import { ReviewedDocumentNotes } from "./reviewed-document-notes";
@@ -42,26 +44,24 @@ export async function LiveItem({
       item.contributed_by === snapshot.profileId &&
       item.evidence_status !== "verified");
   const { client } = await requireSession();
-  let recordings: RecordingView[] = [];
-  let audioUnavailable = false;
-  try {
-    recordings = await loadRecordings(client, snapshot.archive.id, item.id);
-  } catch {
-    audioUnavailable = true;
-  }
-  const audioRecollections = new Set(recordings.map((r) => r.recollectionId));
-  const written = recollections.filter(
-    (r) => !audioRecollections.has(r.id) && r.original_text,
-  );
-  let placeName = item.reported_place || "";
-  try {
-    const placeData = await loadPlaceData(item.archive_id, item.id);
-    const link = placeData.links.find(l => l.status !== "removed" && l.role === "primary") || placeData.links.find(l => l.status !== "removed");
-    placeName = placeData.places.find(p => p.id === link?.place_id)?.name || placeName;
-  } catch { /* The Place section provides its own retry message. */ }
+  const [audio,placeData,correspondence]=await Promise.all([
+    loadRecordings(client,snapshot.archive.id,item.id).then(recordings=>({recordings,unavailable:false})).catch(()=>({recordings:[] as RecordingView[],unavailable:true})),
+    loadPlaceData(item.archive_id,item.id).catch(()=>null),
+    item.kind==="Letter"?documentContext(item.archive_id,item.id).catch(()=>({suggestions:[],texts:[]})):Promise.resolve({suggestions:[],texts:[]}),
+  ]);
+  const recordings=audio.recordings,audioUnavailable=audio.unavailable;
+  const audioRecollections=new Set(recordings.map(r=>r.recollectionId));
+  const written=recollections.filter(r=>!audioRecollections.has(r.id)&&r.original_text);
+  const placeLink=(item.kind==="Letter"?placeData?.links.find(l=>l.status==="confirmed"&&l.role==="written_in"):null)
+    ||placeData?.links.find(l=>l.status!=="removed"&&l.role==="primary")||placeData?.links.find(l=>l.status!=="removed");
+  const canonicalPlace=placeData?.places.find(p=>p.id===placeLink?.place_id);
+  const placeName=canonicalPlace?(item.kind==="Letter"?[canonicalPlace.name,canonicalPlace.country].filter(Boolean).join(", "):canonicalPlace.name):item.reported_place||"";
+  const from=correspondents("sender",identifications,correspondence.suggestions,snapshot.people);
+  const to=correspondents("recipient",identifications,correspondence.suggestions,snapshot.people);
   const display = cataloguePresentation({kind: item.kind || "Other", title: item.title, datePrecision: item.date_precision,
     people: [...new Set(identifications.filter(i => i.person_id && ["reported", "accepted"].includes(i.status)).map(i => snapshot.people.find(p => p.id === i.person_id)?.name || "Person linked"))],
     place: placeName, date: item.reported_date, notes: item.notes || item.people_text,
+    from:from.map(p=>p.name),to:to.map(p=>p.name),hasTranscription:correspondence.texts.length>0,hasReviewedTranscription:correspondence.texts.some(t=>t.review_status==="reviewed"),
     hasRecollection: recollections.length > 0, catalogued: !!item.catalogued_at});
   return (
     <LiveWorkspaceProvider
@@ -77,9 +77,9 @@ export async function LiveItem({
           <span>{item.kind}</span>
         </div>
         <PageIntro
-          eyebrow="FROM YOUR FAMILY ARCHIVE"
+          eyebrow={item.kind==="Letter"?"LETTER":"FROM YOUR FAMILY ARCHIVE"}
           title={display.title}
-          description="A familiar face, a place, a little of what we remember."
+          description={item.kind==="Letter"?correspondenceDate(item.reported_date||"",item.date_precision)||"Original correspondence, preserved in your family archive.":"A familiar face, a place, a little of what we remember."}
         />
         {saved && item.ingestion_status === "ready" && (
           <section className="notice" role="status">
@@ -157,8 +157,8 @@ export async function LiveItem({
               <Recordings recordings={recordings} snapshot={snapshot} />
             )}
             {documentKinds.includes(item.kind) && <>
-              <DocumentReader pages={files.filter(f => f.purpose === "original")} sets={result.imageSets} title={display.title} editable={editable && !item.archived_at && item.ingestion_status === "ready"} />
-              <DocumentActions itemId={item.id} kind={item.kind} canProcess={editable && item.lifecycle === "active" && !item.archived_at && item.ingestion_status === "ready"}/>
+              <DocumentReader pages={files.filter(f => f.purpose === "original")} sets={result.imageSets} title={display.title} editable={editable && !item.archived_at && item.ingestion_status === "ready"}>
+              <DocumentActions itemId={item.id} kind={item.kind} canProcess={editable && item.lifecycle === "active" && !item.archived_at && item.ingestion_status === "ready"}/></DocumentReader>
             </>}
             {!documentKinds.includes(item.kind) && files
               .filter((file) => file.purpose === "original")
@@ -201,6 +201,11 @@ export async function LiveItem({
               canComment={can(role, "commenter") && item.lifecycle === "active" && !item.archived_at && item.ingestion_status === "ready"}
               editor={can(role, "editor")} unavailable={result.commentsUnavailable} />
             </>}
+            {item.kind==="Letter"&&<section aria-label="Correspondence"><h2>Correspondence</h2><dl className="letter-correspondence">
+              {([["From",from],["To",to]] as const).map(([label,entries])=><div key={label}><dt>{label}</dt><dd>{entries.length?entries.map((p,n)=><span key={p.personId||p.name}>{n?", ":""}{p.personId?<Link href={`/people/${snapshot.people.find(person=>person.id===p.personId)?.slug||p.personId}`}>{p.name}</Link>:p.name}</span>):"Not yet identified"}</dd></div>)}
+              <div><dt>Date</dt><dd>{correspondenceDate(item.reported_date||"",item.date_precision)||"Not yet known"}</dd></div>
+              <div><dt>Place</dt><dd>{placeName||"Not yet identified"}</dd></div>
+            </dl><p className="help-line">Reviewed names can remain text; a Person record is optional. Original wording is retained with the review.</p></section>}
             <IdentificationForm
               archiveId={snapshot.archive.id}
               itemId={item.id}

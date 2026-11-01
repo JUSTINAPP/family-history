@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useRef,useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArchiveImage } from "../archive-image";
+import {DocumentImages} from "./document-images";
 import { DocumentSuggestions } from "./document-suggestions";
 import { reviewDocument } from "@/lib/documents/actions";
 import { pageLabel,type DocumentRun,type DocumentRunSummary,type DocumentPageText,type DocumentSource,type DocumentOperation } from "@/lib/documents/types";
@@ -11,7 +11,7 @@ import type { ImageSet } from "@/lib/preview/types";
 import type { Person } from "@/lib/types";
 import type { ArchivePlace } from "@/lib/places";
 export function DocumentReview({archiveId,itemId,kind,title,files,sets,source,runs,run,pages,suggestions,configured,canProcess,editor,people,places,date,precision}: {
-  archiveId:string;itemId:string;kind:string;title:string;files:{id:string;page_order:number;page_role:string;original_filename:string}[];sets:ImageSet[];
+  archiveId:string;itemId:string;kind:string;title:string;files:{id:string;page_order:number;page_role:string;original_filename:string;presentation_rotation?:number}[];sets:ImageSet[];
   source:{version:string;pages:DocumentSource[]};runs:DocumentRunSummary[];run:DocumentRun|null;pages:DocumentPageText[];suggestions:StoredDocumentSuggestion[];
   configured:boolean;canProcess:boolean;editor:boolean;people:Person[];places:ArchivePlace[];date:string;precision:string;
 }) {
@@ -70,12 +70,12 @@ export function DocumentReview({archiveId,itemId,kind,title,files,sets,source,ru
       <button className="subtle-button" disabled={selected>=ordered.length-1} onClick={()=>{setSelected(selected+1);setDraft(null);}}>Next page</button>
     </nav>
     <div className="document-review-grid">
-      <section>{file?<ArchiveImage key={file.id} src={`/api/v1/previews/${file.id}`} alt={`Document page ${selected+1}`} imageSet={sets.find(s=>s.originalId===file.id)} priority originalPreserved />:<p>Original page unavailable.</p>}</section>
+      <section><h2>Original</h2>{file?<DocumentImages pages={ordered.map(p=>({id:p.id,presentation_rotation:files.find(f=>f.id===p.id)?.presentation_rotation}))} sets={sets} selected={selected} title={`Document page ${selected+1}`}/>:<p>Original page unavailable.</p>}</section>
       <section aria-label="Page transcription">
         <h2>{text?.output_kind==="translation"?"English translation": "Source transcription"}</h2>
         {!text?<p>This page has no transcription yet.</p>:<>
           <p>{text.reviewed_text!==null&&!raw?"Human-reviewed text":"AI draft — please check unclear handwriting against the page"}</p>
-          {!!(run?.output[current!.id] as {uncertainty?:string[]}|undefined)?.uncertainty?.length && <p className="help-line">Original AI uncertainty: {((run!.output[current!.id] as {uncertainty:string[]}).uncertainty).join(" · ")}</p>}
+          {!!(run?.output[current!.id] as {uncertainty?:string[]}|undefined)?.uncertainty?.length && <details><summary>Reading notes</summary><p className="help-line">Original AI uncertainty: {((run!.output[current!.id] as {uncertainty:string[]}).uncertainty).join(" · ")}</p></details>}
           <div className="document-text">{!raw&&text.reviewed_text!==null?text.reviewed_text:text.raw_ai_text}</div>
           {text.reviewed_text!==null && <button className="subtle-button" onClick={()=>setRaw(!raw)}>{raw?"View human-reviewed text":"View original AI draft"}</button>}
           {editor && <button className="subtle-button" disabled={busy} onClick={()=>setDraft({id:text.id,revision:text.review_revision,text:text.reviewed_text??text.raw_ai_text})}>Correct this page</button>}

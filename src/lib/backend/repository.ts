@@ -1,3 +1,5 @@
+import {documentContext} from "../documents/context";
+import {correspondents} from "../documents/correspondence";
 import type { FamilyComment } from "../conversation";
 import { cataloguePresentation } from "../catalogue-presentation";
 import "server-only";
@@ -270,7 +272,7 @@ const cachedWorkspace = cache(
             (from, to) =>
               client
                 .from("identifications")
-                .select("id,archive_id,item_id,person_id,status", {
+                .select("id,archive_id,item_id,person_id,status,role_context", {
                   count: "exact",
                 })
                 .eq("archive_id", row.id)
@@ -375,6 +377,8 @@ const cachedWorkspace = cache(
     const recollected = new Set(results[9].data.map(r => r.item_id));
     const personNames = new Map(people.map(p => [p.id, p.name]));
     const commentCounts=new Map(results[10].data.map(c=>[c.item_id,c.comment_count]));
+    const letterIds=catalogueItemsResult.filter(i=>i.kind==="Letter").map(i=>i.id).sort().join(",");
+    const correspondence=letterIds?await documentContext(row.id,letterIds).catch(()=>({suggestions:[],texts:[]})):{suggestions:[],texts:[]};
     catalogueItemsResult.forEach(item => {
       item.commentCount=results[10].available ? commentCounts.get(item.id)||0 : undefined;
       item.hasRecollection = recollected.has(item.id);
@@ -383,6 +387,10 @@ const cachedWorkspace = cache(
         date: item.date === "Date not yet known" ? "" : item.date,
         place: item.place === "Place not yet known" ? "" : item.place,
         notes: item.notes || item.reportedPeople, hasRecollection: item.hasRecollection,
+        from:correspondents("sender",results[8].data.filter(l=>l.item_id===item.id),correspondence.suggestions.filter(s=>s.item_id===item.id),people).map(p=>p.name),
+        to:correspondents("recipient",results[8].data.filter(l=>l.item_id===item.id),correspondence.suggestions.filter(s=>s.item_id===item.id),people).map(p=>p.name),
+        hasTranscription:correspondence.texts.some(t=>t.item_id===item.id),
+        hasReviewedTranscription:correspondence.texts.some(t=>t.item_id===item.id&&t.review_status==="reviewed"),
         catalogued: item.collection === "Catalogued"});
       Object.assign(item, display, {alt: display.title, collection: display.catalogueState === "Not yet catalogued" ? "Uncatalogued" : display.catalogueState});
     });

@@ -6,18 +6,14 @@ import { useRouter } from "next/navigation";
 import type { Person } from "@/lib/types";
 import type { ArchivePlace } from "@/lib/places";
 import type { StoredDocumentSuggestion } from "@/lib/documents/repository";
-import { suggestedDate } from "@/lib/documents/types";
+import {reviewChoice,type ReviewChoice as Choice} from "@/lib/documents/review-choice";
+import {DocumentReviewSummary} from "./document-review-summary";
 import { reviewDocument } from "@/lib/documents/actions";
-interface Choice {id:string;selected:boolean;action:string;value:string;canonical_id:string;create:boolean;context:string;precision:string;}
-export function DocumentSuggestions({archiveId,itemId,runId,suggestions,people,places,editor,date,precision}: {
+function DetailedDocumentSuggestions({archiveId,itemId,runId,suggestions,people,places,editor,date,precision}: {
   archiveId:string;itemId:string;runId:string;suggestions:StoredDocumentSuggestion[];people:Person[];places:ArchivePlace[];editor:boolean;date:string;precision:string;
 }) {
   const router=useRouter();
-  const [choices,setChoices]=useState<Choice[]>(()=>suggestions.map(s=>({id:s.id,selected:false,action:"accept",value:s.suggested_value.kind==="date"?suggestedDate(s.suggested_value.value).value:s.suggested_value.value,canonical_id:"",create:false,
-    context:s.suggested_value.kind==="date"?(s.suggested_value.context==="written_date"&&suggestedDate(s.suggested_value.value).precision!=="unknown"?"written_date":"mentioned_date"):
-      s.suggested_value.kind==="place"?(["written_in","sent_to"].includes(s.suggested_value.context)?s.suggested_value.context:"related"):
-      ["sender","recipient"].includes(s.suggested_value.kind)?s.suggested_value.kind:"mentioned",
-    precision:suggestedDate(s.suggested_value.value).precision})));
+  const [choices,setChoices]=useState<Choice[]>(()=>suggestions.map(reviewChoice));
   const [expectedDate]=useState({value:date,precision});
   const [message,setMessage]=useState(""),[busy,setBusy]=useState(false);
   function patch(id:string,change:Partial<Choice>){setChoices(old=>old.map(c=>c.id===id?{...c,...change}:c));}
@@ -45,11 +41,12 @@ export function DocumentSuggestions({archiveId,itemId,runId,suggestions,people,p
               <label className="field">Reviewed value<input aria-label={`Reviewed value for ${s.suggested_value.value}`} value={c.value} maxLength={2000} onChange={e=>patch(c.id,{value:e.target.value})} /></label>
               {(person || place) && <>
                 <p className="help-line">{person ? matchingPeople(people,c.value).slice(0,3).map(p=>`Possible existing Person: ${p.name}`).join(" · ") : matchingPlaces(places,c.value).slice(0,3).map(p=>`Possible existing Place: ${p.name}`).join(" · ")}</p>
-                <label className="field">{person?"Match an existing Person":"Match an existing Place"}<select aria-label={`Match ${s.suggested_value.value}`} value={c.canonical_id} onChange={e=>patch(c.id,{canonical_id:e.target.value,create:false})}>
+                <label className="field">{person?"Match an existing Person":"Match an existing Place"}<select aria-label={`Match ${s.suggested_value.value}`} value={c.canonical_id} onChange={e=>patch(c.id,{canonical_id:e.target.value,create:false,text_only:false})}>
                   <option value="">Choose a record — no automatic link</option>
                   {person?people.map(p=><option key={p.id} value={p.id}>{p.name}</option>):places.map(p=><option key={p.id} value={p.id}>{p.name}{p.country?` · ${p.country}`:""}</option>)}
                 </select></label>
-                {!c.canonical_id && <label><input type="checkbox" checked={c.create} onChange={e=>patch(c.id,{create:e.target.checked})} /> Deliberately create a new {person?"Person":"Place"} with this name</label>}
+                {!c.canonical_id && <label><input type="checkbox" checked={c.create} onChange={e=>patch(c.id,{create:e.target.checked,text_only:false})} /> Deliberately create a new {person?"Person":"Place"} with this name</label>}
+                {["sender","recipient"].includes(kind)&&!c.canonical_id&&!c.create&&<label><input type="checkbox" checked={c.text_only} onChange={e=>patch(c.id,{text_only:e.target.checked})}/> Keep as reviewed text (no Person record)</label>}
                 <label className="field">Connection<select aria-label={`Connection for ${s.suggested_value.value}`} value={c.context} onChange={e=>patch(c.id,{context:e.target.value})}>
                   {person?<><option value="mentioned">Person mentioned</option><option value="sender">Author / sender</option><option value="recipient">Recipient</option></>:<><option value="related">Place mentioned</option><option value="written_in">Written from</option><option value="sent_to">Destination</option></>}
                 </select></label>
@@ -66,4 +63,8 @@ export function DocumentSuggestions({archiveId,itemId,runId,suggestions,people,p
     </form>
     {message && <p role="status">{message}</p>}
   </section>;
+}
+
+export function DocumentSuggestions(props:Parameters<typeof DetailedDocumentSuggestions>[0]) {
+  return <><DocumentReviewSummary {...props}/><details className="advanced-document-review"><summary>Advanced review</summary><p>Inspect the original evidence and review each suggestion in detail. Earlier AI wording and decisions remain in the archive.</p><DetailedDocumentSuggestions {...props}/></details></>;
 }

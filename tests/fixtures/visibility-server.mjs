@@ -375,11 +375,12 @@ export async function fixtureServer(
     if (address.pathname === "/__fixture/document-item" && management) {
       const template=imageSets.find(s=>s.status==="stored"),source=files.find(f=>f.id===template.original_file_id);
       const id=crypto.randomUUID(),sourceIds=[];
-      rows.push({...rows.find(r=>!r.archived_at),id,kind:"Letter",title:"Fixture four-page letter",grouping_kind:"single_object",archived_at:null,split_from:null,lifecycle:"active",ingestion_status:"ready",reported_date:"",date_precision:"unknown",reported_place:"",people_text:"",notes:"",catalogued_at:null});
+      const pageCount=Math.min(20,Math.max(4,Number(address.searchParams.get("pages"))||4)),correspondence=address.searchParams.has("correspondence");
+      rows.push({...rows.find(r=>!r.archived_at),id,kind:"Letter",title:correspondence?"Letter, still to be catalogued":"Fixture four-page letter",grouping_kind:"single_object",archived_at:null,split_from:null,lifecycle:"active",ingestion_status:"ready",reported_date:"",date_precision:"unknown",reported_place:"",people_text:"",notes:"",catalogued_at:null});
       const roles=["envelope-front","envelope-back","page-front","page-back"];
-      for(let n=0;n<4;n++) {
+      for(let n=0;n<pageCount;n++) {
         const originalId=crypto.randomUUID();sourceIds.push(originalId);
-        const f={...source,id:originalId,item_id:id,page_order:n,page_role:roles[n],original_filename:`document-${n+1}.heic`,storage_path:`${ARCHIVE}/${id}/${originalId}`};
+        const f={...source,id:originalId,item_id:id,page_order:n,page_role:roles[n]||"page",original_filename:`document-${n+1}.heic`,storage_path:`${ARCHIVE}/${id}/${originalId}`};
         files.push(f);objects.set(`${f.bucket_id}/${f.storage_path}`,original);
         const set={...template,id:crypto.randomUUID(),item_id:id,original_file_id:originalId};
         for(const key of ["display_file_id","thumbnail_file_id","small_file_id"]) {
@@ -391,14 +392,14 @@ export async function fixtureServer(
       if(!person){const pid=crypto.randomUUID();person={id:pid,slug:pid,archive_id:ARCHIVE,display_name:"Jan Allen",category:"family",biography:"",lifespan:""};people.push(person);}
       let place=places.find(p=>p.name==="Auroville");
       if(!place){place={id:crypto.randomUUID(),archive_id:ARCHIVE,name:"Auroville",locality:"",city:"",region:"Tamil Nadu",country:"India",notes:"",latitude:null,longitude:null};places.push(place);}
-      const manifest=sourceIds.map((fid,n)=>({id:fid,page_order:n,page_role:roles[n],sha256:hash}));
+      const manifest=sourceIds.map((fid,n)=>({id:fid,page_order:n,page_role:roles[n]||"page",sha256:hash}));
       const runId=crypto.randomUUID(),translationId=crypto.randomUUID();
       const text=["Cher Jan, Auroville, 17 August 1978. [unclear]","Une lettre de notre famille.","We will travel together.","Au revoir."];
       for(const [operation,rid] of [["transcribe",runId],["translate",translationId]]) {
-        documentRuns.push({id:rid,archive_id:ARCHIVE,item_id:id,source_manifest:manifest,source_version:"fixture-document-v1",source_texts:operation==="translate"?sourceIds.map((fid,n)=>({original_file_id:fid,text:text[n],review_revision:0,transcription_id:documentTexts.find(t=>t.document_run_id===runId&&t.original_file_id===fid)?.id})):[],source_run_id:operation==="translate"?runId:null,operation,provider:"fixture",model:"synthetic-document-v1",status:"complete",created_at:operation==="transcribe"?"2026-01-01T00:00:00Z":"2026-01-02T00:00:00Z",updated_at:"2026-01-02T00:00:00Z",output:Object.fromEntries(sourceIds.map(fid=>[fid,{uncertainty:["Unclear handwriting is retained literally"],language:operation==="translate"?"en":"fr"}]))});
-        for(let n=0;n<4;n++)documentTexts.push({id:crypto.randomUUID(),archive_id:ARCHIVE,item_id:id,document_run_id:rid,original_file_id:sourceIds[n],page_order_snapshot:n,raw_ai_text:operation==="translate"?`English draft page ${n+1}; source remains separate.`:text[n],reviewed_text:null,review_status:"pending",review_revision:0,output_kind:operation==="translate"?"translation":"source",confidence:null,provider:"fixture",model:"synthetic-document-v1",modality:"handwriting",version:operation==="translate"?2:1,processed_at:"2026-01-01T00:00:00Z"});
+        documentRuns.push({id:rid,archive_id:ARCHIVE,item_id:id,source_manifest:manifest,source_version:"fixture-document-v1",source_texts:operation==="translate"?sourceIds.map((fid,n)=>({original_file_id:fid,text:text[n]||`Source page ${n+1}.`,review_revision:0,transcription_id:documentTexts.find(t=>t.document_run_id===runId&&t.original_file_id===fid)?.id})):[],source_run_id:operation==="translate"?runId:null,operation,provider:"fixture",model:"synthetic-document-v1",status:"complete",created_at:operation==="transcribe"?"2026-01-01T00:00:00Z":"2026-01-02T00:00:00Z",updated_at:"2026-01-02T00:00:00Z",output:Object.fromEntries(sourceIds.map(fid=>[fid,{uncertainty:["Unclear handwriting is retained literally"],language:operation==="translate"?"en":"fr"}]))});
+        for(let n=0;n<pageCount;n++)documentTexts.push({id:crypto.randomUUID(),archive_id:ARCHIVE,item_id:id,document_run_id:rid,original_file_id:sourceIds[n],page_order_snapshot:n,raw_ai_text:operation==="translate"?`English draft page ${n+1}; source remains separate.`:text[n]||`Source page ${n+1}.`,reviewed_text:null,review_status:"pending",review_revision:0,output_kind:operation==="translate"?"translation":"source",confidence:null,provider:"fixture",model:"synthetic-document-v1",modality:"handwriting",version:operation==="translate"?2:1,processed_at:"2026-01-01T00:00:00Z"});
       }
-      for(const suggestion of [{kind:"person",value:"Jan",page:1,evidence:"Jan",context:"mentioned"},{kind:"place",value:"Auroville",page:1,evidence:"Auroville",context:"written_in"},{kind:"date",value:"1978-08-17",page:1,evidence:"17 August 1978",context:"written_date"},{kind:"summary",value:"A letter about family travel.",page:3,evidence:"travel",context:""}])
+      for(const suggestion of [...(correspondence?[{kind:"sender",value:"Jan Allen",page:1,evidence:"Jan",context:"sender"},{kind:"recipient",value:"Tina",page:1,evidence:"Tina",context:"recipient"}]:[]),{kind:"person",value:"Jan",page:1,evidence:"Jan",context:"mentioned"},{kind:"place",value:"Auroville",page:1,evidence:"Auroville",context:"written_in"},{kind:"date",value:"1978-08-17",page:1,evidence:"17 August 1978",context:"written_date"},{kind:"summary",value:"A letter about family travel.",page:3,evidence:"travel",context:""}])
         documentSuggestions.push({id:crypto.randomUUID(),archive_id:ARCHIVE,item_id:id,document_run_id:runId,source_file_id:sourceIds[suggestion.page-1],field_path:`document.${suggestion.kind}`,status:"pending",suggested_value:suggestion,reviewed_value:null});
       return send(200,{id,runId,translationId,sourceIds,person,place});
     }
@@ -745,7 +746,7 @@ export async function fixtureServer(
           if(!s)return send(400,{code:"P0001"});
           const k=s.suggested_value.kind;
           if(x.action==="accept") {
-            if(["person","sender","recipient"].includes(k)) {
+            if(["person","sender","recipient"].includes(k)&&!x.text_only) {
               const person=people.find(p=>p.id===x.canonical_id&&p.archive_id===ARCHIVE);if(!person)return send(400,{code:"23503"});
               if(!identifications.some(i=>i.item_id===run.item_id&&i.person_id===person.id))identifications.push({id:crypto.randomUUID(),archive_id:ARCHIVE,item_id:run.item_id,person_id:person.id,proposed_name:person.display_name,proposed_by:USER,status:"accepted",role_context:x.context,created_at:new Date().toISOString()});
             } else if(k==="place") {
@@ -1259,7 +1260,7 @@ export async function fixtureServer(
       data = [...data].sort((a, b) => {
         for (const term of order.split(",")) {
           const [field, direction] = term.split(".");
-          const comparison = String(a[field] ?? "").localeCompare(
+          const comparison = typeof a[field]==="number"&&typeof b[field]==="number"?a[field]-b[field]:String(a[field] ?? "").localeCompare(
             String(b[field] ?? ""),
           );
           if (comparison) return comparison * (direction === "desc" ? -1 : 1);

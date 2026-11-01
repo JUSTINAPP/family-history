@@ -38,6 +38,8 @@ export async function documentChecks({q,asUser,asOwner,denied,users,archive,mani
  await denied("select public.claim_document_extraction($1)",[run.id]);
  const suggestions=[
   {kind:'person',value:'Jan',evidence:'Jan',page:1,context:'mentioned'},
+  {kind:'sender',value:'Jan',evidence:'Jan',page:1,context:'sender'},
+  {kind:'recipient',value:'Tina',evidence:'Your friend.',page:4,context:'recipient'},
   {kind:'place',value:'Auroville',evidence:'Auroville',page:1,context:'written_in'},
   {kind:'date',value:'1978-08-17',evidence:'17 August 1978',page:1,context:'written_date'},
   {kind:'summary',value:'A letter about travel.',evidence:'travel',page:3,context:''},
@@ -45,7 +47,7 @@ export async function documentChecks({q,asUser,asOwner,denied,users,archive,mani
  ];
  await q(finish,[run.id,JSON.stringify({suggestions}),extraction.token]);
  await q(finish,[run.id,JSON.stringify({suggestions}),extraction.token]);
- eq((await one("select count(*)::int n from public.metadata_suggestions where document_run_id=$1",[run.id])).n,5);
+ eq((await one("select count(*)::int n from public.metadata_suggestions where document_run_id=$1",[run.id])).n,7);
  eq((await one("select count(*)::int n from public.item_places where item_id=$1",[item])).n,0);
  await asUser(users[4]);
  const person=(await one("select public.save_person($1,'Jan from letter','other') id",[archive])).id;
@@ -61,6 +63,27 @@ export async function documentChecks({q,asUser,asOwner,denied,users,archive,mani
  eq((await one("select person_id,status,role_context from public.identifications where item_id=$1",[item])),{person_id:person,status:'accepted',role_context:'mentioned'});
  eq((await one("select place_id,role,status from public.item_places where item_id=$1",[item])),{place_id:place,role:'written_in',status:'confirmed'});
  eq((await one("select reported_date,date_precision from public.archive_items where id=$1",[item])),{reported_date:'1978-08-17',date_precision:'exact'});
+ // Explicit reviewed text never creates a Person; canonical sender uses the existing relationship.
+ const expectedDate=JSON.stringify({value:'1978-08-17',precision:'exact'});
+ const textRecipient=selection('recipient',{context:'recipient',value:'Tina',canonical_id:'',create:false,text_only:true});
+ const initialPeople=(await one("select count(*)::int n from public.people where archive_id=$1",[archive])).n;
+ const initialLinks=(await one("select count(*)::int n from public.identifications where item_id=$1",[item])).n;
+ for(const extra of [{context:'sender'},{canonical_id:person},{create:true},{text_only:false},{value:''}])await denied(apply,[run.id,JSON.stringify([{...textRecipient,...extra}]),expectedDate]);
+ await asUser(users[3]);await denied(apply,[run.id,JSON.stringify([textRecipient]),expectedDate]);
+ await asUser(users[1]);await denied(apply,[run.id,JSON.stringify([textRecipient]),expectedDate]);
+ await asUser(null);await denied(apply,[run.id,JSON.stringify([textRecipient]),expectedDate]);
+ await asUser(users[4]);
+ await q(apply,[run.id,JSON.stringify([textRecipient]),expectedDate]);
+ await q(apply,[run.id,JSON.stringify([textRecipient]),expectedDate]);
+ await denied(apply,[run.id,JSON.stringify([{...textRecipient,value:'Another person'}]),expectedDate]);
+ eq((await one("select count(*)::int n from public.people where archive_id=$1",[archive])).n,initialPeople);
+ eq((await one("select count(*)::int n from public.identifications where item_id=$1",[item])).n,initialLinks);
+ const kept=await one("select suggested_value,reviewed_value,status from public.metadata_suggestions where id=$1",[textRecipient.id]);
+ eq(kept.reviewed_value,textRecipient);eq(kept.status,'accepted');eq(kept.suggested_value.value,'Tina');
+ eq((await one("select count(*)::int n from public.provenance where item_id=$1 and field_path='document_suggestion_review' and value->'decision'->>'text_only'='true'",[item])).n,1);
+ await q(apply,[run.id,JSON.stringify([selection('sender',{canonical_id:person,context:'sender'})]),expectedDate]);
+ eq((await one("select role_context from public.identifications where item_id=$1 and person_id=$2",[item,person])).role_context,'mentioned; sender');
+ eq((await q("select sha256 from public.archive_item_files where item_id=$1 and purpose='original' order by page_order",[item])).rows.map(f=>f.sha256),hashes);
  const page=(await one("select * from public.transcriptions where document_run_id=$1 order by page_order_snapshot limit 1",[run.id]));
  await q("select public.review_document_page($1,'Dear Jan, a corrected reading.',0)",[page.id]);
  await denied("select public.review_document_page($1,'Stale correction',0)",[page.id]);

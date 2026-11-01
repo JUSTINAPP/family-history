@@ -18,6 +18,8 @@ export function ArchiveImage({
   sizes,
   autoPrepare = true,
   rotation: fallbackRotation = 0,
+  onReady,
+  fetchPriority,
 }: {
   src: string;
   alt: string;
@@ -31,6 +33,8 @@ export function ArchiveImage({
   sizes?: string;
   autoPrepare?: boolean;
   rotation?: number;
+  onReady?: () => void;
+  fetchPriority?: "high" | "low" | "auto";
 }) {
   const variant = src.includes("variant=thumbnail")
     ? "thumbnail"
@@ -64,6 +68,7 @@ export function ArchiveImage({
     : src.startsWith("/api/v1/previews/")
       ? `${src.split("?")[0]}?variant=${variant}&v=${revision}`
       : src;
+  useEffect(()=>{if(loaded===delivery)onReady?.();},[loaded,delivery,onReady]);
   const candidates = set
     ? variant === "small"
       ? [set.small]
@@ -197,7 +202,7 @@ export function ArchiveImage({
               width={primary!.width}
               height={primary!.height}
               loading={priority ? "eager" : "lazy"}
-              fetchPriority={priority ? "high" : "auto"}
+              fetchPriority={fetchPriority || (priority ? "high" : "auto")}
               onLoad={() => setLoaded(delivery)}
               onError={() => {
                 setMessage(
@@ -223,8 +228,9 @@ export function ArchiveImage({
               fill
               sizes="(max-width: 600px) 95vw, (max-width: 1000px) 48vw, 40vw"
               loading={priority ? "eager" : "lazy"}
-              fetchPriority={priority ? "high" : undefined}
+              fetchPriority={fetchPriority || (priority ? "high" : undefined)}
               unoptimized={local || src.startsWith("/api/v1/")}
+              onLoad={()=>setLoaded(delivery)}
               onError={() => {
                 if (derived && attempted.current.has(src))
                   setMessage(

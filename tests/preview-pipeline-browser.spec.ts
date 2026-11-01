@@ -704,7 +704,7 @@ test("People use real archival stacks, small private thumbnails, batched reads a
   const cached = await page.request.get(firstUrl!, {
     headers: { "If-None-Match": first.headers().etag },
   });
-  expect(cached.status()).toBe(304);
+  expect(cached.status()).toBe(304);expect(cached.headers()["cache-control"]).toBe("private, no-cache, must-revalidate");
   const counts = await (
     await request.get("http://127.0.0.1:4301/__fixture/metrics")
   ).json();
@@ -1219,6 +1219,7 @@ test("saved letters read as ordered objects with separate AI drafts, human revie
   await expect(text.getByText("Human-reviewed text",{exact:true})).toBeVisible();
   await text.getByRole("button",{name:"View original AI draft",exact:true}).click();
   await expect(text.getByText("Cher Jan, Auroville, 17 August 1978. [unclear]",{exact:true})).toBeVisible();
+  await page.getByText("Advanced review",{exact:true}).click();
   const found=page.getByRole("region",{name:"AI suggestions",exact:true});
   const person=found.locator("article").filter({has:page.getByRole("checkbox",{name:"Review Jan",exact:true})});
   await expect(person.getByText("Possible existing Person: Jan Allen",{exact:false})).toBeVisible();
@@ -1245,6 +1246,7 @@ test("saved letters read as ordered objects with separate AI drafts, human revie
   await expect(page.locator(".item-card").filter({hasText:"Fixture four-page letter"})).toHaveCount(1);
   await page.goto(`/archive/${seed.id}/review?run=${seed.translationId}`);
   await expect(page.getByRole("region",{name:"Page transcription"}).getByText("English draft page 1; source remains separate.",{exact:true})).toBeVisible();
+  await expect(page.getByRole("region",{name:"Review what AI found",exact:true})).toHaveCount(0);
   await page.getByText("Processing history",{exact:true}).click();
   await expect(page.getByRole("link",{name:/transcribe.*fixture.*synthetic-document-v1/})).toBeVisible();
   await page.getByText("Source text used for this translation",{exact:true}).click();
@@ -1383,4 +1385,62 @@ test("a preserved photograph can be reclassified as a Letter and open existing d
  await page.getByLabel("Material type",{exact:true}).selectOption("Postcard");await expect(page.locator(".capture-page")).toHaveCount(2);await expect(page.getByRole("combobox",{name:"Role for letter.jpg",exact:true})).toContainText("Written side");
 
  after=await summary();expect(after.items).toHaveLength(before.items.length);
+});
+
+test("correspondence review links a sender, keeps a recipient as reviewed text and bounds private page prefetch",async({page,request})=>{
+ test.setTimeout(120000);page.setDefaultTimeout(10000);
+ const seed=await(await request.post("http://127.0.0.1:4301/__fixture/document-item?correspondence=1&pages=12")).json();
+ const summary=async()=>(await request.get("http://127.0.0.1:4301/__fixture/summary")).json();
+ const metrics=async()=>(await request.get("http://127.0.0.1:4301/__fixture/metrics")).json();
+ const before=await summary(),sets=before.imageSets.filter((g:{item_id:string})=>g.item_id===seed.id);
+ const urls=seed.sourceIds.map((id:string)=>`/api/v1/assets/${sets.find((g:{original_file_id:string})=>g.original_file_id===id).thumbnail_file_id}`);
+ const highRequests:string[]=[],allRequests:string[]=[];
+ page.on("request",r=>{const path=new URL(r.url()).pathname;allRequests.push(path);if(urls.includes(path))highRequests.push(path);});
+ await page.context().addCookies([{name:"active_archive",value:archive,url:"http://127.0.0.1:4300"}]);
+ await page.goto("/sign-in?next="+encodeURIComponent(`/archive/${seed.id}`));await page.getByLabel("Email",{exact:true}).fill("visibility@example.test");await page.getByLabel("Password",{exact:true}).fill("local-fixture-password");await page.locator("form").getByRole("button",{name:"Sign in",exact:true}).click();
+ const reader=page.getByRole("region",{name:"Document pages",exact:true});
+ await expect(page.locator("h1")).toHaveText("Letter");
+ const read=page.getByRole("link",{name:"Read transcription",exact:true});await expect(read).toHaveClass(/button/);
+ await expect.poll(()=>highRequests.includes(urls[1])).toBe(true);
+ expect(highRequests.filter(url=>urls.slice(2).includes(url))).toEqual([]);
+ await reader.locator(".document-page img:visible").evaluate(img=>(img as HTMLImageElement).decode());
+ const initialMetrics=await metrics();
+ await reader.getByRole("button",{name:"Next page",exact:true}).click();await reader.locator(".document-page img:visible").evaluate(img=>(img as HTMLImageElement).decode());
+ await expect.poll(()=>highRequests.includes(urls[2])).toBe(true);
+ await reader.getByRole("button",{name:"Previous page",exact:true}).click();
+ await reader.locator(".document-page img:visible").evaluate(img=>(img as HTMLImageElement).decode());
+ expect(highRequests.filter(url=>url===urls[0])).toHaveLength(1);expect(highRequests.filter(url=>url===urls[1])).toHaveLength(1);
+ expect(highRequests.filter(url=>urls.slice(3).includes(url))).toEqual([]);
+ expect(await reader.locator("[data-document-source]").count()).toBeLessThanOrEqual(3);
+ const afterNav=await metrics();expect(afterNav["/rest/v1/transcriptions"]).toBe(initialMetrics["/rest/v1/transcriptions"]);
+ expect(allRequests.filter(url=>url.startsWith("/api/v1/files/"))).toEqual([]);
+ const derivative=await page.request.get(urls[0]);expect(derivative.headers()["cache-control"]).toBe("private, no-cache, must-revalidate");
+ const before304=await metrics();const conditional=await page.request.get(urls[0],{headers:{"if-none-match":derivative.headers().etag}});expect(conditional.status()).toBe(304);
+ const after304=await metrics();expect(Object.entries(after304).filter(([key])=>key.startsWith("/storage/"))).toEqual(Object.entries(before304).filter(([key])=>key.startsWith("/storage/")));
+ const fallback=await page.request.get(`/api/v1/previews/${seed.sourceIds[0]}`);expect(fallback.status()).toBe(200);expect(fallback.headers().etag).toBeTruthy();expect(fallback.headers()["cache-control"]).toBe("private, no-cache, must-revalidate");
+ const fallbackBefore=await metrics();const cached=await page.request.get(`/api/v1/previews/${seed.sourceIds[0]}`,{headers:{"if-none-match":fallback.headers().etag}});expect(cached.status()).toBe(304);expect(cached.headers()["cache-control"]).toBe("private, no-cache, must-revalidate");
+ expect(cached.headers().vary).toContain("Cookie");const fallbackAfter=await metrics();expect(Object.entries(fallbackAfter).filter(([key])=>key.startsWith("/storage/"))).toEqual(Object.entries(fallbackBefore).filter(([key])=>key.startsWith("/storage/")));
+ await read.click();
+ const concise=page.getByRole("region",{name:"Review what AI found",exact:true});await expect(concise).toBeVisible();
+ await expect(page.getByRole("checkbox",{name:"Review Jan",exact:true})).not.toBeVisible();
+ const from=concise.getByRole("region",{name:"From",exact:true});await from.getByRole("button",{name:"Change",exact:true}).click();await from.getByLabel("Link Jan Allen",{exact:true}).selectOption(seed.person.id);await from.getByRole("button",{name:"Confirm",exact:true}).click();await expect(from.getByText("Human reviewed",{exact:true})).toBeVisible();
+ const to=concise.getByRole("region",{name:"To",exact:true});await to.getByRole("button",{name:"Confirm",exact:true}).click();await expect(to.getByText("Human reviewed",{exact:true})).toBeVisible();
+ const date=concise.getByRole("region",{name:"Date",exact:true});await date.getByRole("button",{name:"Confirm",exact:true}).click();await expect(date.getByText("Human reviewed",{exact:true})).toBeVisible();await expect(date.getByText("17 August 1978",{exact:true})).toBeVisible();
+ const place=concise.getByRole("region",{name:"Place",exact:true});await place.getByRole("button",{name:"Change",exact:true}).click();await place.getByLabel("Link Auroville",{exact:true}).selectOption(seed.place.id);await place.getByRole("button",{name:"Confirm",exact:true}).click();await expect(place.getByText("Human reviewed",{exact:true})).toBeVisible();
+ await page.getByText("Advanced review",{exact:true}).click();await expect(page.getByRole("region",{name:"AI suggestions",exact:true}).getByRole("checkbox",{name:"Review Jan",exact:true})).toBeVisible();
+ await expect(page.locator(".document-review-grid")).toBeVisible();
+ const after=await summary();expect(after.people).toHaveLength(before.people.length);
+ expect(after.identifications.filter((i:{item_id:string})=>i.item_id===seed.id)).toMatchObject([{person_id:seed.person.id,role_context:"sender",status:"accepted"}]);
+ expect(after.documentSuggestions.find((s:{item_id:string;field_path:string})=>s.item_id===seed.id&&s.field_path==="document.recipient")).toMatchObject({status:"accepted",reviewed_value:{value:"Tina",text_only:true,canonical_id:""}});
+ await page.goto(`/archive/${seed.id}`);await expect(page.locator("h1")).toHaveText("Letter from Jan Allen to Tina, 1978");
+ const header=page.getByRole("region",{name:"Correspondence",exact:true});await expect(header.getByRole("link",{name:"Jan Allen",exact:true})).toBeVisible();await expect(header).toContainText("Tina");await expect(header).toContainText("17 August 1978");await expect(header).toContainText("Auroville");
+ expect(after.items.find((i:{id:string})=>i.id===seed.id).title).toBe("Letter, still to be catalogued");
+ await page.setViewportSize({width:375,height:850});await page.getByRole("link",{name:"Read transcription",exact:true}).click();
+ await expect(page.locator("h1")).toHaveText("Letter from Jan Allen to Tina, 1978");
+ await expect(page.getByRole("region",{name:"Page transcription",exact:true})).toBeVisible();
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
+ await page.screenshot({path:"/private/tmp/letter-correspondence-mobile.png",fullPage:true});
+ const original=await page.request.get(`/api/v1/files/${seed.sourceIds[0]}`);expect(createHash("sha256").update(await original.body()).digest("hex")).toBe(before.originalHash);
+ const anonymous=await request.get(`http://127.0.0.1:4300${urls[0]}`,{headers:{"if-none-match":derivative.headers().etag}});expect(anonymous.status()).toBe(401);
+ expect((await page.request.get("/api/v1/assets/60000000-0000-4000-8000-000000009999",{headers:{"if-none-match":derivative.headers().etag}})).status()).toBe(404);
 });

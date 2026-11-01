@@ -80,9 +80,9 @@ export async function proxy(request: NextRequest) {
     redirect.headers.set("Cache-Control", "private, no-store");
     return redirect;
   }
-  // Asset GET controls conditional private caching after auth + file RLS.
+  // Derivative GETs control private revalidation after auth + file RLS.
   // All of its errors and redirects remain no-store in the route itself.
-  if (!pathname.startsWith("/api/v1/assets/"))
+  if (!(request.method==="GET" && (pathname.startsWith("/api/v1/assets/") || pathname.startsWith("/api/v1/previews/"))))
     response.headers.set("Cache-Control", "private, no-store");
   return response;
 }

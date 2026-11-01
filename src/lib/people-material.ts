@@ -10,7 +10,7 @@ export interface PersonMaterial {
 }
 export type PersonLink = Pick<
   Identification,
-  "id" | "archive_id" | "item_id" | "person_id" | "status"
+  "id" | "archive_id" | "item_id" | "person_id" | "status" | "role_context"
 >;
 // Batched, deterministic selection. Live material must have a completed image set.
 export function personMaterials(
