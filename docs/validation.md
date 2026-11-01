@@ -1,3 +1,16 @@
+# Living scrapbook / separation / catalogue presentation — 1 November 2026
+
+Base `5803ed6`. Existing bulk-photo independence and Places (011) are retained. No migration files, production services, original family files, commits, push or deployment were changed by the agent.
+
+- **89 full regressions pass** on explicit local demo localhost:4100: bulk-import independence, progressive display labels, explicit title precedence, deterministic material selection and existing People/Places/mobile/accessibility coverage.
+- **Production build, isolated HEIC trace and 5 authenticated browser flows pass** on loopback fixtures. Separation has one confirmation and no typed SPLIT/radios; shared context stays on its source until an Editor selects a photograph. Forged copy destinations are rejected; copied context leaves original evidence unchanged. Real home material links, stable selection, small-only image requests, LQIP, lazy loading, 375px overflow, batched relationship reads and retained People/Place/image/deletion behavior pass.
+- **4 authentication checks pass**, retaining anonymous private page/API denial, origin/redirect protection and mobile sign-in accessibility. Authorized private ETag304 and signed-out401 asset behavior remains covered in the production browser suite.
+- **261 disposable database checks pass** through unchanged migrations 001–011. The optional-audio path passes **234**, including later installation of 006. These run the actual SQL separately from the HTTP fixture.
+- **1 authenticated 1,007-row discoverability flow passes** across reload, editing, sign-in, archive/batch scope and independent catalogue failure.
+- **Lint, strict TypeScript and whitespace checks pass.** Generated `next-env.d.ts` remains excluded.
+
+The first copy-browser run exposed a missing fixture RPC handler; adding the existing `add_recollection` protocol behavior resolved it. The first demo startup hit a pre-existing dev server directory; final regressions used isolated `.next-test` without stopping that server. No production image or account was accessed. Hosted/physical-device validation remains manual. See [current release, model details and exact smoke steps](living-scrapbook.md) and [commit manifest](living-scrapbook-commit-manifest.md).
+
 # Archive Places — release 011 validation, 1 November 2026
 
 Base: `40eac12`. Only migration 011 is new; 001–010 are unchanged. No production project was queried/modified, no SQL or Storage changes applied remotely, and nothing staged, committed, pushed or deployed by the agent. No mapping/geocoding provider, dependency, environment variable or secret is added. Exclude generated `next-env.d.ts` from the commit.

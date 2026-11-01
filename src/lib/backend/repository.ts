@@ -1,3 +1,4 @@
+import { cataloguePresentation } from "../catalogue-presentation";
 import "server-only";
 import { cache } from "react";
 import type { PersonLink } from "../people-material";
@@ -286,6 +287,16 @@ const cachedWorkspace = cache(
               );
               return { data: [] as PersonLink[], available: false };
             }),
+      options.catalogue === false
+        ? Promise.resolve({ data: [] as { id: string; item_id: string }[] })
+        : allRows<{ id: string; item_id: string }>(
+            (from, to) => client.from("recollections").select("id,item_id", { count: "exact" })
+              .eq("archive_id", row.id).order("id").range(from, to).retry(false)
+              .abortSignal(AbortSignal.timeout(2500)), r => r.id,
+          ).catch(() => {
+            warnings.push("Some recollection context could not load.");
+            return { data: [] as { id: string; item_id: string }[] };
+          }),
     ]);
     const members: Member[] = (results[0].data || []).map((m) => ({
       archiveId: m.archive_id,
@@ -354,6 +365,18 @@ const cachedWorkspace = cache(
         : "/images/empty-archive.svg",
       bio: p.biography,
     }));
+    const recollected = new Set(results[9].data.map(r => r.item_id));
+    const personNames = new Map(people.map(p => [p.id, p.name]));
+    catalogueItemsResult.forEach(item => {
+      item.hasRecollection = recollected.has(item.id);
+      const display = cataloguePresentation({kind: item.kind, title: item.rawTitle, datePrecision: item.datePrecision,
+        people: item.people.map(id => personNames.get(id) || "Person linked"),
+        date: item.date === "Date not yet known" ? "" : item.date,
+        place: item.place === "Place not yet known" ? "" : item.place,
+        notes: item.notes || item.reportedPeople, hasRecollection: item.hasRecollection,
+        catalogued: item.collection === "Catalogued"});
+      Object.assign(item, display, {alt: display.title, collection: display.catalogueState === "Not yet catalogued" ? "Uncatalogued" : display.catalogueState});
+    });
     return {
       identifications: results[8].data,
       peopleLinksAvailable: results[8].available,

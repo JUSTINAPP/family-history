@@ -19,7 +19,6 @@ export function ItemManager({
     [ack, setAck] = useState(false),
     [busy, setBusy] = useState(false),
     [message, setMessage] = useState("");
-  const [contextPolicy, setContextPolicy] = useState("retain_parent");
   const originals = files.filter(
     (f) => f.purpose === "original" || f.purpose === "audio_original",
   );
@@ -33,7 +32,7 @@ export function ItemManager({
       form.set("version", snapshot.version);
       form.set("confirmation", phrase);
       form.set("acknowledge", ack ? "yes" : "no");
-      form.set("contextPolicy", contextPolicy);
+      if (action === "split") form.set("confirmed", "yes");
       const result = await manageItemAction(form);
       if (result.error) setMessage(result.error);
       else if (result.deleted)
@@ -44,7 +43,7 @@ export function ItemManager({
         setAck(false);
         setMessage(
           action === "split"
-            ? "Photographs separated. Previous context remains on the archived record."
+            ? "Photographs separated. You can now review earlier notes below."
             : "Item updated.",
         );
         router.refresh();
@@ -84,6 +83,15 @@ export function ItemManager({
       setBusy(false);
     }
   }
+  if (mode === "split") return (
+    <section className="notice" role="dialog" aria-labelledby="separate-title" tabIndex={-1} ref={node => node?.focus()}>
+      <h2 id="separate-title">Separate {originals.length} photographs?</h2>
+      <p>Each photograph will become its own archive item. The original files will remain unchanged.</p>
+      <button className="subtle-button" disabled={busy} onClick={() => initialSplit ? router.push(`/archive/${item.id}`) : setMode("")}>Cancel</button>
+      <button className="button" disabled={busy} onClick={() => void perform("split")}>{busy ? "Separating…" : "Separate photographs"}</button>
+      {message && <p role="status">{message}</p>}
+    </section>
+  );
   return (
     <div className="management-panel">
       <p>
@@ -95,6 +103,7 @@ export function ItemManager({
           Archived items ↗
         </Link>
       </p>
+      <details><summary>Image details and preparation</summary>
       <p>
         {item.archived_at ? "Archived" : "Active"} · {counts.originals}{" "}
         originals · {counts.derivatives} derived files · {counts.recollections}{" "}
@@ -107,7 +116,7 @@ export function ItemManager({
           </li>
         ))}
       </ul>
-      <ImageDiagnostics files={files} />
+      <ImageDiagnostics files={files} /></details>
       {item.lifecycle === "deleting" ? (
         <p className="notice">
           Permanent deletion is in progress. It cannot be restored. Retry below
@@ -152,7 +161,7 @@ export function ItemManager({
                   setAck(false);
                 }}
               >
-                Split photographs into separate items
+                Separate photographs
               </button>
             )}
         </>
@@ -160,11 +169,7 @@ export function ItemManager({
       {!!snapshot.children.length && (
         <section className="notice">
           <h2>Separated photographs</h2>
-          <p>
-            Previous title, notes, people, date, place and recollections remain
-            on this archived context record. They were not copied to the
-            photographs.
-          </p>
+          <p>Each photograph now has its own catalogue details. Earlier notes are kept safely for review below.</p>
           <ul>
             {snapshot.children.map((child, index) => (
               <li key={child.id}>
@@ -175,80 +180,6 @@ export function ItemManager({
               </li>
             ))}
           </ul>
-        </section>
-      )}
-      {mode === "split" && (
-        <section className="notice">
-          <h2>Review photograph split</h2>
-          <fieldset>
-            <legend>
-              What should happen to existing shared details and recollections?
-            </legend>
-            <label>
-              <input
-                type="radio"
-                name="contextPolicy"
-                value="retain_parent"
-                checked={contextPolicy === "retain_parent"}
-                onChange={() => setContextPolicy("retain_parent")}
-              />{" "}
-              Keep the shared context on the archived parent. I will add or copy
-              relevant context to each photograph deliberately.
-            </label>
-            <label>
-              <input
-                type="radio"
-                name="contextPolicy"
-                value="defer"
-                checked={contextPolicy === "defer"}
-                onChange={() => setContextPolicy("defer")}
-              />{" "}
-              Keep the photographs together for now.
-            </label>
-          </fieldset>
-          <p>
-            This creates {originals.length} uncatalogued photograph items. Each
-            keeps its original and all derived files, without copying binaries.
-            File-specific processing history moves with the original. All shared
-            catalogue metadata, people, comments and recollections stay on this
-            record, which becomes archived context for editorial review.
-          </p>
-          <p>
-            No master is deleted or rewritten. Only use this for separate
-            photographs, not front/back views or one document.
-          </p>
-          <label>
-            Type SPLIT
-            <input
-              aria-label="Split confirmation"
-              value={phrase}
-              onChange={(e) => setPhrase(e.target.value)}
-            />
-          </label>
-          <label>
-            <input
-              type="checkbox"
-              checked={ack}
-              onChange={(e) => setAck(e.target.checked)}
-            />{" "}
-            I understand that the existing context will be retained for review,
-            not copied to each photograph.
-          </label>
-          <button
-            className="button"
-            disabled={
-              busy ||
-              phrase !== "SPLIT" ||
-              !ack ||
-              contextPolicy !== "retain_parent"
-            }
-            onClick={() => void perform("split")}
-          >
-            Confirm split photographs
-          </button>
-          <button className="subtle-button" onClick={() => setMode("")}>
-            Cancel
-          </button>
         </section>
       )}
       <section className="management-danger">

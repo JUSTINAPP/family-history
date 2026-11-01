@@ -26,6 +26,13 @@ export interface ArchiveFile {
   checksum?: string;
 }
 export interface ArchiveItem {
+  rawTitle?: string;
+  datePrecision?: string;
+  titleSource?: "explicit" | "derived";
+  catalogueState?: "Not yet catalogued" | "In progress" | "Catalogued";
+  hasRecollection?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
   placeIds?: string[];
   imageSet?: import("./preview/types").ImageSet;
   archivedAt?: string;

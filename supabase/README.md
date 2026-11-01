@@ -1,5 +1,7 @@
 # Supabase foundation
 
+**Living scrapbook follow-up:** No SQL changes or new migration. The existing 011 Places schema remains the prerequisite; do not rerun it if installed. The simpler separation UI uses the unchanged version/permission-checked 009 RPC, and deliberate shared-note/Person copying uses existing authenticated RPCs. See [current release and manual verification](../docs/living-scrapbook.md).
+
 **Current release — migration 011:** Adds archive-scoped Places and item associations with RLS/narrow RPCs, preserves Where text, and integrates association cleanup with the existing deletion preflight/lifecycle. Confirm the 001–010 baseline before manually applying only 011. No automatic backfill or Storage change occurs. See [manual installation and smoke test](../docs/archive-places.md).
 
 **Current release — migration 010:** Reuses item/Person `identifications`, retaining original reports and adding explicit link/review provenance. Requires the established baseline including 009. No historical name matching or automatic split occurs. See [release order and smoke test](../docs/person-identifications.md); do not rerun older migrations.

@@ -44,14 +44,8 @@ export async function manageItemAction(form: FormData) {
         p_archived: action === "archive",
       });
     else if (action === "split") {
-      if (
-        form.get("confirmation") !== "SPLIT" ||
-        form.get("contextPolicy") !== "retain_parent" ||
-        form.get("acknowledge") !== "yes"
-      )
-        return {
-          error: "Type SPLIT and acknowledge how the context will be retained.",
-        };
+      if (form.get("confirmed") !== "yes")
+        return { error: "Confirm that you want to separate these photographs." };
       result = await client.rpc("split_photographs", {
         p_item_id: id,
         p_version: String(form.get("version") || ""),

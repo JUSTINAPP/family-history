@@ -1,3 +1,4 @@
+import { cataloguePresentation } from "../catalogue-presentation";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ArchiveItem } from "../types";
 import { BackendError } from "./errors";
@@ -8,6 +9,7 @@ export interface CatalogueRow {
   title: string | null;
   kind: ArchiveItem["kind"] | null;
   reported_date: string | null;
+  date_precision?: string;
   reported_place: string | null;
   people_text: string | null;
   catalogued_at: string | null;
@@ -15,6 +17,8 @@ export interface CatalogueRow {
   notes: string | null;
   ingestion_status: string;
   archived_at?: string | null;
+  created_at?: string;
+  updated_at?: string;
 }
 export interface OriginalRow {
   id: string;
@@ -116,16 +120,19 @@ export function catalogueItems(
   }
   return rows.map((row) => {
     const original = originals.get(row.id);
-    const kind = row.kind || "Other",
-      title =
-        row.title?.trim() ||
-        `${kind === "Other" ? "Archive item" : kind}, still to be catalogued`;
+    const kind = row.kind || "Other";
+    const presentation = cataloguePresentation({kind, title: row.title, datePrecision: row.date_precision, date: row.reported_date, place: row.reported_place, notes: row.notes || row.people_text, catalogued: !!row.catalogued_at});
     return {
+      ...presentation,
+      rawTitle: row.title || "",
+      datePrecision: row.date_precision,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
       archiveId: row.archive_id,
       id: row.id,
       slug: row.id,
       href: `/archive/${row.id}?archive=${row.archive_id}`,
-      title,
+      title: presentation.title,
       kind,
       date: row.reported_date || "Date not yet known",
       place: row.reported_place || "Place not yet known",
@@ -138,7 +145,7 @@ export function catalogueItems(
           : original
             ? `/api/v1/previews/${original.id}`
             : "/images/empty-archive.svg",
-      alt: title,
+      alt: presentation.title,
       aspect: kind === "Letter" ? "portrait" : "landscape",
       certainty: row.evidence_status,
       year: /^(18|19|20)\d{2}(?:-\d{2}-\d{2})?$/.test(row.reported_date || "")

@@ -1,3 +1,4 @@
+import { cataloguePresentation } from "../catalogue-presentation";
 import "server-only";
 import { cache } from "react";
 import { requireSession, type LiveSnapshot } from "./repository";
@@ -51,14 +52,24 @@ export function workspaceWithPlaces(
       group.add(link.place_id);
       ids.set(link.item_id, group);
     }
+  const placesById = new Map(data.places.map(p => [p.id, p]));
+  const namesById = new Map(snapshot.people.map(p => [p.id, p.name]));
+  const primaryByItem = new Map(data.links.filter(l => l.status !== "removed" && l.role === "primary").map(l => [l.item_id, l.place_id]));
   return {
     ...snapshot,
     places: data.places,
     placeLinks: data.links,
     placesAvailable: true,
-    catalogue: snapshot.catalogue.map((item) => ({
-      ...item,
-      placeIds: [...(ids.get(item.id) || [])],
-    })),
+    catalogue: snapshot.catalogue.map((item) => {
+      const placeIds = [...(ids.get(item.id) || [])];
+      const place = placesById.get(primaryByItem.get(item.id) || placeIds[0]);
+      const display = cataloguePresentation({kind: item.kind, title: item.rawTitle, datePrecision: item.datePrecision,
+        people: item.people.map(id => namesById.get(id) || "Person linked"),
+        place: place?.name || (item.place === "Place not yet known" ? "" : item.place),
+        date: item.date === "Date not yet known" ? "" : item.date,
+        notes: item.notes || item.reportedPeople, hasRecollection: item.hasRecollection,
+        catalogued: item.collection === "Catalogued"});
+      return {...item, ...display, alt: display.title, placeIds, collection: display.catalogueState === "Not yet catalogued" ? "Uncatalogued" : display.catalogueState};
+    }),
   };
 }

@@ -181,23 +181,14 @@ test("production build retrospectively converts two preserved HEICs and privatel
   ).toBeVisible();
   await page
     .getByRole("button", {
-      name: "Split photographs into separate items",
+      name: "Separate photographs",
       exact: true,
     })
     .click();
-  await expect(
-    page.getByRole("button", {
-      name: "Confirm split photographs",
-      exact: true,
-    }),
-  ).toBeDisabled();
-  await page.getByLabel("Split confirmation", { exact: true }).fill("SPLIT");
-  await page
-    .getByRole("checkbox", { name: /existing context will be retained/ })
-    .check();
-  await page
-    .getByRole("button", { name: "Confirm split photographs", exact: true })
-    .click();
+  await expect(page.getByRole("dialog", {name: "Separate 2 photographs?"})).toBeVisible();
+  await expect(page.getByText("Type SPLIT", {exact: true})).toHaveCount(0);
+  await expect(page.getByRole("radio")).toHaveCount(0);
+  await page.getByRole("dialog").getByRole("button", {name: "Separate photographs", exact: true}).click();
   await expect(
     page.getByRole("heading", { name: "Separated photographs", exact: true }),
   ).toBeVisible();
@@ -448,42 +439,14 @@ test("People link relationally, preserve reported provenance and stay independen
   await page.goto(`/archive/${seed.id}`);
   await page
     .getByRole("link", {
-      name: "Split photographs into separate items",
+      name: "Separate photographs",
       exact: true,
     })
     .click();
-  await expect(
-    page.getByRole("heading", { name: "Review photograph split", exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("group", {
-      name: "What should happen to existing shared details and recollections?",
-    }),
-  ).toBeVisible();
-  await page.getByLabel("Split confirmation", { exact: true }).fill("SPLIT");
-  await page
-    .getByRole("checkbox", { name: /existing context will be retained/ })
-    .check();
-  await page
-    .getByRole("radio", {
-      name: "Keep the photographs together for now.",
-      exact: true,
-    })
-    .check();
-  await expect(
-    page.getByRole("button", {
-      name: "Confirm split photographs",
-      exact: true,
-    }),
-  ).toBeDisabled();
-  await page
-    .getByRole("radio", {
-      name: /Keep the shared context on the archived parent/,
-    })
-    .check();
-  await page
-    .getByRole("button", { name: "Confirm split photographs", exact: true })
-    .click();
+  await expect(page.getByRole("dialog", {name: "Separate 2 photographs?"})).toBeVisible();
+  await expect(page.getByRole("radio")).toHaveCount(0);
+  await expect(page.getByLabel("Split confirmation", {exact: true})).toHaveCount(0);
+  await page.getByRole("dialog").getByRole("button", {name: "Separate photographs", exact: true}).click();
   await expect(
     page.getByRole("heading", { name: "Separated photographs", exact: true }),
   ).toBeVisible();
@@ -566,6 +529,34 @@ test("People link relationally, preserve reported provenance and stay independen
   ).toHaveCount(1); // Archived parent is excluded.
   await page.goto(`/explore?archive=${archive}&person=${jina.id}`);
   await expect(page.locator(".item-card")).toHaveCount(1);
+  // Shared context remains untouched until an Editor chooses a particular photograph.
+  const originalNotes = state.recollections.filter((r: {item_id: string}) => r.item_id === seed.id);
+  await page.goto(`/archive/${seed.id}/manage`);
+  const review = page.locator("#earlier-notes");
+  await expect(review.getByRole("heading", {name: "Review earlier notes"})).toBeVisible();
+  const personForm = review.locator("form").filter({hasText: "Person: Jina Allen"});
+  // Forging a destination outside the resulting photographs is rejected by the server action.
+  await personForm.getByRole("combobox").evaluate((node, invalid) => {
+    const option = new Option("Wrong destination", invalid);
+    (node as HTMLSelectElement).add(option);
+  }, seed.id);
+  await personForm.getByRole("combobox").selectOption(seed.id);
+  await personForm.getByRole("button", {name: "Link Person", exact: true}).click();
+  await expect(review.getByRole("status")).toContainText("Choose one of the photographs");
+  await personForm.getByRole("combobox").selectOption(children[1].id);
+  await personForm.getByRole("button", {name: "Link Person", exact: true}).click();
+  await expect(review.getByRole("status")).toContainText("Person linked");
+  const noteForm = review.locator("form").filter({has: page.getByRole("button", {name: "Copy recollection", exact: true})}).first();
+  await noteForm.getByRole("combobox").selectOption(children[1].id);
+  await noteForm.getByRole("button", {name: "Copy recollection", exact: true}).click();
+  await expect(review.getByRole("status")).toContainText("Recollection copied");
+  state = await summary();
+  expect(state.recollections.filter((r: {item_id: string}) => r.item_id === seed.id)).toEqual(originalNotes);
+  expect(state.recollections.filter((r: {item_id: string}) => r.item_id === children[1].id)).toHaveLength(1);
+  await page.goto(`/archive/${children[1].id}`);
+  await expect(page.getByRole("heading", {name: "Jina Allen", exact: true})).toBeVisible();
+  await expect(page.getByRole("heading", {name: "Photograph, still to be catalogued", exact: true})).toHaveCount(0);
+  await expect(page.getByText("Earlier shared recollection", {exact: false})).toBeVisible();
 });
 
 test("People use real archival stacks, small private thumbnails, batched reads and immediate placeholders", async ({
@@ -1001,4 +992,58 @@ test("Places are scoped archive entry points with relational filtering, preserve
       })
     ).status(),
   ).toBe(307);
+});
+
+test("home is a deterministic private scrapbook using real small variants and working material links", async ({page, request}) => {
+  test.setTimeout(90000);
+  await page.context().addCookies([{name: "active_archive", value: archive, url: "http://127.0.0.1:4300"}]);
+  await page.route("**/*", route => {
+    const h = route.request().headers();
+    return h["next-router-prefetch"] === "1" || h.purpose === "prefetch" ? route.abort() : route.continue();
+  });
+  const images: string[] = [];
+  page.on("request", r => {if (r.resourceType() === "image" && r.url().includes("/api/v1/")) images.push(r.url());});
+  await page.goto("/sign-in?next=%2F");
+  await page.getByLabel("Email", {exact: true}).fill("visibility@example.test");
+  await page.getByLabel("Password", {exact: true}).fill("local-fixture-password");
+  await page.locator("form").getByRole("button", {name: "Sign in", exact: true}).click();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByText("An archive, still being discovered.", {exact: true})).toHaveCount(0);
+  const pieces = page.locator(".home-scrapbook .scrapbook-piece");
+  await expect(pieces).toHaveCount(9);
+  const state = await (await request.get("http://127.0.0.1:4301/__fixture/summary")).json();
+  const smallIds = new Set(state.imageSets.map((s: {small_file_id: string}) => s.small_file_id));
+  const links = await pieces.locator(".scrapbook-caption").evaluateAll(nodes => nodes.map(n => n.getAttribute("href")));
+  for (const link of links) expect(state.items.some((i: {id: string; archived_at?: string}) => link?.includes(i.id) && !i.archived_at)).toBe(true);
+  await expect(pieces.first().locator(".has-placeholder")).toHaveCSS("background-image", /data:image\/webp/);
+  await expect(pieces.last().locator("img")).toHaveAttribute("loading", "lazy");
+  await expect(pieces.first().locator("img")).toHaveAttribute("data-image-variant", "small");
+  await expect(pieces.first().locator("img")).not.toHaveAttribute("srcset");
+  await request.get("http://127.0.0.1:4301/__fixture/metrics?reset=1");
+  await page.reload();
+  await expect(pieces).toHaveCount(9);
+  await page.waitForLoadState("networkidle");
+  const metrics = await (await request.get("http://127.0.0.1:4301/__fixture/metrics")).json();
+  expect(metrics["/rest/v1/people"]).toBe(1);
+  expect(metrics["/rest/v1/places"]).toBe(1);
+  expect(metrics["/rest/v1/archives"]).toBe(1);
+  expect(metrics["/rest/v1/archive_memberships"]).toBe(1);
+  expect(metrics["/rest/v1/recollections"]).toBe(1);
+  expect(metrics["/rest/v1/item_places"]).toBeLessThanOrEqual(2);
+  expect(metrics["/rest/v1/identifications"]).toBeLessThanOrEqual(2);
+  expect(await pieces.locator(".scrapbook-caption").evaluateAll(nodes => nodes.map(n => n.getAttribute("href")))).toEqual(links);
+  await page.setViewportSize({width: 375, height: 850});
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
+  await pieces.last().scrollIntoViewIfNeeded();
+  await expect.poll(() => pieces.last().locator("img").evaluate(n => (n as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+  await page.screenshot({path: "/private/tmp/scrapbook-mobile.png", fullPage: true});
+  await page.setViewportSize({width: 1440, height: 1000});
+  await page.screenshot({path: "/private/tmp/scrapbook-desktop.png", fullPage: true});
+  for (const url of images) {
+    expect(url).toContain("/api/v1/assets/");
+    expect(smallIds.has(new URL(url).pathname.split("/").pop())).toBe(true);
+  }
+  await pieces.first().locator(".scrapbook-caption").click();
+  await expect(page).toHaveURL(new RegExp(links[0]!.split("?")[0]));
+  await expect(page.locator(".saved-original")).not.toHaveCount(0);
 });

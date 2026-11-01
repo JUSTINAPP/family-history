@@ -748,6 +748,15 @@ export async function fixtureServer(
         });
         return send(200, id);
       }
+      if (rpc === "add_recollection") {
+        const item = rows.find(r => r.id === body.p_item_id && r.archive_id === body.p_archive_id);
+        if (!item || item.lifecycle === "deleting" || item.archived_at)
+          return send(403, {code: "42501", message: "permission_denied"});
+        const id = crypto.randomUUID();
+        recollections.push({id, archive_id: body.p_archive_id, item_id: item.id,
+          contributor_id: USER, original_text: body.p_text, recorded_at: new Date().toISOString()});
+        return send(200, id);
+      }
       if (rpc === "save_catalogue_context") {
         const item = rows.find((r) => r.id === body.p_item_id),
           d = body.p_details;

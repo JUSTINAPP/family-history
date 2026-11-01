@@ -1,3 +1,5 @@
+import { cataloguePresentation } from "@/lib/catalogue-presentation";
+import { loadPlaceData } from "@/lib/backend/places";
 import { LiveWorkspaceProvider } from "./live-workspace";
 import type { RecordingView } from "@/lib/audio/repository";
 import { AudioCapture } from "../audio/audio-capture";
@@ -43,6 +45,16 @@ export async function LiveItem({
   const written = recollections.filter(
     (r) => !audioRecollections.has(r.id) && r.original_text,
   );
+  let placeName = item.reported_place || "";
+  try {
+    const placeData = await loadPlaceData(item.archive_id, item.id);
+    const link = placeData.links.find(l => l.status !== "removed" && l.role === "primary") || placeData.links.find(l => l.status !== "removed");
+    placeName = placeData.places.find(p => p.id === link?.place_id)?.name || placeName;
+  } catch { /* The Place section provides its own retry message. */ }
+  const display = cataloguePresentation({kind: item.kind || "Other", title: item.title, datePrecision: item.date_precision,
+    people: [...new Set(identifications.filter(i => i.person_id && ["reported", "accepted"].includes(i.status)).map(i => snapshot.people.find(p => p.id === i.person_id)?.name || "Person linked"))],
+    place: placeName, date: item.reported_date, notes: item.notes || item.people_text,
+    hasRecollection: recollections.length > 0, catalogued: !!item.catalogued_at});
   return (
     <LiveWorkspaceProvider
       key={`${snapshot.archive.id}:${item.id}`}
@@ -58,10 +70,7 @@ export async function LiveItem({
         </div>
         <PageIntro
           eyebrow="PRESERVED IN YOUR PRIVATE ARCHIVE"
-          title={
-            item.title?.trim() ||
-            `${item.kind || "Archive item"}, still to be catalogued`
-          }
+          title={display.title}
           description="Original material and contributor context are kept separately. No AI analysis has run."
         />
         {saved && item.ingestion_status === "ready" && (
@@ -109,23 +118,21 @@ export async function LiveItem({
           item.grouping_kind === "single_object" &&
           files.filter((f) => f.purpose === "original").length > 1 && (
             <section className="notice">
-              <h2>Give each photograph its own story</h2>
+              <h2>Separate these photographs</h2>
               <p>
-                These photographs are saved together. Separate them to catalogue
-                each one with its own people, recollections, date and place.
+                These photographs were originally added together. Separate them so each photograph can have its own people, place, date and recollections.
               </p>
               <Link
                 className="button"
                 href={`/archive/${item.id}/manage?split=1`}
               >
-                Split photographs into separate items
+                Separate photographs
               </Link>
             </section>
           )}
         {item.split_from && (
           <p className="notice">
-            Separated from a grouped photograph item. Its previous context was
-            retained for editorial review.
+            These photographs were originally added together. {can(role, "editor") && <Link href={`/archive/${item.split_from}/manage#earlier-notes`}>Review earlier notes ↗</Link>}
           </p>
         )}
         {editable && item.kind !== "Audio" && (
@@ -198,7 +205,7 @@ export async function LiveItem({
                 ["Item type", item.kind],
                 [
                   "Catalogue state",
-                  item.catalogued_at ? "Catalogued" : "Uncatalogued",
+                  display.catalogueState,
                 ],
                 ["When", item.reported_date],
                 ["Reported Where (text)", item.reported_place],

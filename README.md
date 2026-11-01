@@ -1,5 +1,7 @@
 # The Allen & Cork Archive
 
+**Current release — living archive scrapbook and simpler photograph separation:** New bulk imports already create independent photographs. Legacy separation now uses one simple confirmation and a separate Editor review for shared notes. Display labels progress with real context without rewriting titles; the logged-in homepage uses stable real-material compositions and small private images. Existing Places (011) is retained; this pass adds no migration. See [release, validation and exact production smoke test](docs/living-scrapbook.md) and [files to commit](docs/living-scrapbook-commit-manifest.md). Earlier release notes below describe their original interfaces.
+
 **Current release — archive Places (011):** Create archive-local Places, link items through a searchable Where picker, reconcile historical wording explicitly, browse real material piles and filter Explore by Place relationships. No global location directory or geocoder is introduced. See [schema, manual Supabase action and exact production smoke test](docs/archive-places.md).
 
 **Current release — People material stacks and private-page performance:** People now open through their actual linked archive material, with 600px thumbnails, immediate placeholders and richer Person sections. Request-scoped loading removes repeated workspace queries; private conditional derivative responses recheck permissions before reuse. No migration 011. See [measurements, cache trade-offs and exact production smoke test](docs/people-material-performance.md).
