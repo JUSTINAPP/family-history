@@ -4,6 +4,7 @@ test("capture renders HEIC locally while retaining its original File", async ({
   page,
 }) => {
   await page.goto("/add");
+  await page.getByRole("button",{name:"One photograph, front and back",exact:true}).click();
   const bytes = await readFile("tests/fixtures/preview.heic");
   await page
     .getByLabel("Upload existing images", { exact: true })
@@ -27,6 +28,7 @@ test("an undecodable HEIC keeps the original selected for a capture attempt", as
   page,
 }) => {
   await page.goto("/add");
+  await page.getByRole("button",{name:"One photograph, front and back",exact:true}).click();
   await page
     .getByLabel("Upload existing images", { exact: true })
     .setInputFiles({

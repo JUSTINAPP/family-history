@@ -476,9 +476,7 @@ test("People link relationally, preserve reported provenance and stay independen
   await page
     .getByLabel("Reported Where notes (text)", { exact: true })
     .fill("India");
-  await page
-    .getByRole("combobox", { name: "Item type", exact: true })
-    .selectOption("Photograph");
+  await expect(page.locator('input[type="hidden"][name="kind"]')).toHaveValue("Photograph");
   await page
     .getByLabel("Notes / context", { exact: true })
     .fill("Only this photograph");
@@ -1350,9 +1348,31 @@ test("Explore lazily opens one inline family conversation, posts and edits local
   const before=await metrics();await first.getByRole("button",{name:/3 comments on/}).click();await expect(thread.getByText("Inline corrected knowledge.",{exact:true})).toBeVisible();await expect(thread.getByLabel("Add a comment",{exact:true})).toHaveValue("Unsent words stay here.");counts=await metrics();expect(counts["/rest/v1/comments"]).toBe(before["/rest/v1/comments"]);
   await first.getByRole("button",{name:/Hide conversation on/}).click();
   await page.setViewportSize({width:375,height:850});await empty.getByRole("button",{name:/Add a comment on/}).scrollIntoViewIfNeeded();const y=await page.evaluate(()=>scrollY);
-  await empty.getByRole("button",{name:/Add a comment on/}).click();const small=empty.getByRole("region",{name:"Family conversation",exact:true});await small.getByLabel("Add a comment",{exact:true}).fill("A phone comment.");await small.getByRole("button",{name:"Post comment",exact:true}).click();await expect(small.getByText("A phone comment.",{exact:true})).toBeVisible();await expect(small.getByLabel("Add a comment",{exact:true})).toBeFocused();
+  await empty.getByRole("button",{name:/Add a comment on/}).click();expect(Math.abs(await page.evaluate(()=>scrollY)-y)).toBeLessThan(90);const small=empty.getByRole("region",{name:"Family conversation",exact:true});await small.getByLabel("Add a comment",{exact:true}).fill("A phone comment.");await small.getByRole("button",{name:"Post comment",exact:true}).click();await expect(small.getByText("A phone comment.",{exact:true})).toBeVisible();await expect(small.getByLabel("Add a comment",{exact:true})).toBeFocused();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth)).toBeLessThanOrEqual(0);await empty.screenshot({path:"/private/tmp/inline-conversation-mobile-card.png"});
-  await empty.getByRole("button",{name:/Hide conversation on/}).click();await expect(empty.getByRole("button",{name:/1 comment on/})).toBeVisible();expect(Math.abs(await page.evaluate(()=>scrollY)-y)).toBeLessThan(90);expect(page.url()).toBe(address);
+  await empty.getByRole("button",{name:/Hide conversation on/}).scrollIntoViewIfNeeded();const collapseY=await page.evaluate(()=>scrollY);
+  await empty.getByRole("button",{name:/Hide conversation on/}).click();await expect(empty.getByRole("button",{name:/1 comment on/})).toBeVisible();expect(Math.abs(await page.evaluate(()=>scrollY)-collapseY)).toBeLessThan(90);expect(page.url()).toBe(address);
   const after=await(await request.get("http://127.0.0.1:4301/__fixture/summary")).json();expect(after.recollections.filter((r:{item_id:string})=>seed.ids.includes(r.item_id))).toHaveLength(0);
   expect((await page.request.get(`/api/v1/conversations/${seed.ids[0]}?archive=60000000-0000-4000-8000-000000000099`)).status()).toBe(404);
+});
+
+test("a preserved photograph can be reclassified as a Letter and open existing document processing without re-upload",async({page,request})=>{
+ test.setTimeout(120000);page.setDefaultTimeout(10000);
+ const seed=await(await request.post("http://127.0.0.1:4301/__fixture/quick-photos")).json();
+ const summary=async()=>(await request.get("http://127.0.0.1:4301/__fixture/summary")).json();
+ await page.context().addCookies([{name:"active_archive",value:archive,url:"http://127.0.0.1:4300"}]);
+ await page.goto("/sign-in?next="+encodeURIComponent(`/archive/${seed.ids[0]}`));await page.getByLabel("Email",{exact:true}).fill("visibility@example.test");await page.getByLabel("Password",{exact:true}).fill("local-fixture-password");await page.locator("form").getByRole("button",{name:"Sign in",exact:true}).click();
+ await expect(page.getByRole("region",{name:"Document transcription",exact:true})).toHaveCount(0);
+ const before=await summary(),prior=before.items.find((i:{id:string})=>i.id===seed.ids[0]);
+ await page.getByText("Change item type",{exact:true}).click();await page.getByLabel("Archive item type",{exact:true}).selectOption("Letter");await page.getByRole("button",{name:"Save item type",exact:true}).click();
+ const actions=page.getByRole("region",{name:"Document transcription",exact:true});await expect(actions.getByRole("link",{name:"Transcribe letter",exact:true})).toBeVisible();await expect(page.getByRole("region",{name:"Document pages",exact:true})).toBeVisible();
+ let after=await summary();const next=after.items.find((i:{id:string})=>i.id===seed.ids[0]);expect(next.kind).toBe("Letter");
+ for(const key of ["title","reported_date","date_precision","reported_place","people_text","notes","id"])expect(next[key]).toBe(prior[key]);
+ for(const name of ["files","comments","identifications","itemPlaces","recollections","imageSets"])expect(after[name].filter((r:{item_id:string})=>r.item_id===seed.ids[0])).toEqual(before[name].filter((r:{item_id:string})=>r.item_id===seed.ids[0]));
+ const original=after.files.find((f:{item_id:string;purpose:string})=>f.item_id===seed.ids[0]&&f.purpose==="original");const bytes=await page.request.get(`/api/v1/files/${original.id}`);expect(createHash("sha256").update(await bytes.body()).digest("hex")).toBe(original.sha256);
+ await actions.getByRole("link",{name:"Transcribe letter",exact:true}).click();await expect(page.getByRole("button",{name:"Transcribe letter",exact:true})).toBeDisabled();await expect(page.getByText("AI transcription is not configured.",{exact:false})).toBeVisible();
+ await page.goto(`/archive/${seed.ids[0]}`);await page.getByText("Change item type",{exact:true}).click();await page.getByLabel("Archive item type",{exact:true}).selectOption("Document");await page.getByRole("button",{name:"Save item type",exact:true}).click();await expect(actions.getByRole("link",{name:"Transcribe document",exact:true})).toBeVisible();
+ await page.reload();await expect(actions.getByRole("link",{name:"Transcribe document",exact:true})).toBeVisible();
+ await page.goto("/add");await expect(page.getByRole("button",{name:"Upload existing",exact:true})).toBeDisabled();await page.getByRole("button",{name:"Add a letter or document",exact:true}).click();await expect(page.getByRole("button",{name:"Upload existing",exact:true})).toBeEnabled();await page.getByRole("button",{name:"Adding a letter? Start a letter",exact:true}).click();await expect(page.getByLabel("Material type",{exact:true})).toHaveValue("Letter");await page.getByLabel("Material type",{exact:true}).selectOption("Postcard");await page.getByLabel("Upload existing images",{exact:true}).setInputFiles(["public/images/letter.jpg","public/images/beach.jpg"]);await expect(page.locator(".capture-page")).toHaveCount(2);await expect(page.getByRole("combobox",{name:"Role for letter.jpg",exact:true})).toContainText("Written side");
+ after=await summary();expect(after.items).toHaveLength(before.items.length);
 });

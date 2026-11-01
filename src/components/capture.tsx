@@ -56,7 +56,9 @@ export function Capture() {
   const { people } = useCatalogue();
   const router = useRouter();
   const [files, setFiles] = useState<SourceFile[]>([]);
-  const [kind, setKind] = useState<CaptureKind>("Photograph");
+  const [kind, setKindValue] = useState<CaptureKind>("Other");
+  const [intentChosen,setIntentChosen]=useState(false);
+  function setKind(value:CaptureKind){setKindValue(value);setIntentChosen(true);}
   const [rapid, setRapid] = useState(false);
   const [written, setWritten] = useState("");
   const [voice, setVoice] = useState<VoiceValue>(emptyVoice);
@@ -86,6 +88,7 @@ export function Capture() {
     .join("\n\n");
   function add(list: FileList | null) {
     if (!list) return;
+    if(!intentChosen){setError("Choose what you are adding before selecting images.");return;}
     const result = validateFiles(Array.from(list));
     setError(result.error);
     const additions = result.accepted.map((file, i) => {
@@ -202,6 +205,7 @@ export function Capture() {
     <div className="capture-studio">
       <input
         ref={camera}
+        disabled={!intentChosen}
         type="file"
         accept="image/*,.heic,.heif"
         capture="environment"
@@ -212,6 +216,7 @@ export function Capture() {
       />
       <input
         ref={upload}
+        disabled={!intentChosen}
         type="file"
         accept="image/*,.heic,.heif"
         multiple
@@ -220,10 +225,11 @@ export function Capture() {
         aria-label="Upload existing images"
         onChange={(e) => add(e.target.files)}
       />
+      <p className="section-title">Choose what you are adding</p>
       <nav className="import-actions" aria-label="Add to archive options">
         <span aria-current="page">Add one item</span>
-        <button className="subtle-button" aria-pressed={document} onClick={() => setKind("Letter")}>Add a letter or document</button>
-        <button className="subtle-button" aria-pressed={kind === "Object"} onClick={() => setKind("Object")}>Add an object</button>
+        <button className="subtle-button" aria-pressed={intentChosen && document} onClick={() => setKind("Letter")}>Add a letter or document</button>
+        <button className="subtle-button" aria-pressed={intentChosen && kind === "Object"} onClick={() => setKind("Object")}>Add an object</button>
         <Link className="text-link" href="/add/bulk?workflow=import">
           Add photographs ↗
         </Link>
@@ -231,6 +237,9 @@ export function Capture() {
           Record a memory ↗
         </Link>
       </nav>
+      {intentChosen && document && <label className="field">Material type<select aria-label="Material type" value={kind} onChange={e=>setKind(e.target.value as CaptureKind)}>{["Letter","Document","Postcard","Certificate"].map(value=><option key={value}>{value}</option>)}</select></label>}
+      <button className="subtle-button" aria-pressed={intentChosen && kind === "Photograph"} onClick={()=>setKind("Photograph")}>One photograph, front and back</button>
+      {!intentChosen && <p className="notice">Choose photographs, a letter or document, an object, or a memory first. Then choose your files.</p>}
       <p className="help-line">
         Each photograph imported separately becomes its own item. A letter, document or object can have several pages or views together.
         Keep pages, front/back or several views of one item together here.
@@ -354,6 +363,7 @@ export function Capture() {
             <div className="capture-entry-actions">
               <button
                 className="button"
+                disabled={!intentChosen}
                 onClick={() => camera.current?.click()}
               >
                 <Camera size={21} />
@@ -361,6 +371,7 @@ export function Capture() {
               </button>
               <button
                 className="button button-light"
+                disabled={!intentChosen}
                 onClick={() => upload.current?.click()}
               >
                 <Upload size={20} />
@@ -371,7 +382,7 @@ export function Capture() {
               <button
                 className={letter ? "selected" : ""}
                 aria-pressed={letter}
-                onClick={() => setKind(letter ? "Photograph" : "Letter")}
+                onClick={() => setKind("Letter")}
               >
                 Adding a letter? Start a letter
               </button>
@@ -521,14 +532,16 @@ export function Capture() {
               <div className="add-source-buttons">
                 <button
                   className="subtle-button"
-                  onClick={() => camera.current?.click()}
+                  disabled={!intentChosen}
+                onClick={() => camera.current?.click()}
                 >
                   <Plus size={17} />
                   {document ? "Add another page" : "Add another image / page"}
                 </button>
                 <button
                   className="subtle-button"
-                  onClick={() => upload.current?.click()}
+                  disabled={!intentChosen}
+                onClick={() => upload.current?.click()}
                 >
                   Choose existing
                 </button>

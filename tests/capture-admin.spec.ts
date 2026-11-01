@@ -6,6 +6,7 @@ const photo = path.resolve("public/images/beach.jpg");
 const letter = path.resolve("public/images/letter.jpg");
 async function upload(page: import("@playwright/test").Page) {
   await page.goto("/add");
+  await page.getByRole("button",{name:"One photograph, front and back",exact:true}).click();
   await page
     .getByLabel("Upload existing images", { exact: true })
     .setInputFiles(photo);
@@ -140,6 +141,7 @@ test("minimal capture and rapid mode keep the camera ready", async ({
   page,
 }) => {
   await page.goto("/add");
+  await page.getByRole("button",{name:"One photograph, front and back",exact:true}).click();
   await page.getByRole("checkbox", { name: "Rapid capture" }).check();
   await page
     .getByLabel("Upload existing images", { exact: true })

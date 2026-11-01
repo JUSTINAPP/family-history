@@ -1,5 +1,7 @@
 # The Allen & Cork Archive
 
+**Classification/document entry fix (015):** Change an existing item’s type independently without re-upload, choose material before files, and find Transcribe above Letter/Document/Postcard pages. Only migration 015 is new; the AI system is reused. See [release, manual SQL and exact live test](docs/item-classification-and-transcription.md).
+
 **Family Conversation refinement:** Explore opens conversations inline, with lazy scoped retrieval, local posting/replies/count updates and retained drafts. Item detail and Quick Catalogue reuse the same composer; Home retains quiet deep links. No new migration. See [release and exact production smoke test](docs/inline-family-conversation.md).
 
 **Document AI provider follow-up:** Anthropic Messages is now selectable alongside OpenAI using server-only configuration. No new migration. Explicit transcription, human review and cost controls remain. See [configuration and exact two-page live test](docs/anthropic-document-provider.md).

@@ -2,12 +2,17 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { ItemTypeField } from "./item-type-field";
 import { catalogueItemAction } from "@/lib/backend/actions";
 interface EditableItem {
   id: string;
   archive_id: string;
   title: string;
   kind: string;
+  archived_at?: string | null;
+  lifecycle?: string;
+  ingestion_status?: string;
+  grouping_kind?: string;
   notes: string;
   people_text: string;
   reported_date: string;
@@ -60,6 +65,8 @@ export function ItemEditor({
     }
   }
   return (
+    <>
+    <ItemTypeField key={item.kind} archiveId={item.archive_id} itemId={item.id} kind={item.kind} editable={item.lifecycle === "active" && item.ingestion_status === "ready" && !item.archived_at && item.grouping_kind !== "split_context"} />
     <form
       className="catalogue-form"
       onSubmit={(e) => {
@@ -80,23 +87,7 @@ export function ItemEditor({
         />
       </label>
       <div className="catalogue-grid">
-        <label className="field">
-          <span>Item type</span>
-          <select name="kind" defaultValue={item.kind}>
-            {[
-              "Photograph",
-              "Letter",
-              "Document",
-              "Object",
-              "Postcard",
-              "Certificate",
-              "Artwork",
-              "Other",
-            ].map((kind) => (
-              <option key={kind}>{kind}</option>
-            ))}
-          </select>
-        </label>
+        <input type="hidden" name="kind" value={item.kind}/>
         <label className="field">
           <span>Reported people notes (text)</span>
           <input
@@ -200,5 +191,6 @@ export function ItemEditor({
         </Link>
       </div>
     </form>
+    </>
   );
 }

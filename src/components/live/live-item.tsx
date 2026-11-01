@@ -1,3 +1,5 @@
+import { ItemTypeField } from "./item-type-field";
+import { DocumentActions } from "./document-actions";
 import { ReviewedDocumentNotes } from "./reviewed-document-notes";
 import { DocumentReader } from "./document-reader";
 import { documentKinds } from "@/lib/documents/types";
@@ -150,12 +152,13 @@ export async function LiveItem({
         )}
         <div className="saved-material-layout">
           <section>
+            <ItemTypeField key={item.kind} archiveId={item.archive_id} itemId={item.id} kind={item.kind} editable={editable && item.lifecycle === "active" && !item.archived_at && item.ingestion_status === "ready"}/>
             {item.kind === "Audio" && (
               <Recordings recordings={recordings} snapshot={snapshot} />
             )}
             {documentKinds.includes(item.kind) && <>
+              <DocumentActions itemId={item.id} kind={item.kind} canProcess={editable && item.lifecycle === "active" && !item.archived_at && item.ingestion_status === "ready"}/>
               <DocumentReader pages={files.filter(f => f.purpose === "original")} sets={result.imageSets} title={display.title} editable={editable && !item.archived_at && item.ingestion_status === "ready"} />
-              <p><Link className="text-link" href={`/archive/${item.id}/review`}>Transcription and translation ↗</Link></p>
             </>}
             {!documentKinds.includes(item.kind) && files
               .filter((file) => file.purpose === "original")

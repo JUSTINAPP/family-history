@@ -1,5 +1,7 @@
 # Supabase foundation
 
+**Current release — migration 015:** Adds only the narrow `set_item_kind` RPC for atomic type-only editing, with existing role/lifecycle permissions, expected-kind checks and provenance. No original, derivative or association is rewritten. Verify the installed 001–014 baseline and manually apply only missing 015 before deployment. See [release and exact live test](../docs/item-classification-and-transcription.md). No production SQL was applied by the agent.
+
 **Current release — migration 014:** Adds source-image presentation rotation, a narrow permission/version-checked rotation RPC and batched conversation counts. No Storage or master-byte operation occurs. Confirm the installed 001–013 baseline before manually applying only missing 014; earlier migrations are unchanged. See [model, permissions and manual smoke test](../docs/conversation-and-image-rotation.md). No production SQL was run by the agent.
 
 **Current release — migration 013:** Adds document-processing attempts and extends existing transcription/suggestion/review provenance, with permission, claim and lifecycle guards. User approved 013 to preserve committed 012. Confirm the actual installed 001–012 baseline, then manually apply only missing 013 before app deployment. No AI calls, original rewrite or Storage operation occurs during installation. See [configuration, read-only markers and exact smoke test](../docs/document-processing.md). No production SQL was run by the agent.

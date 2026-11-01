@@ -17,7 +17,7 @@ export function cataloguePresentation(context: CatalogueContext): {
 } {
   const kind = context.kind === "Other" ? "Archive item" : context.kind;
   const raw = context.title?.trim() || "";
-  const explicit = raw && raw.toLocaleLowerCase() !== `${kind}, still to be catalogued`.toLocaleLowerCase();
+  const explicit = raw && ! /^(photograph|letter|document|object|postcard|certificate|artwork|other|archive item), still to be catalogued$/i.test(raw);
   const people = context.people?.filter(Boolean) || [];
   const rawDate = context.date?.trim();
   const date = rawDate && context.datePrecision === "approximate" && !/^c\.?\s|^circa /i.test(rawDate)

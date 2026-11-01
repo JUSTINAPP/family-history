@@ -26,3 +26,8 @@ test("home selection is stable, varied and limited to actual ready material", ()
   expect(homeMaterial(rows, 9)).toHaveLength(5);
   expect(homeMaterial([], 9)).toEqual([]);
 });
+
+test("classification updates derived placeholder labels while retaining deliberate titles",()=>{
+  expect(cataloguePresentation({kind:"Letter",title:"Photograph, still to be catalogued"}).title).toBe("Letter, still to be catalogued");
+  expect(cataloguePresentation({kind:"Document",title:"A letter from Jan"}).title).toBe("A letter from Jan");
+});

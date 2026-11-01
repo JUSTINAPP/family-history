@@ -6,6 +6,7 @@ import assert from "node:assert/strict";
 import { managementChecks } from "./test-item-management.mjs";
 import { personChecks } from "./test-person-identifications.mjs";
 import { rotationChecks } from "./test-image-rotation.mjs";
+import { classificationChecks } from "./test-classification.mjs";
 import { documentChecks } from "./test-documents.mjs";
 import { conversationChecks } from "./test-conversation.mjs";
 import { placeChecks } from "./test-places.mjs";
@@ -1110,6 +1111,8 @@ try {
   checks += conversationCount;
   const rotationCount = await rotationChecks({q,asUser,asOwner,denied,users,archive:a,manifestFile:groupFile});
   checks += rotationCount;
+  const classificationCount = await classificationChecks({q,asUser,asOwner,denied,users,archive:a,manifestFile:groupFile});
+  checks += classificationCount;
   const documentCount = await documentChecks({q, asUser, asOwner, denied, users, archive: a, otherArchive: b, manifestFile: groupFile});
   checks += documentCount;
   const managementCount = await managementChecks({

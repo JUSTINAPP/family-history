@@ -900,6 +900,15 @@ export async function fixtureServer(
           contributor_id: USER, original_text: body.p_text, recorded_at: new Date().toISOString()});
         return send(200, id);
       }
+      if (rpc === "set_item_kind") {
+        const item=rows.find(r=>r.id===body.p_item_id&&r.archive_id===body.p_archive_id);
+        if(!item)return send(403,{code:"42501"});
+        if(item.kind!==body.p_expected)return send(409,{code:"40001"});
+        const prior=item.kind;item.kind=body.p_kind;
+        if(item.grouping_kind==="separate_photograph"&&item.kind!=="Photograph")item.grouping_kind="single_object";
+        provenance.push({id:crypto.randomUUID(),item_id:item.id,archive_id:item.archive_id,field_path:"item_kind_changed",value:{before:prior,after:item.kind}});
+        return send(200,null);
+      }
       if (rpc === "save_catalogue_context") {
         const item = rows.find((r) => r.id === body.p_item_id),
           d = body.p_details;

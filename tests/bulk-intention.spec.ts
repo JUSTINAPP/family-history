@@ -79,6 +79,7 @@ test("separate-photo intent hands selected files to bulk, reports completion and
 }) => {
   const bytes = await readFile("public/images/beach.jpg");
   await page.goto("/add");
+  await page.getByRole("button",{name:"One photograph, front and back",exact:true}).click();
   await page
     .getByLabel("Upload existing images", { exact: true })
     .setInputFiles([
@@ -117,6 +118,7 @@ test("front and back explicitly grouped remain one item with two source files", 
   page,
 }) => {
   await page.goto("/add");
+  await page.getByRole("button",{name:"One photograph, front and back",exact:true}).click();
   await page
     .getByLabel("Upload existing images", { exact: true })
     .setInputFiles(["public/images/beach.jpg", "public/images/letter.jpg"]);
