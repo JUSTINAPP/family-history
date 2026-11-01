@@ -126,14 +126,21 @@ export function ItemEditor({
           </select>
         </label>
       </div>
-      <label className="field">
-        <span>Place</span>
-        <input
-          name="place"
-          defaultValue={item.reported_place}
-          maxLength={1000}
-        />
-      </label>
+      <details>
+        <summary>Original Where wording</summary>
+        <label className="field">
+          <span>Reported Where notes (text)</span>
+          <input
+            name="place"
+            defaultValue={item.reported_place}
+            maxLength={1000}
+          />
+        </label>
+        <p className="help-line">
+          Preserved wording, not a Place association. Use the Where picker below
+          to link a Place record.
+        </p>
+      </details>
       <label className="field">
         <span>Notes / context</span>
         <textarea

@@ -4899,3 +4899,8 @@ main {
  .archival-people-grid .person-card { display: block; min-width: 0; }
  .archival-people-grid .person-card h2 { font-size: 32px; }
 }
+
+/* Places reuse the real-material archive pile system. */
+.places-archive-grid .place-archive-card .help-line { min-height: 1.6em; }
+.item-places ul[aria-label="Matching Places"] { list-style: none; padding: 0; max-height: 280px; overflow-y: auto; }
+.person-material-section > h2 { font-family: var(--serif); font-size: clamp(26px, 3vw, 34px); font-weight: 400; margin-bottom: 24px; }

@@ -27,7 +27,11 @@ export function DevelopmentPerformance() {
               ? "person"
               : pathname.startsWith("/people")
                 ? "people"
-                : "explore",
+                : pathname.startsWith("/places/")
+                  ? "place"
+                  : pathname.startsWith("/places")
+                    ? "places"
+                    : "explore",
         assetRequests: resources.filter((r) => r.initiatorType === "img")
           .length,
         scriptTransferBytes: resources

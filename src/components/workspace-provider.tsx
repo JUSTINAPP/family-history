@@ -47,6 +47,7 @@ export interface Workspace {
   resourceWarnings?: string[];
   catalogue: import("@/lib/types").ArchiveItem[];
   historicalPeople: import("@/lib/types").Person[];
+  historicalPlaces?: import("@/lib/places").ArchivePlace[];
   capturedCount: number;
   archive: Archive;
   archives: Archive[];

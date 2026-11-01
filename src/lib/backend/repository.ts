@@ -29,6 +29,9 @@ interface PersonRow {
   biography: string;
 }
 export interface LiveSnapshot {
+  places?: import("../places").ArchivePlace[];
+  placeLinks?: import("../places").ItemPlace[];
+  placesAvailable?: boolean;
   identifications?: PersonLink[];
   peopleLinksAvailable?: boolean;
   catalogueBatchId?: string;

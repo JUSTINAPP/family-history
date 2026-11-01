@@ -40,7 +40,8 @@ export async function SessionLayout({
   let snapshot;
   try {
     const pageLoadsMaterial =
-      ["/", "/explore", "/people"].includes(path) ||
+      ["/", "/explore", "/people", "/places"].includes(path) ||
+      path.startsWith("/places/") ||
       path.startsWith("/people/") ||
       path.startsWith("/archive/");
     snapshot = await loadWorkspace({

@@ -5,6 +5,7 @@ import { isDemoMode } from "@/lib/supabase/config";
 import { Suspense } from "react";
 import { Explore } from "@/components/explore";
 import { reportRender } from "@/lib/backend/performance";
+import { loadPlaceData, workspaceWithPlaces } from "@/lib/backend/places";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Explore the archive" };
 export default async function ExplorePage({
@@ -22,7 +23,7 @@ export default async function ExplorePage({
   }>;
 }) {
   const params = await searchParams;
-  const snapshot = isDemoMode()
+  let snapshot = isDemoMode()
     ? null
     : await loadWorkspace({
         materialOnly: true,
@@ -31,6 +32,23 @@ export default async function ExplorePage({
         archived: params.state === "archived",
       });
   if (!isDemoMode() && !snapshot) notFound();
+  if (snapshot) {
+    try {
+      snapshot = workspaceWithPlaces(
+        snapshot,
+        await loadPlaceData(snapshot.archive.id),
+      );
+    } catch {
+      snapshot = {
+        ...snapshot,
+        placesAvailable: false,
+        resourceWarnings: [
+          ...snapshot.resourceWarnings,
+          "Place associations could not load. Reload before filtering by Place.",
+        ],
+      };
+    }
+  }
   reportRender("explore");
   const filterKey = JSON.stringify(params);
   return (

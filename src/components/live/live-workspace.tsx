@@ -109,6 +109,7 @@ export function LiveWorkspaceProvider({
     catalogueCount: current.catalogueCount,
     resourceWarnings: current.resourceWarnings,
     historicalPeople: current.people,
+    historicalPlaces: current.places,
     capturedCount: current.catalogue.length,
     role,
     setRole: () => {},

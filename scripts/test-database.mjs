@@ -5,6 +5,7 @@ import { join } from "node:path";
 import assert from "node:assert/strict";
 import { managementChecks } from "./test-item-management.mjs";
 import { personChecks } from "./test-person-identifications.mjs";
+import { placeChecks } from "./test-places.mjs";
 const directory = await mkdtemp(join(tmpdir(), "archive-postgres-"));
 let db = new PGlite(directory);
 let checks = 0;
@@ -1091,6 +1092,17 @@ try {
     manifestFile: groupFile,
   });
   checks += personCount;
+  const placeCount = await placeChecks({
+    q,
+    asUser,
+    asOwner,
+    denied,
+    users,
+    archive: a,
+    otherArchive: b,
+    manifestFile: groupFile,
+  });
+  checks += placeCount;
   const managementCount = await managementChecks({
     q,
     asUser,
@@ -1145,7 +1157,7 @@ try {
   const rls = await q(
     "select count(*)::int as n from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind='r' and c.relrowsecurity and c.relforcerowsecurity",
   );
-  assert.equal(rls.rows[0].n, withAudio ? 24 : 22);
+  assert.equal(rls.rows[0].n, withAudio ? 26 : 24);
   checks++;
   if (!withAudio) {
     await db.exec(

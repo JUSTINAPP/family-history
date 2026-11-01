@@ -6,6 +6,7 @@ import { can } from "@/lib/permissions";
 import { PageIntro, ArchiveImage } from "@/components/ui";
 import { ItemEditor } from "@/components/live/item-editor";
 import { IdentificationForm } from "@/components/live/identification-form";
+import { ItemPlaces } from "@/components/live/item-places";
 export const metadata = { title: "Edit archive item" };
 export default async function EditPage({
   params,
@@ -115,6 +116,14 @@ export default async function EditPage({
               result.resourceWarnings.length > 0 ||
               snapshot.resourceWarnings.includes("People could not load.")
             }
+          />
+          <ItemPlaces
+            archiveId={item.archive_id}
+            itemId={item.id}
+            reportedText={item.reported_place || ""}
+            editable
+            editor={can(role, "editor")}
+            profileId={snapshot.profileId}
           />
         </section>
       </div>

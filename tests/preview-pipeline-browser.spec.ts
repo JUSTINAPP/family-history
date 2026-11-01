@@ -507,7 +507,10 @@ test("People link relationally, preserve reported provenance and stay independen
     .getByLabel("Title / caption", { exact: true })
     .fill("Jina on her own");
   await page.getByLabel("Date", { exact: true }).fill("1965");
-  await page.getByLabel("Place", { exact: true }).fill("India");
+  await page.getByText("Original Where wording", { exact: true }).click();
+  await page
+    .getByLabel("Reported Where notes (text)", { exact: true })
+    .fill("India");
   await page
     .getByRole("combobox", { name: "Item type", exact: true })
     .selectOption("Photograph");
@@ -573,16 +576,14 @@ test("People use real archival stacks, small private thumbnails, batched reads a
   const seed = await (
     await request.post("http://127.0.0.1:4301/__fixture/people-material")
   ).json();
-  await page
-    .context()
-    .addCookies([
-      {
-        name: "active_archive",
-        value: archive,
-        url: "http://127.0.0.1:4300",
-        httpOnly: true,
-      },
-    ]);
+  await page.context().addCookies([
+    {
+      name: "active_archive",
+      value: archive,
+      url: "http://127.0.0.1:4300",
+      httpOnly: true,
+    },
+  ]);
   await page.route("**/*", (route) => {
     const h = route.request().headers();
     return h["next-router-prefetch"] === "1" || h.purpose === "prefetch"
@@ -755,4 +756,249 @@ test("People use real archival stacks, small private thumbnails, batched reads a
     path: "/private/tmp/archive-people-stacks.png",
     fullPage: false,
   });
+});
+
+test("Places are scoped archive entry points with relational filtering, preserved reports and small archival piles", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120000);
+  const seed = await (
+    await request.post("http://127.0.0.1:4301/__fixture/places-material")
+  ).json();
+  const summary = async () =>
+    (await request.get("http://127.0.0.1:4301/__fixture/summary")).json();
+  const main = seed.places[0],
+    empty = seed.places[2],
+    item = seed.materialIds[0];
+  await page.context().addCookies([
+    {
+      name: "active_archive",
+      value: archive,
+      url: "http://127.0.0.1:4300",
+      httpOnly: true,
+    },
+  ]);
+  await page.route("**/*", (route) => {
+    const h = route.request().headers();
+    return h["next-router-prefetch"] === "1" || h.purpose === "prefetch"
+      ? route.abort()
+      : route.continue();
+  });
+  await page.goto("/sign-in");
+  await page
+    .getByLabel("Email", { exact: true })
+    .fill("visibility@example.test");
+  await page
+    .getByLabel("Password", { exact: true })
+    .fill("local-fixture-password");
+  await page
+    .locator("form")
+    .getByRole("button", { name: "Sign in", exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/$/);
+  await page.waitForLoadState("networkidle");
+  await request.get("http://127.0.0.1:4301/__fixture/metrics?reset=1");
+  await page.setViewportSize({ width: 375, height: 850 });
+  await page.goto(`/places?archive=${archive}`);
+  await expect(
+    page.getByRole("heading", { name: "A sense of place.", exact: true }),
+  ).toBeVisible();
+  const cards = page.locator(".place-archive-card");
+  await expect(cards).toHaveCount(33);
+  await expect(cards.nth(0).locator(".material-leaf")).toHaveCount(4);
+  await expect(cards.nth(1).locator(".material-leaf")).toHaveCount(1);
+  await expect(cards.nth(2).locator("img")).toHaveCount(0);
+  await expect(cards.first().locator("img").first()).toHaveAttribute(
+    "data-image-variant",
+    "small",
+  );
+  await expect(cards.first().locator(".has-placeholder").first()).toHaveCSS(
+    "background-image",
+    /data:image\/webp/,
+  );
+  await expect(cards.last().locator("img").first()).toHaveAttribute(
+    "loading",
+    "lazy",
+  );
+  expect(
+    await cards
+      .last()
+      .locator("img")
+      .first()
+      .evaluate((n) => (n as HTMLImageElement).naturalWidth),
+  ).toBe(0);
+  expect(
+    await page.evaluate(
+      () =>
+        document.documentElement.scrollWidth -
+        document.documentElement.clientWidth,
+    ),
+  ).toBeLessThanOrEqual(0);
+  const counts = await (
+    await request.get("http://127.0.0.1:4301/__fixture/metrics")
+  ).json();
+  expect(counts["/rest/v1/places"]).toBe(1);
+  expect(counts["/rest/v1/item_places"]).toBe(2);
+  expect(counts["/rest/v1/archives"]).toBe(1);
+  expect(counts["/rest/v1/archive_memberships"]).toBe(1);
+  await cards.last().locator("img").first().scrollIntoViewIfNeeded();
+  await expect
+    .poll(() =>
+      cards
+        .last()
+        .locator("img")
+        .first()
+        .evaluate((n) => (n as HTMLImageElement).naturalWidth),
+    )
+    .toBeGreaterThan(0);
+  await page.getByRole("button", { name: "Add a place", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Add a place" });
+  await dialog
+    .getByLabel("Place name", { exact: true })
+    .fill("A meaningful family home");
+  await dialog.getByRole("button", { name: "Save place", exact: true }).click();
+  await expect(dialog).not.toBeVisible();
+  await expect(cards).toHaveCount(34);
+  let state = await summary();
+  const created = state.places.find(
+    (p: { name: string }) => p.name === "A meaningful family home",
+  );
+  expect(created.archive_id).toBe(archive);
+  await page.goto(`/places/${created.id}?archive=${archive}`);
+  await expect(
+    page.getByText("No material linked to this Place yet.", { exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Edit place", exact: true }).click();
+  const edit = page.getByRole("dialog", { name: "Edit place" });
+  await edit
+    .getByText("More about this place (optional)", { exact: true })
+    .click();
+  await edit.getByLabel("Country", { exact: true }).fill("Australia");
+  await edit.getByRole("button", { name: "Save place", exact: true }).click();
+  await expect(edit).not.toBeVisible();
+  await page.goto(`/places/${main.id}?archive=${archive}`);
+  await expect(
+    page.getByRole("heading", { name: "Photographs", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Letters & documents", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", {
+      name: "People appearing in material connected to this place",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByText(
+      "This connection does not establish that someone lived here.",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Dates in the material", exact: true }),
+  ).toBeVisible();
+  await page.goto(`/explore?archive=${archive}&place=${main.id}`);
+  await expect(page.locator(".item-card")).toHaveCount(5);
+  await page
+    .getByRole("combobox", { name: "Place", exact: true })
+    .selectOption(empty.id);
+  await expect(page.locator(".item-card")).toHaveCount(0);
+  await page.goto(`/archive/${item}/edit`);
+  await page.getByText("Original Where wording", { exact: true }).click();
+  await page
+    .getByLabel("Reported Where notes (text)", { exact: true })
+    .fill("Near Auroville, as remembered");
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await expect(
+    page.getByRole("status").filter({ hasText: "Changes saved" }),
+  ).toBeVisible();
+  await page.goto(`/archive/${item}`);
+  const where = page.getByRole("region", { name: "Places in this item" });
+  await expect(
+    where.getByText("Near Auroville, as remembered", { exact: true }),
+  ).toBeVisible();
+  await where
+    .getByRole("button", { name: "Link to existing place", exact: true })
+    .click();
+  await where.getByLabel("Search Places in this archive").fill("meaningful");
+  await where
+    .getByRole("button", {
+      name: "A meaningful family home · Australia",
+      exact: true,
+    })
+    .click();
+  await expect(where.locator(`a[href^="/places/${created.id}"]`)).toBeVisible();
+  state = await summary();
+  expect(
+    state.items.find((r: { id: string }) => r.id === item).reported_place,
+  ).toBe("Near Auroville, as remembered");
+  const linked = state.itemPlaces.find(
+    (l: { item_id: string; place_id: string; status: string }) =>
+      l.item_id === item && l.place_id === created.id && l.status !== "removed",
+  );
+  expect(linked).toMatchObject({
+    source: "legacy_text",
+    reported_text: "Near Auroville, as remembered",
+  });
+  await where
+    .getByRole("button", { name: "Change primary place", exact: true })
+    .click();
+  await where
+    .getByLabel("Search Places in this archive")
+    .fill("A new inline location");
+  await where
+    .getByRole("button", { name: "+ Add new place", exact: true })
+    .click();
+  await where
+    .getByRole("button", {
+      name: "Create Place and link to this item",
+      exact: true,
+    })
+    .click();
+  await expect(
+    where.getByText("A new inline location", { exact: true }),
+  ).toBeVisible();
+  state = await summary();
+  const inline = state.places.find(
+    (p: { name: string }) => p.name === "A new inline location",
+  );
+  expect(
+    state.itemPlaces.some(
+      (l: { item_id: string; place_id: string; status: string }) =>
+        l.item_id === item &&
+        l.place_id === inline.id &&
+        l.status === "reported",
+    ),
+  ).toBe(true);
+  await where
+    .getByRole("button", {
+      name: "Remove association with A new inline location",
+      exact: true,
+    })
+    .click();
+  state = await summary();
+  expect(state.places.some((p: { id: string }) => p.id === inline.id)).toBe(
+    true,
+  );
+  expect(
+    state.items.find((r: { id: string }) => r.id === item).reported_place,
+  ).toBe("Near Auroville, as remembered");
+  await page.goto(`/explore?archive=${archive}&place=${main.id}`);
+  await expect(page.locator(".item-card")).toHaveCount(4); // Retained Where wording alone cannot restore a removed canonical link.
+  await page.goto(`/places?archive=${archive}`);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await expect(cards.first().locator("img").first()).toHaveCSS("opacity", "1");
+  await page.screenshot({
+    path: "/private/tmp/archive-places-overview.png",
+    fullPage: false,
+  });
+  expect(
+    (
+      await request.get(`/places/${main.id}?archive=${archive}`, {
+        maxRedirects: 0,
+      })
+    ).status(),
+  ).toBe(307);
 });

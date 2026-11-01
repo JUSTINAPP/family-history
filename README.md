@@ -1,5 +1,7 @@
 # The Allen & Cork Archive
 
+**Current release — archive Places (011):** Create archive-local Places, link items through a searchable Where picker, reconcile historical wording explicitly, browse real material piles and filter Explore by Place relationships. No global location directory or geocoder is introduced. See [schema, manual Supabase action and exact production smoke test](docs/archive-places.md).
+
 **Current release — People material stacks and private-page performance:** People now open through their actual linked archive material, with 600px thumbnails, immediate placeholders and richer Person sections. Request-scoped loading removes repeated workspace queries; private conditional derivative responses recheck permissions before reuse. No migration 011. See [measurements, cache trade-offs and exact production smoke test](docs/people-material-performance.md).
 
 **Current release — Person relationships (010):** Search/select existing People, create and link a minimal Person inline, reconcile legacy identification text explicitly, and filter Person pages/Explore by real relationships. The legacy-photo split confirmation now asks how to retain shared context. See [release and manual production smoke test](docs/person-identifications.md). Only migration 010 is new; 001–009 are unchanged.

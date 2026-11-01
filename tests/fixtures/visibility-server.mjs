@@ -110,6 +110,8 @@ export async function fixtureServer(
     ).values(),
   ];
   const deletions = [];
+  const places = [],
+    itemPlaces = [];
   const people = management
     ? [
         "Jina Allen",
@@ -157,6 +159,107 @@ export async function fixtureServer(
         counts[entry.path] = (counts[entry.path] || 0) + 1;
       if (address.searchParams.has("reset")) requests.length = 0;
       return send(200, counts);
+    }
+    if (address.pathname === "/__fixture/places-material" && management) {
+      const material = rows.filter((r) => r.title?.startsWith("Linked "));
+      for (let n = 0; n < 33; n++) {
+        const id = crypto.randomUUID(),
+          name =
+            n === 0
+              ? "01 Auroville"
+              : n === 1
+                ? "02 Sydney"
+                : n === 2
+                  ? "03 An empty place"
+                  : `Place ${String(n).padStart(2, "0")}`;
+        places.push({
+          id,
+          archive_id: ARCHIVE,
+          name,
+          locality: "",
+          city: "",
+          region: n === 0 ? "Tamil Nadu" : "",
+          country: n === 0 ? "India" : "",
+          notes: "",
+          latitude: null,
+          longitude: null,
+          created_by: USER,
+          created_at: "2026-01-01T00:00:00Z",
+          updated_at: "2026-01-01T00:00:00Z",
+        });
+        if (n !== 2)
+          for (const item of n === 1 ? material.slice(0, 1) : material)
+            itemPlaces.push({
+              id: crypto.randomUUID(),
+              archive_id: ARCHIVE,
+              item_id: item.id,
+              place_id: id,
+              role: n === 0 ? "primary" : "related",
+              status: "reported",
+              source: "human_report",
+              reported_text: item.reported_place || "",
+              created_by: USER,
+              created_at: "2026-01-01T00:00:00Z",
+            });
+      }
+      // Unique below-fold asset URLs avoid conflating lazy loading with reuse
+      // of images already decoded for other, visible Places.
+      const template = imageSets.find((s) => s.status === "stored"),
+        source = files.find((f) => f.id === template.original_file_id);
+      const id = crypto.randomUUID(),
+        originalId = crypto.randomUUID();
+      rows.push({ ...material[0], id, title: "Below-fold Place material" });
+      const originalCopy = {
+        ...source,
+        id: originalId,
+        item_id: id,
+        storage_path: `${ARCHIVE}/${id}/${originalId}`,
+      };
+      files.push(originalCopy);
+      objects.set(`${source.bucket_id}/${originalCopy.storage_path}`, original);
+      const set = {
+        ...template,
+        id: crypto.randomUUID(),
+        item_id: id,
+        original_file_id: originalId,
+      };
+      for (const key of [
+        "display_file_id",
+        "thumbnail_file_id",
+        "small_file_id",
+      ]) {
+        const old = files.find((f) => f.id === template[key]),
+          file = {
+            ...old,
+            id: crypto.randomUUID(),
+            item_id: id,
+            parent_original_id: originalId,
+          };
+        file.storage_path = `${ARCHIVE}/${id}/${file.id}`;
+        files.push(file);
+        objects.set(
+          `${file.bucket_id}/${file.storage_path}`,
+          objects.get(`${old.bucket_id}/${old.storage_path}`),
+        );
+        set[key] = file.id;
+      }
+      imageSets.push(set);
+      for (let n = itemPlaces.length - 1; n >= 0; n--)
+        if (itemPlaces[n].place_id === places.at(-1).id)
+          itemPlaces.splice(n, 1);
+      itemPlaces.push({
+        id: crypto.randomUUID(),
+        archive_id: ARCHIVE,
+        item_id: id,
+        place_id: places.at(-1).id,
+        role: "primary",
+        status: "reported",
+        source: "human_report",
+        reported_text: "",
+        created_by: USER,
+        created_at: "2026-01-01T00:00:00Z",
+      });
+      return send(200, { places, materialIds: material.map((i) => i.id) });
     }
     if (address.pathname === "/__fixture/people-material" && management) {
       const template = imageSets.find((s) => s.status === "stored");
@@ -379,6 +482,8 @@ export async function fixtureServer(
         deletions,
         items: rows,
         people,
+        places,
+        itemPlaces,
         identifications,
         recollections,
         provenance,
@@ -479,6 +584,92 @@ export async function fixtureServer(
       for await (const chunk of req) chunks.push(chunk);
       const body = JSON.parse(Buffer.concat(chunks).toString() || "{}");
       const rpc = address.pathname.split("/").pop();
+      function writePlace(details, id) {
+        let p = places.find(
+          (p) => p.id === id && p.archive_id === body.p_archive_id,
+        );
+        if (!p) {
+          p = {
+            id: crypto.randomUUID(),
+            archive_id: body.p_archive_id,
+            locality: "",
+            city: "",
+            region: "",
+            country: "",
+            latitude: null,
+            longitude: null,
+            notes: "",
+            created_by: USER,
+            created_at: new Date().toISOString(),
+          };
+          places.push(p);
+        }
+        Object.assign(p, details, { updated_at: new Date().toISOString() });
+        return p;
+      }
+      function linkPlace(placeId) {
+        const item = rows.find((r) => r.id === body.p_item_id),
+          p = places.find(
+            (p) => p.id === placeId && p.archive_id === body.p_archive_id,
+          );
+        if (!item || !p) return null;
+        const existing = itemPlaces.find(
+          (l) =>
+            l.item_id === item.id &&
+            l.place_id === p.id &&
+            l.role === "primary" &&
+            l.status !== "removed",
+        );
+        if (existing) return existing.id;
+        for (const link of itemPlaces.filter(
+          (l) =>
+            l.item_id === item.id &&
+            l.role === "primary" &&
+            l.status !== "removed",
+        ))
+          link.status = "removed";
+        const link = {
+          id: crypto.randomUUID(),
+          archive_id: body.p_archive_id,
+          item_id: item.id,
+          place_id: placeId,
+          role: "primary",
+          status: "reported",
+          source: body.p_from_report ? "legacy_text" : "human_report",
+          reported_text: item.reported_place || "",
+          created_by: USER,
+          created_at: new Date().toISOString(),
+        };
+        itemPlaces.push(link);
+        provenance.push({
+          field_path: "item_place_linked",
+          value: {
+            link_id: link.id,
+            place_id: placeId,
+            reported_text: item.reported_place,
+            item_contributor_id: item.contributed_by,
+          },
+        });
+        return link.id;
+      }
+      if (rpc === "save_archive_place")
+        return send(200, writePlace(body.p_details, body.p_place_id).id);
+      if (rpc === "link_item_place") {
+        const id = linkPlace(body.p_place_id);
+        return id
+          ? send(200, id)
+          : send(403, { message: "place_archive_mismatch" });
+      }
+      if (rpc === "create_item_place") {
+        const p = writePlace(body.p_details, null);
+        linkPlace(p.id);
+        return send(200, p.id);
+      }
+      if (rpc === "review_item_place") {
+        const l = itemPlaces.find((l) => l.id === body.p_link_id);
+        l.status = body.p_action === "confirm" ? "confirmed" : "removed";
+        return send(200, null);
+      }
 
       if (rpc === "propose_identification") {
         const person = people.find(
@@ -837,49 +1028,53 @@ export async function fixtureServer(
     )
       return send(503, { code: "fixture_optional_unavailable" });
     let data =
-      table === "people"
-        ? people
-        : table === "identifications"
-          ? identifications
-          : table === "recollections"
-            ? recollections
-            : table === "import_batches"
-              ? [
-                  {
-                    id: BATCH,
-                    archive_id: ARCHIVE,
-                    context: "Fixture batch",
-                    expected_count: 1,
-                    created_by: USER,
-                    created_at: "2026-01-01T00:00:00Z",
-                  },
-                ]
-              : table === "archives"
-                ? archives
-                : table === "archive_items"
-                  ? rows
-                  : table === "archive_item_files"
-                    ? files
-                    : table === "image_sets"
-                      ? imageSets
-                      : table === "current_image_sets"
-                        ? currentSets()
-                        : table === "item_deletions"
-                          ? deletions
-                          : table === "archive_memberships"
-                            ? archives.map((a) => ({
-                                id: USER,
-                                archive_id: a.id,
-                                profile_id: USER,
-                                role: management ? "editor" : "contributor",
-                                status: "active",
-                                joined_at: a.created_at,
-                                profiles: {
-                                  display_name: "Test contributor",
-                                  email: user.email,
-                                },
-                              }))
-                            : [];
+      table === "places"
+        ? places
+        : table === "item_places"
+          ? itemPlaces
+          : table === "people"
+            ? people
+            : table === "identifications"
+              ? identifications
+              : table === "recollections"
+                ? recollections
+                : table === "import_batches"
+                  ? [
+                      {
+                        id: BATCH,
+                        archive_id: ARCHIVE,
+                        context: "Fixture batch",
+                        expected_count: 1,
+                        created_by: USER,
+                        created_at: "2026-01-01T00:00:00Z",
+                      },
+                    ]
+                  : table === "archives"
+                    ? archives
+                    : table === "archive_items"
+                      ? rows
+                      : table === "archive_item_files"
+                        ? files
+                        : table === "image_sets"
+                          ? imageSets
+                          : table === "current_image_sets"
+                            ? currentSets()
+                            : table === "item_deletions"
+                              ? deletions
+                              : table === "archive_memberships"
+                                ? archives.map((a) => ({
+                                    id: USER,
+                                    archive_id: a.id,
+                                    profile_id: USER,
+                                    role: management ? "editor" : "contributor",
+                                    status: "active",
+                                    joined_at: a.created_at,
+                                    profiles: {
+                                      display_name: "Test contributor",
+                                      email: user.email,
+                                    },
+                                  }))
+                                : [];
     for (const [key, value] of address.searchParams) {
       if (value.startsWith("eq.") && !key.includes("."))
         data = data.filter((row) => String(row[key]) === value.slice(3));

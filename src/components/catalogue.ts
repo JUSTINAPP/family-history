@@ -33,14 +33,12 @@ export function useCatalogue() {
     : {
         items: workspace.catalogue,
         people: workspace.historicalPeople,
-        places: [...new Set(workspace.catalogue.map((i) => i.place))]
-          .filter((p) => p !== "Place not yet known")
-          .map((name) => ({
-            slug: name,
-            name,
-            region: "",
-            image: "",
-            description: "",
-          })),
+        places: (workspace.historicalPlaces || []).map((p) => ({
+          slug: p.id,
+          name: p.name,
+          region: p.region,
+          image: "",
+          description: p.notes,
+        })),
       };
 }

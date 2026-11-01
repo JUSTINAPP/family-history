@@ -46,16 +46,23 @@ export function Explore() {
           people.find((p) => p.slug === slug || p.id === slug)?.name || "",
       )
       .join(" ");
+    const placeNames = places
+      .filter((p) => item.placeIds?.includes(p.slug))
+      .map((p) => p.name)
+      .join(" ");
     return (
       (!params.get("batch") || item.importBatchId === params.get("batch")) &&
       (type === "All" || item.kind === type) &&
       (!q ||
-        `${item.title} ${item.reportedPeople || ""} ${item.notes} ${item.place} ${item.date} ${item.collection} ${item.tags.join(" ")} ${names} ${item.kind === "Letter" ? transcriptionPages.join(" ") : ""}`
+        `${item.title} ${item.reportedPeople || ""} ${item.notes} ${item.place} ${placeNames} ${item.date} ${item.collection} ${item.tags.join(" ")} ${names} ${item.kind === "Letter" ? transcriptionPages.join(" ") : ""}`
           .toLowerCase()
           .includes(q.toLowerCase())) &&
       (!person || item.people.includes(person)) &&
       (!date || Math.floor((item.year || 0) / 10) * 10 === Number(date)) &&
-      (!place || item.place === place) &&
+      (!place ||
+        (workspace.mode === "live"
+          ? item.placeIds?.includes(place)
+          : item.place === place)) &&
       (!collection || item.collection === collection) &&
       (!unidentified ||
         item.tags.includes("Unidentified") ||
@@ -77,6 +84,23 @@ export function Explore() {
     setFamily("");
   }
   const group = params.get("group");
+  if (
+    workspace.mode === "live" &&
+    place &&
+    workspace.resourceWarnings?.some((w) => w.startsWith("Place associations"))
+  )
+    return (
+      <div className="page-shell">
+        <PageIntro
+          eyebrow="PLACES"
+          title="Place associations could not load."
+          description="Reload to see a complete list of linked material."
+        />
+        <Link href={`/explore?archive=${workspace.archive.id}`}>
+          View all items
+        </Link>
+      </div>
+    );
   if (
     workspace.mode === "live" &&
     person &&
@@ -243,7 +267,10 @@ export function Explore() {
             <select value={place} onChange={(e) => setPlace(e.target.value)}>
               <option value="">Place</option>
               {places.map((p) => (
-                <option key={p.slug} value={p.name}>
+                <option
+                  key={p.slug}
+                  value={workspace.mode === "live" ? p.slug : p.name}
+                >
                   {p.name}
                 </option>
               ))}

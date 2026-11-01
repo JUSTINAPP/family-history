@@ -10,6 +10,8 @@ const enabled = () =>
   process.env.NODE_ENV === "development" &&
   process.env.ARCHIVE_PERF_DIAGNOSTICS === "1";
 const queryNames = new Set([
+  "places",
+  "item_places",
   "archives",
   "archive_memberships",
   "archive_items",
@@ -57,7 +59,9 @@ export const measuredFetch: typeof fetch = async (input, init) => {
     }
   }
 };
-export function reportRender(page: "home" | "explore" | "people" | "person") {
+export function reportRender(
+  page: "home" | "explore" | "people" | "person" | "places" | "place",
+) {
   if (!enabled()) return;
   const m = metrics();
   console.info(

@@ -20,6 +20,8 @@ test("private routes fail closed without an authenticated session", async ({
     "/admin/deletions",
     "/archive/40000000-0000-4000-8000-000000000001/manage",
     "/people",
+    "/places",
+    "/places/40000000-0000-4000-8000-000000000001",
     "/archive/a-letter-from-home",
   ]) {
     const response = await request.get(route, { maxRedirects: 0 });

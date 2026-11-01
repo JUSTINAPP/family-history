@@ -6,6 +6,7 @@ import { loadRecordings } from "@/lib/audio/repository";
 import { requireSession } from "@/lib/backend/repository";
 import { can } from "@/lib/permissions";
 import { IdentificationForm } from "./identification-form";
+import { ItemPlaces } from "./item-places";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { loadItem } from "@/lib/backend/repository";
@@ -200,7 +201,7 @@ export async function LiveItem({
                   item.catalogued_at ? "Catalogued" : "Uncatalogued",
                 ],
                 ["When", item.reported_date],
-                ["Where", item.reported_place],
+                ["Reported Where (text)", item.reported_place],
                 ["Date certainty", item.date_precision],
               ].map(([label, value]) => (
                 <div key={label}>
@@ -238,6 +239,14 @@ export async function LiveItem({
                 result.resourceWarnings.length > 0 ||
                 snapshot.resourceWarnings.includes("People could not load.")
               }
+            />
+            <ItemPlaces
+              archiveId={item.archive_id}
+              itemId={item.id}
+              reportedText={item.reported_place || ""}
+              editable={editable}
+              editor={can(role, "editor")}
+              profileId={snapshot.profileId}
             />
             <AddRecollection archiveId={snapshot.archive.id} itemId={item.id} />
             {audioUnavailable && (

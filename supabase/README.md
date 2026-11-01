@@ -1,5 +1,7 @@
 # Supabase foundation
 
+**Current release — migration 011:** Adds archive-scoped Places and item associations with RLS/narrow RPCs, preserves Where text, and integrates association cleanup with the existing deletion preflight/lifecycle. Confirm the 001–010 baseline before manually applying only 011. No automatic backfill or Storage change occurs. See [manual installation and smoke test](../docs/archive-places.md).
+
 **Current release — migration 010:** Reuses item/Person `identifications`, retaining original reports and adding explicit link/review provenance. Requires the established baseline including 009. No historical name matching or automatic split occurs. See [release order and smoke test](../docs/person-identifications.md); do not rerun older migrations.
 
 **Current release — migration 009:** [Item management and responsive image sets](../docs/individual-photo-management.md) supersedes the earlier release instructions below. The actual migrations through 009 passed 189 disposable PostgreSQL checks. Confirm the installed 001–008 baseline before manually applying only missing migrations; do not rerun installed SQL. Installation does not split historical items or delete Storage objects. The new code requires 009. No remote SQL was applied by the agent.
