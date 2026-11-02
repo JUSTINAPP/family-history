@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   title: {
     default: isDemoMode()
       ? `${initialArchive.name} — Archive`
-      : "Allen & Cork — Archive",
+      : "Sydney & Auroville — Archive",
     template: isDemoMode() ? `%s — ${initialArchive.name}` : "%s — Archive",
   },
   description:

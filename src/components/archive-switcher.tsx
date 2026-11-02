@@ -7,7 +7,7 @@ export function ArchiveSwitcher() {
   const { archive, archives, selectArchive, role, mode } = useWorkspace();
   const panel = useRef<HTMLDetailsElement>(null);
   if (mode === "live") return (
-    <Link href="/" className="archive-switcher" aria-label="Allen & Cork archive home">
+    <Link href="/" className="archive-switcher" aria-label={`${archive.name} archive home`}>
       <span className="archive-identity"><span className="archive-current-name">{archive.name === "The Allen & Cork Archive" ? "Allen & Cork" : archive.name}</span><span className="archive-identity-label">Archive</span></span>
     </Link>
   );

@@ -12,7 +12,7 @@ export function PublicChrome({ children }: { children: React.ReactNode }) {
     <>
       <header className="site-header">
         <Link className="wordmark" href="/">
-          Allen &amp; Cork / Archive
+          Sydney &amp; Auroville / Archive
         </Link>
       </header>
       <main id="main">{children}</main>
@@ -74,7 +74,7 @@ export async function SessionLayout({
       <PublicChrome>
         <section className="capture-shell">
           <h1>Your archive access is not ready yet.</h1>
-          <p>You are signed in, but this account has not been added to the shared Allen &amp; Cork archive. Ask Jonas to add your access, then reload this page.</p>
+          <p>You are signed in, but this account has not been added to the shared Sydney &amp; Auroville archive. Ask Jonas to add your access, then reload this page.</p>
           <Link className="button" href="/">Try again</Link>
         </section>
         <form action={signOut} className="capture-shell">

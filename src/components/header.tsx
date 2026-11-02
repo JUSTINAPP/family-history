@@ -143,12 +143,12 @@ export function Header() {
   );
 }
 export function Footer() {
-  const { mode } = useWorkspace();
+  const { mode, archive } = useWorkspace();
   return (
     <footer className="site-footer">
       <div>
         <Link href="/" className="footer-mark">
-          Allen &amp; Cork / Archive
+          {archive.name} / Archive
         </Link>
         <p>Photographs, letters, documents and objects.</p>
       </div>

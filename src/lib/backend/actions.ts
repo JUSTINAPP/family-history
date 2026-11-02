@@ -6,7 +6,7 @@ import { safeError } from "./errors";
 import type { Archive, Member } from "@/lib/workspace-types";
 export async function createArchiveAction(form: FormData) {
   void form;
-  return { error: "This site uses the shared Allen & Cork archive. Contact Jonas for access.", id: undefined };
+  return { error: "This site uses the shared Sydney & Auroville archive. Contact Jonas for access.", id: undefined };
 }
 export async function selectArchiveAction(id: string) {
   try {
