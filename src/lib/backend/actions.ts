@@ -5,28 +5,8 @@ import { requireArchiveRole, requireSession } from "./repository";
 import { safeError } from "./errors";
 import type { Archive, Member } from "@/lib/workspace-types";
 export async function createArchiveAction(form: FormData) {
-  try {
-    const { client } = await requireSession();
-    const { data, error } = await client.rpc("create_archive", {
-      p_name: String(form.get("name") || "").trim(),
-      p_slug: String(form.get("slug") || "").trim(),
-    });
-    if (error || typeof data !== "string")
-      return {
-        error:
-          "The archive could not be created. Check that migrations are applied and the slug is available.",
-      };
-    (await cookies()).set("active_archive", data, {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
-    });
-    revalidatePath("/", "layout");
-    return { id: data };
-  } catch (error) {
-    return { error: safeError(error).message };
-  }
+  void form;
+  return { error: "This site uses the shared Allen & Cork archive. Contact Jonas for access.", id: undefined };
 }
 export async function selectArchiveAction(id: string) {
   try {

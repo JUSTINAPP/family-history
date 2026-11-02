@@ -1,5 +1,4 @@
-import { CreateArchive } from "@/components/live/create-archive";
-export const metadata = { title: "Create an archive" };
+import { redirect } from "next/navigation";
 export default function NewArchive() {
-  return <CreateArchive />;
+  redirect("/");
 }

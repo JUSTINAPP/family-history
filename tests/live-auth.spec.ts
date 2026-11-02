@@ -87,6 +87,12 @@ test("sign-in keeps local redirects safe and remains accessible on a phone", asy
     page.getByRole("heading", { name: "Sign in", exact: true }),
   ).toBeVisible();
   await expect(page.locator("input[name=next]")).toHaveValue("/");
+  await expect(page.getByRole("button", { name: "Create an account" })).toHaveCount(0);
+  await page.getByLabel("Password", { exact: true }).fill("example-password");
+  await page.getByRole("button", { name: "Show password" }).click();
+  await expect(page.getByLabel("Password", { exact: true })).toHaveAttribute("type", "text");
+  await page.getByRole("button", { name: "Hide password" }).click();
+  await expect(page.getByLabel("Password", { exact: true })).toHaveAttribute("type", "password");
   expect(
     await page.evaluate(
       () =>

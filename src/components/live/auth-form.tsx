@@ -1,74 +1,18 @@
 "use client";
 import { useActionState, useState } from "react";
-import { signIn, signUp } from "@/app/sign-in/actions";
-export function AuthForm({
-  next,
-  configured,
-}: {
-  next: string;
-  configured: boolean;
-}) {
-  const [signup, setSignup] = useState(false);
-  const [state, action, pending] = useActionState(signup ? signUp : signIn, {
-    message: "",
-  });
-  return (
-    <div className="auth-panel">
-      <div className="filter-tabs">
-        <button
-          className={!signup ? "selected" : ""}
-          onClick={() => setSignup(false)}
-        >
-          Sign in
-        </button>
-        <button
-          className={signup ? "selected" : ""}
-          onClick={() => setSignup(true)}
-        >
-          Create an account
-        </button>
-      </div>
-      <form action={action}>
-        <input type="hidden" name="next" value={next} />
-        {signup && (
-          <label className="field">
-            <span>Your name</span>
-            <input name="name" autoComplete="name" maxLength={150} required />
-          </label>
-        )}
-        <label className="field">
-          <span>Email</span>
-          <input
-            name="email"
-            type="email"
-            required
-            autoComplete="email"
-            maxLength={254}
-          />
-        </label>
-        <label className="field">
-          <span>Password</span>
-          <input
-            name="password"
-            type="password"
-            required
-            minLength={signup ? 12 : 1}
-            autoComplete={signup ? "new-password" : "current-password"}
-          />
-        </label>
-        {state.message && (
-          <p className="notice" role="status">
-            {state.message}
-          </p>
-        )}
-        <button className="button" disabled={pending || !configured}>
-          {pending ? "Please wait…" : signup ? "Create account" : "Sign in"}
-        </button>
-      </form>
-      <p className="help-line">
-        No shared password. Each member signs in with their own account.{" "}
-        {signup ? "Check your confirmation email before signing in." : ""}
-      </p>
-    </div>
-  );
+import { signIn } from "@/app/sign-in/actions";
+export function AuthForm({ next, configured }: { next: string; configured: boolean }) {
+  const [state, action, pending] = useActionState(signIn, { message: "" });
+  const [showPassword, setShowPassword] = useState(false);
+  return <div className="auth-panel">
+    <form action={action}>
+      <input type="hidden" name="next" value={next} />
+      <label className="field"><span>Email</span><input name="email" type="email" required autoComplete="username" autoCapitalize="none" spellCheck={false} maxLength={254} /></label>
+      <label className="field"><span>Password</span><input name="password" type={showPassword ? "text" : "password"} required autoComplete="current-password" /></label>
+      <button type="button" className="subtle-button" aria-pressed={showPassword} onClick={() => setShowPassword(!showPassword)}>{showPassword ? "Hide password" : "Show password"}</button>
+      {state.message && <p className="notice" role="status">{state.message}</p>}
+      <button className="button" disabled={pending || !configured}>{pending ? "Signing in…" : "Sign in"}</button>
+    </form>
+    <p className="help-line">Use the email and password Jonas gave you. Need help getting in? Contact Jonas.</p>
+  </div>;
 }

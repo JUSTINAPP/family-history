@@ -19,7 +19,9 @@ export async function signIn(_previous: { message: string }, form: FormData) {
     if (error)
       return {
         message:
-          "Sign-in was not successful. Check your details and email confirmation, then try again.",
+          error.code === "email_not_confirmed"
+            ? "Your account needs to be activated by Jonas. You do not need to confirm an email; please ask Jonas to finish setting up your access."
+            : "We could not sign you in. Check the email and password Jonas gave you, or contact him for help.",
       };
   } catch {
     return { message: "Sign-in is temporarily unavailable. Please try again." };
@@ -27,32 +29,9 @@ export async function signIn(_previous: { message: string }, form: FormData) {
   redirect(safeNext(String(form.get("next") || "/")));
 }
 export async function signUp(_previous: { message: string }, form: FormData) {
-  if (!supabaseConfig())
-    return { message: "Supabase configuration is not saved yet." };
-  const email = String(form.get("email") || "").trim();
-  const password = String(form.get("password") || "");
-  const name = String(form.get("name") || "").trim();
-  if (password.length < 12)
-    return { message: "Choose a password with at least 12 characters." };
-  try {
-    const client = await serverSupabase();
-    const { error } = await client.auth.signUp({
-      email,
-      password,
-      options: { data: { display_name: name } },
-    });
-    if (error)
-      return {
-        message:
-          "Account creation was not completed. Check the project signup settings or try again later.",
-      };
-    return {
-      message:
-        "If signup is available for this address, check your email to confirm the account, then sign in.",
-    };
-  } catch {
-    return { message: "Account creation is temporarily unavailable." };
-  }
+  void _previous;
+  void form;
+  return { message: "Accounts are set up by Jonas. Please contact him for access." };
 }
 export async function signOut() {
   if (supabaseConfig()) {

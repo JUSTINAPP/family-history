@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Header, Footer } from "../header";
 import { LiveWorkspaceProvider } from "./live-workspace";
-import { CreateArchive } from "./create-archive";
 import { loadWorkspace, requireSession } from "@/lib/backend/repository";
 import { safeError } from "@/lib/backend/errors";
 import { signOut } from "@/app/sign-in/actions";
@@ -73,7 +72,11 @@ export async function SessionLayout({
   if (!snapshot)
     return (
       <PublicChrome>
-        <CreateArchive />
+        <section className="capture-shell">
+          <h1>Your archive access is not ready yet.</h1>
+          <p>You are signed in, but this account has not been added to the shared Allen &amp; Cork archive. Ask Jonas to add your access, then reload this page.</p>
+          <Link className="button" href="/">Try again</Link>
+        </section>
         <form action={signOut} className="capture-shell">
           <button className="subtle-button">Sign out</button>
         </form>

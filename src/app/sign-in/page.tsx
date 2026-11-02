@@ -15,7 +15,7 @@ export default async function SignInPage({
       <PageIntro
         eyebrow="PRIVATE ARCHIVE"
         title="Sign in"
-        description="Sign in to explore and contribute to the archives you belong to."
+        description="Welcome to the Allen & Cork archive. Sign in to browse the collection and join the conversation."
       />
       {!configured && (
         <p className="notice" role="status">
