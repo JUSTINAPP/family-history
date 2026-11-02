@@ -13,6 +13,6 @@ export function AuthForm({ next, configured }: { next: string; configured: boole
       {state.message && <p className="notice" role="status">{state.message}</p>}
       <button className="button" disabled={pending || !configured}>{pending ? "Signing in…" : "Sign in"}</button>
     </form>
-    <p className="help-line">Use the email and password Jonas gave you. Need help getting in? Contact Jonas.</p>
+    <p className="help-line">Use your email and password. Joining for the first time? Open the invitation link sent to you.</p>
   </div>;
 }

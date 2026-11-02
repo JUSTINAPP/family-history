@@ -82,6 +82,7 @@ export function Header() {
                 <Link href="/admin" onClick={() => setProfile(false)}>
                   Archive administration <ArrowUpRight size={15} />
                 </Link>
+                {mode === "live" && can(role, "contributor") && <Link href="/invite" onClick={() => setProfile(false)}>Invite someone <ArrowUpRight size={15} /></Link>}
                 {mode === "live" && can(role, "editor") && <>
                   <Link href="/explore?state=archived" onClick={() => setProfile(false)}>Archived items <ArrowUpRight size={15} /></Link>
                   <Link href="/admin/deletions" onClick={() => setProfile(false)}>Deletion progress <ArrowUpRight size={15} /></Link>
@@ -127,6 +128,7 @@ export function Header() {
               </Link>
             ))}
             <Link prefetch={false} href="/quick-catalogue" onClick={() => setOpen(false)}>Quick catalogue <ArrowUpRight size={20} /></Link>
+            {mode === "live" && can(role, "contributor") && <Link prefetch={false} href="/invite" onClick={() => setOpen(false)}>Invite someone <ArrowUpRight size={20} /></Link>}
             <Link prefetch={false} href="/add/bulk" onClick={() => setOpen(false)}>Bulk upload <ArrowUpRight size={20} /></Link>
             <Link prefetch={false} href="/admin" onClick={() => setOpen(false)}>
               Admin

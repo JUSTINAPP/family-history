@@ -125,19 +125,17 @@ export function LiveAdmin({ section = "overview" }: { section?: string }) {
       <>
         <div className="admin-page-heading">
           <div>
-            <p className="eyebrow">SECURE INVITATIONS · NEXT STEP</p>
+            <p className="eyebrow">INVITE SOMEONE</p>
             <h1>Invitations.</h1>
             <p>
-              Invitation records and archive-scoped roles are prepared in the
-              database.
+              Invite someone to join the shared archive using their own email and password.
             </p>
           </div>
         </div>
         <p className="notice">
-          No email invitations are sent from this interface yet. Configure
-          trusted delivery and secure, expiring redemption before enabling it.
-          Do not create shared passwords.
+          Create an invitation link for their email address, then share it by email or message. Links expire after seven days.
         </p>
+        <Link className="button" href="/invite">Invite someone</Link>
       </>
     );
   if (section === "activity")

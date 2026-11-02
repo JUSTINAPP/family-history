@@ -21,7 +21,7 @@ export async function signIn(_previous: { message: string }, form: FormData) {
         message:
           error.code === "email_not_confirmed"
             ? "Your account needs to be activated by Jonas. You do not need to confirm an email; please ask Jonas to finish setting up your access."
-            : "We could not sign you in. Check the email and password Jonas gave you, or contact him for help.",
+            : "We could not sign you in. Check your email and password, or ask the person who invited you for help.",
       };
   } catch {
     return { message: "Sign-in is temporarily unavailable. Please try again." };

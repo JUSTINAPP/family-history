@@ -10,6 +10,7 @@ import { classificationChecks } from "./test-classification.mjs";
 import { documentChecks } from "./test-documents.mjs";
 import { conversationChecks } from "./test-conversation.mjs";
 import { placeChecks } from "./test-places.mjs";
+import { invitationChecks } from "./test-invitations.mjs";
 const directory = await mkdtemp(join(tmpdir(), "archive-postgres-"));
 let db = new PGlite(directory);
 let checks = 0;
@@ -1183,6 +1184,7 @@ try {
       "Audio migration 006 also applies after independent migration 007.",
     );
   }
+  checks += await invitationChecks({q,asUser,asOwner,db,users});
   await db.close();
   db = new PGlite(directory);
   const after = (
