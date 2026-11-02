@@ -21,6 +21,7 @@ export function ArchiveImage({
   onReady,
   fetchPriority,
   fitFrame = false,
+  eager = false,
 }: {
   src: string;
   alt: string;
@@ -37,6 +38,7 @@ export function ArchiveImage({
   onReady?: () => void;
   fetchPriority?: "high" | "low" | "auto";
   fitFrame?: boolean;
+  eager?: boolean;
 }) {
   const variant = src.includes("variant=thumbnail")
     ? "thumbnail"
@@ -58,6 +60,22 @@ export function ArchiveImage({
   const rotation = suppliedSet?.rotation ?? set?.rotation ?? fallbackRotation;
   const quarter = rotation % 180 !== 0;
   const frame = useRef<HTMLDivElement>(null);
+  const [nearby, setNearby] = useState(false);
+  useEffect(() => {
+    const element = frame.current;
+    if (!element || priority || eager) return;
+    const connection = (navigator as Navigator & {connection?: {saveData?: boolean; effectiveType?: string}}).connection;
+    if (connection?.saveData || /(^|-)2g$/.test(connection?.effectiveType || "")) return;
+    const slider = element.closest(".home-slider");
+    const observer = new IntersectionObserver(entries => {
+      if (entries.some(entry => entry.isIntersecting)) {
+        setNearby(true);
+        observer.disconnect();
+      }
+    }, {root: slider, rootMargin: slider ? "0px 100%" : "800px 0px"});
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [priority, eager]);
   const [box,setBox]=useState({width:0,height:0});
   useEffect(()=>{
     if(!rotation || !frame.current)return;
@@ -204,7 +222,7 @@ export function ArchiveImage({
               alt={alt}
               width={primary!.width}
               height={primary!.height}
-              loading={priority ? "eager" : "lazy"}
+              loading={priority || eager || nearby ? "eager" : "lazy"}
               fetchPriority={fetchPriority || (priority ? "high" : "auto")}
               onLoad={() => setLoaded(delivery)}
               onError={() => {
@@ -230,7 +248,7 @@ export function ArchiveImage({
               alt={alt}
               fill
               sizes={sizes || "(max-width: 600px) 95vw, (max-width: 1000px) 48vw, 40vw"}
-              loading={priority ? "eager" : "lazy"}
+              loading={priority || eager || nearby ? "eager" : "lazy"}
               fetchPriority={fetchPriority || (priority ? "high" : undefined)}
               unoptimized={local || src.startsWith("/api/v1/")}
               onLoad={()=>setLoaded(delivery)}

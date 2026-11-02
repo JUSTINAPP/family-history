@@ -144,7 +144,7 @@ test("production build retrospectively converts two preserved HEICs and privatel
     )
     .toBe(true);
   const gridImage = page.locator(".item-card img").first();
-  await expect(gridImage).toHaveAttribute("loading", "lazy");
+  await expect(gridImage).toHaveAttribute("loading", "eager");
   await expect(gridImage).toHaveAttribute("srcset", / \d+w/);
   await expect(gridImage).toHaveAttribute("sizes", /vw/);
   expect(
@@ -1025,7 +1025,9 @@ test("home is a visit-stable private scrapbook using real small variants and wor
   expect(visit.value).toMatch(/^[a-f0-9-]{36}$/);expect(visit.httpOnly).toBe(true);expect(visit.expires).toBe(-1);
   for (const link of links) expect(state.items.some((i: {id: string; archived_at?: string}) => link?.includes(i.id) && !i.archived_at)).toBe(true);
   await expect(pieces.first().locator(".has-placeholder .image-presentation")).toHaveCSS("background-image", /data:image\/webp/);
-  await expect(pieces.last().locator("img")).toHaveAttribute("loading", "lazy");
+  // The mounted batch warms in the background, without requesting originals.
+  await expect(pieces.last().locator("img")).toHaveAttribute("loading", "eager", {timeout: 10000});
+  await expect.poll(() => pieces.last().locator("img").evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0)).toBe(true);
   await expect(pieces.first().locator("img")).toHaveAttribute("data-image-variant", "small");
   await expect(pieces.first().locator("img")).not.toHaveAttribute("srcset");
   await request.get("http://127.0.0.1:4301/__fixture/metrics?reset=1");

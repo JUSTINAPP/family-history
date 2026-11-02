@@ -7,12 +7,12 @@ import { ArchiveImage } from "../archive-image";
 import { MemoryViewer } from "./memory-viewer";
 import type { RecordingView } from "@/lib/audio/repository";
 import type { ArchiveItem } from "@/lib/types";
-export function PhotoMemories({ item, recordings, priority, children }: { item: ArchiveItem; recordings: RecordingView[]; priority: boolean; children: ReactNode }) {
+export function PhotoMemories({ item, recordings, priority, eager = false, children }: { item: ArchiveItem; recordings: RecordingView[]; priority: boolean; eager?: boolean; children: ReactNode }) {
   const workspace = useWorkspace();
   const [mode, setMode] = useState<"listen" | "record" | null>(null);
   return <div className="photo-memories">
     <button type="button" className="photo-open" aria-label={`View photo: ${item.title}`} aria-haspopup="dialog" onClick={() => setMode("listen")}>
-      <ArchiveImage src={item.image} alt={item.title} imageSet={item.imageSet} rotation={item.rotation} variant="small" autoPrepare={false} priority={priority} fitFrame sizes="(max-width: 820px) 80vw, 400px" />
+      <ArchiveImage src={item.image} alt={item.title} imageSet={item.imageSet} rotation={item.rotation} variant="small" autoPrepare={false} priority={priority} eager={eager} fetchPriority={priority ? "high" : "low"} fitFrame sizes="(max-width: 820px) 80vw, 400px" />
     </button>
     {children}
     <div className="memory-actions">
