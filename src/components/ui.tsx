@@ -1,4 +1,5 @@
 import { InlineConversation } from "./live/inline-conversation";
+import { CardDetails } from "./live/card-details";
 import { ConversationLink } from "./conversation-link";
 import { ArchiveImage } from "./archive-image";
 export { ArchiveImage } from "./archive-image";
@@ -97,6 +98,7 @@ export function ItemCard({
         </div>
       </div>
       {inlineConversation && <InlineConversation item={item} />}
+      {inlineConversation && <CardDetails item={item} />}
     </article>
   );
 }

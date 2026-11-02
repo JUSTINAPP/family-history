@@ -5434,3 +5434,17 @@ h1, h2, h3 { font-weight: 500; }
 .cinema-status { position: absolute; bottom: max(82px,calc(env(safe-area-inset-bottom) + 58px)); left: 50%; transform: translateX(-50%); width: max-content; max-width: calc(100% - 40px); text-align: center; color: white; background: #15211bcc; border-radius: 8px; padding: 8px 12px; font-size: 14px; z-index: 5; }
 @keyframes cinema-drift { from { transform: scale(1) translateX(-.5%); } to { transform: scale(1.12) translateX(1.5%); } }
 @media(prefers-reduced-motion:reduce) { .memory-viewer[data-mode="listen"] .memory-cinema { animation: none; } }
+
+/* Quick actions stay within each Explore card rather than opening a record. */
+.card-quick-actions { margin-top: 16px; min-width: 0; }
+.card-quick-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+.card-quick-buttons .memory-button { min-height: 44px; font-size: 14px; padding: 10px 12px; }
+.card-quick-editor { margin-top: 14px; padding: 16px; border: 1px solid var(--line, #d8d8ce); border-radius: 12px; background: #fffdf6; overflow-wrap: anywhere; }
+.card-quick-editor h2 { font-size: 20px; margin: 16px 0 8px; }
+.card-quick-editor h3 { font-size: 17px; }
+.card-quick-editor .item-people, .card-quick-editor .quick-field { margin: 0 0 16px; padding: 0 0 12px; }
+.card-quick-editor .field input, .card-quick-editor .field select { min-width: 0; width: 100%; border-radius: 8px; }
+.card-quick-editor .button, .card-quick-editor .subtle-button { border-radius: 8px; min-height: 44px; white-space: normal; }
+.card-quick-editor .notice { padding: 12px; }
+.card-quick-editor .people-associations { padding-left: 16px; }
+.card-quick-editor .people-associations li { min-width: 0; }
