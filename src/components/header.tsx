@@ -1,5 +1,5 @@
 "use client";
-import Link from "next/link";
+import { PendingLink as Link } from "./pending-link";
 import { usePathname } from "next/navigation";
 import { useRef, useState } from "react";
 import { signOut } from "@/app/sign-in/actions";

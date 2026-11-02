@@ -11,6 +11,7 @@ export function AudioMetadataFields({
   onPeople,
   onItems,
   disabled = false,
+  memory = false,
 }: {
   value: AudioMetadata;
   onChange: (value: AudioMetadata) => void;
@@ -21,6 +22,7 @@ export function AudioMetadataFields({
   onPeople: (ids: string[]) => void;
   onItems: (ids: string[]) => void;
   disabled?: boolean;
+  memory?: boolean;
 }) {
   const [tags, setTags] = useState(value.tags.join(", "));
   const field = (key: keyof AudioMetadata, label: string, max = 300) => (
@@ -34,11 +36,21 @@ export function AudioMetadataFields({
       />
     </label>
   );
+  if (memory) return <div className="audio-metadata">
+    {field("speaker", "Who is speaking? (for example, Jan or Jan and Craig)")}
+    <fieldset className="memory-people"><legend>People linked to this memory (optional)</legend>
+      {people.map(p => <label key={p.id}><input type="checkbox" disabled={disabled} checked={relatedPeople.includes(p.id)} onChange={e => onPeople(e.target.checked ? [...relatedPeople, p.id] : relatedPeople.filter(id => id !== p.id))} />{p.name}</label>)}
+      {!people.length && <p className="help-line">People can be linked later.</p>}
+    </fieldset>
+    <details><summary>More details (optional)</summary>{field("title", "Title")}
+      <label className="field"><span>About this memory</span><textarea disabled={disabled} value={value.description} maxLength={20000} onChange={e => onChange({...value, description: e.target.value})} /></label>
+    </details>
+  </div>;
   return (
-    <details className="audio-metadata">
-      <summary>Add names, dates or context (optional)</summary>
+    <details className="audio-metadata" open={memory || undefined}>
+      <summary>{memory ? "Who is speaking, and who is this memory about?" : "Add names, dates or context (optional)"}</summary>
       {field("title", "Title")}
-      {field("speaker", "Speaker")}
+      {field("speaker", memory ? "Who is speaking? (for example, Jan or Jan and Craig)" : "Speaker")}
       <label className="field">
         <span>Speaker’s person record</span>
         <select
@@ -97,23 +109,10 @@ export function AudioMetadataFields({
           }}
         />
       </label>
-      <label className="field">
-        <span>Related people</span>
-        <select
-          multiple
-          disabled={disabled}
-          value={relatedPeople}
-          onChange={(e) =>
-            onPeople(Array.from(e.target.selectedOptions, (o) => o.value))
-          }
-        >
-          {people.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
-      </label>
+      <fieldset className="memory-people"><legend>People linked to this memory</legend>
+        {people.map(p => <label key={p.id}><input type="checkbox" disabled={disabled} checked={relatedPeople.includes(p.id)} onChange={e => onPeople(e.target.checked ? [...relatedPeople, p.id] : relatedPeople.filter(id => id !== p.id))} />{p.name}</label>)}
+        {!people.length && <p className="help-line">People can be added to the archive later.</p>}
+      </fieldset>
       <label className="field">
         <span>Related archive items</span>
         <select

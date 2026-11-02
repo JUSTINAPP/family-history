@@ -12,7 +12,7 @@ import {
   emptyAudioMetadata,
 } from "@/lib/audio/validation";
 import { can } from "@/lib/permissions";
-export function AudioCapture({ itemId }: { itemId?: string }) {
+export function AudioCapture({ itemId, inline = false, onSaved }: { itemId?: string; inline?: boolean; onSaved?: () => void }) {
   const workspace = useWorkspace(),
     router = useRouter();
   const [file, setFile] = useState<File | null>(null),
@@ -86,7 +86,8 @@ export function AudioCapture({ itemId }: { itemId?: string }) {
       setFile(null);
       setKey((k) => k + 1);
       captureId.current = crypto.randomUUID();
-      router.push(`/archive/${result.itemId}`);
+      if (inline) onSaved?.();
+      else router.push(`/archive/${result.itemId}`);
       router.refresh();
     } catch (error) {
       if (mounted.current)
@@ -168,6 +169,7 @@ export function AudioCapture({ itemId }: { itemId?: string }) {
         </section>
       )}
       <AudioMetadataFields
+        memory={inline}
         value={metadata}
         onChange={setMetadata}
         people={workspace.historicalPeople}

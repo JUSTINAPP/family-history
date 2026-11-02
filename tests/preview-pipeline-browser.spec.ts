@@ -1058,6 +1058,38 @@ test("home is a visit-stable private scrapbook using real small variants and wor
   expect(Math.abs(proportions.frame - proportions.source)).toBeLessThan(.08);
   const homeAddress = page.url();
   const homeCard = pieces.first();
+  await homeCard.getByRole("button", {name: "Record a message", exact: true}).click();
+  const memory = homeCard.getByRole("region", {name: /Record a memory about/});
+  await expect(memory.getByRole("button", {name: "Record", exact: true})).toBeVisible();
+  await memory.getByLabel("Who is speaking?", {exact: false}).fill("Jan and Craig");
+  const peopleChoices = memory.getByRole("checkbox");
+  expect(await peopleChoices.count()).toBeGreaterThan(1);
+  await peopleChoices.nth(0).check();
+  await peopleChoices.nth(1).check();
+  await expect(peopleChoices.nth(0)).toBeChecked();
+  await expect(peopleChoices.nth(1)).toBeChecked();
+  await memory.getByLabel("Upload audio recording").setInputFiles("public/audio/example-recollection.wav");
+  await expect(memory.getByLabel("Preview selected audio")).toBeVisible();
+  await expect(memory.getByRole("button", {name: "Save voice recollection"})).toBeEnabled();
+  expect(page.url()).toBe(homeAddress);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
+  await page.screenshot({path: "/private/tmp/home-voice-memory-375.png", fullPage: true});
+  page.once("dialog", dialog => dialog.accept());
+  await homeCard.getByRole("button", {name: "Close recorder", exact: true}).click();
+  await expect(memory).toBeHidden();
+  const memoryItem = links[0]!.split("/archive/")[1].split("?")[0];
+  await request.post(`http://127.0.0.1:4301/__fixture/home-audio?item=${memoryItem}`);
+  await page.reload();
+  await homeCard.getByRole("button", {name: /Listen to 2 memories about/}).click();
+  await expect(homeCard.getByRole("heading", {name: "Listen to Jan talk about this"})).toBeVisible();
+  await expect(homeCard.getByRole("heading", {name: "Listen to Craig talk about this"})).toBeVisible();
+  const jan = homeCard.getByLabel("Play Jan's memory"), craig = homeCard.getByLabel("Play Craig's memory");
+  await jan.evaluate((audio: HTMLAudioElement) => audio.play());
+  await craig.evaluate((audio: HTMLAudioElement) => audio.play());
+  expect(await jan.evaluate((audio: HTMLAudioElement) => audio.paused)).toBe(true);
+  await craig.evaluate((audio: HTMLAudioElement) => audio.pause());
+  await page.screenshot({path: "/private/tmp/home-listen-memories-375.png", fullPage: true});
+  await homeCard.getByRole("button", {name: /Listen to 2 memories about/}).click();
   const homeCommentReads: string[] = [];
   page.on("request", request => {
     if (request.url().includes("/api/v1/conversations/")) homeCommentReads.push(request.url());
@@ -1117,6 +1149,27 @@ test("home is a visit-stable private scrapbook using real small variants and wor
   await expect(nextPage.locator(".scrapbook-piece")).toHaveCount(initialCount);
   expect((await nextVisit.cookies()).find(c=>c.name===HOME_VISIT_COOKIE)!.value).not.toBe(visit.value);
   await nextVisit.close();
+});
+
+test("desktop navigation shows feedback inside the selected link while loading", async ({page}) => {
+  await page.setViewportSize({width:1440,height:1000});
+  await page.route("**/places*", async route => {
+    if (route.request().headers()["next-router-prefetch"]) return route.abort();
+    await new Promise(resolve => setTimeout(resolve, 1200));
+    await route.continue();
+  });
+  await page.goto("/sign-in");
+  await page.getByLabel("Email", {exact:true}).fill("visibility@example.test");
+  await page.getByLabel("Password", {exact:true}).fill("local-fixture-password");
+  await page.getByRole("button", {name:"Sign in",exact:true}).click();
+  await expect(page).toHaveURL(/\/$/);
+  const link = page.getByRole("navigation", {name:"Main navigation"}).locator('a[href="/places"]');
+  await link.hover();
+  await expect(link).toHaveCSS("background-color", "rgb(227, 232, 220)");
+  await link.click();
+  await expect(link.locator('[data-pending="true"]')).toBeVisible();
+  await expect(page).toHaveURL(/\/places$/);
+  await expect(link.locator('[data-pending="true"]')).toHaveCount(0);
 });
 
 test("quick catalogue saves fields independently and supports a private attributed family conversation", async ({page,request}) => {

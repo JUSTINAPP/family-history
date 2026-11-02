@@ -1,7 +1,9 @@
 import { HomeGallery } from "../home-gallery";
 import Link from "next/link";
 import { ArchiveImage, TextLink } from "../ui";
-import { loadWorkspace } from "@/lib/backend/repository";
+import { loadWorkspace, requireSession } from "@/lib/backend/repository";
+import { loadRecordings } from "@/lib/audio/repository";
+import { LiveWorkspaceProvider } from "./live-workspace";
 import { loadPlaceData, workspaceWithPlaces } from "@/lib/backend/places";
 import { homeMaterial } from "@/lib/home-material";
 import { reportRender } from "@/lib/backend/performance";
@@ -10,6 +12,8 @@ import { HOME_VISIT_COOKIE, homeVisitHash } from "@/lib/home-visit";
 export async function LiveHome() {
   let workspace = await loadWorkspace({ materialOnly: true });
   if (!workspace) return null;
+  const { client } = await requireSession();
+  const audio = await loadRecordings(client, workspace.archive.id).then(recordings => ({recordings, unavailable: false})).catch(() => ({recordings: [], unavailable: true}));
   try { workspace = workspaceWithPlaces(workspace, await loadPlaceData(workspace.archive.id)); } catch { /* Core material remains available if Place context is unavailable. */ }
   const visit = `${workspace.archive.id}:${(await cookies()).get(HOME_VISIT_COOKIE)?.value || "initial"}`;
   const material = homeMaterial(workspace.catalogue, 3, visit);
@@ -28,7 +32,8 @@ export async function LiveHome() {
       ) : !workspace.catalogue.length ? (
         <section className="empty-state"><h2>No items yet</h2><p>Add photographs, letters, documents or objects to this archive.</p><Link className="button" href="/add">Add to archive</Link></section>
       ) : <>
-        {!!material.length && <HomeGallery items={gallery} />}
+        {audio.unavailable && <p className="notice">Voice memories could not load. Refresh to try again.</p>}
+        {!!material.length && <LiveWorkspaceProvider snapshot={workspace}><HomeGallery items={gallery} recordings={audio.recordings} /></LiveWorkspaceProvider>}
         {!material.length && <p className="notice">Items are available below. Image previews are not ready yet.</p>}
         <div className="home-browse-actions">
           <Link prefetch={false} className="button" href={`/explore?archive=${workspace.archive.id}`}>Explore the collection <span aria-hidden="true">↗</span></Link>

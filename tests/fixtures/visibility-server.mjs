@@ -145,6 +145,7 @@ export async function fixtureServer(
   let failPreview = false;
   let failDelete = false;
   const attempts = new Map();
+  let homeAudio = null;
   let failList = false;
   const server = createServer(async (req, res) => {
     const address = new URL(req.url, url);
@@ -157,6 +158,28 @@ export async function fixtureServer(
       res.writeHead(status, { "Content-Type": "application/json", ...headers });
       res.end(value === null ? "" : JSON.stringify(value));
     }
+    if (address.pathname === "/__fixture/home-audio" && management) {
+      const photo = address.searchParams.get("item");
+      const bytes = await readFile("public/audio/example-recollection.wav");
+      homeAudio = ["Jan", "Craig"].map(speaker => {
+        const id = crypto.randomUUID(), fileId = crypto.randomUUID();
+        const file = {...files[0], id:fileId, item_id:photo, purpose:"audio_original", original_filename:`${speaker}.wav`, mime_type:"audio/wav", byte_size:bytes.length, sha256:createHash("sha256").update(bytes).digest("hex"), status:"stored", storage_path:`${ARCHIVE}/${photo}/${fileId}`};
+        files.push(file); objects.set(`${file.bucket_id}/${file.storage_path}`,bytes);
+        return {id, archive_id:ARCHIVE, original_file_id:fileId, recollection_id:crypto.randomUUID(), title:`${speaker}'s memory`, speaker_text:speaker, speaker_person_id:null, contributed_by:USER, duration_ms:2000, recorded_date:"2026-11-03", date_precision:"exact", location:"", description:"", tags:[], created_at:"2026-11-03T00:00:00Z", updated_at:"2026-11-03T00:00:00Z", archived_at:null, standalone:false};
+      });
+      return send(200, {count:homeAudio.length});
+    }
+    if (homeAudio && address.pathname.startsWith("/storage/v1/object/sign/")) {
+      const key = decodeURIComponent(address.pathname.replace("/storage/v1/object/sign/", ""));
+      if (!objects.has(key)) return send(404, {message:"Missing test audio"});
+      if (req.method === "POST") return send(200, {signedURL:`/object/sign/${key}?token=fixture`});
+      const bytes = objects.get(key);
+      res.writeHead(200, {"Content-Type":"audio/wav", "Content-Length":bytes.length});
+      res.end(bytes); return;
+    }
+    if (homeAudio && address.pathname === "/rest/v1/recollection_audio") return send(200, homeAudio);
+    if (homeAudio && ["/rest/v1/audio_people", "/rest/v1/audio_item_links"].includes(address.pathname)) return send(200, []);
+    if (homeAudio && address.pathname === "/rest/v1/rpc/audio_attribution") return send(200, homeAudio.map(r => ({recording_id:r.id,display_name:"Test contributor"})));
     if (address.pathname === "/__fixture/metrics") {
       const counts = {};
       for (const entry of requests.filter(
