@@ -160,6 +160,7 @@ export function Explore() {
         {workspace.mode === "live" && <Link prefetch={false} className="text-link" href={`/quick-catalogue?archive=${workspace.archive.id}`}>Quick catalogue ↗</Link>}
       </div>
       <div className="archive-controls">
+        {workspace.resourceWarnings?.filter(w => w.startsWith("Transcription status")).map(w => <p className="notice" key={w} role="status">{w}</p>)}
         <div className="search-field">
           <Search size={20} />
           <input

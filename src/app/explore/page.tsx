@@ -1,4 +1,4 @@
-import { reviewedDocumentSearch } from "@/lib/documents/repository";
+import { completedTranscriptions, reviewedDocumentSearch } from "@/lib/documents/repository";
 import { notFound } from "next/navigation";
 import { loadWorkspace } from "@/lib/backend/repository";
 import { LiveWorkspaceProvider } from "@/components/live/live-workspace";
@@ -57,6 +57,14 @@ export default async function ExplorePage({
     } catch {snapshot={...snapshot,resourceWarnings:[...snapshot.resourceWarnings,"Reviewed document text could not load. Title and metadata search remain available."]};}
   }
   reportRender("explore");
+  if (snapshot) {
+    try {
+      const runs = await completedTranscriptions(snapshot.archive.id);
+      snapshot = {...snapshot, catalogue: snapshot.catalogue.map(item => ({...item, transcriptionRunId: runs.get(item.id)}))};
+    } catch {
+      snapshot = {...snapshot, resourceWarnings: [...snapshot.resourceWarnings, "Transcription status could not load. Open a letter to check its transcription."]};
+    }
+  }
   const filterKey = JSON.stringify(params);
   return (
     <Suspense

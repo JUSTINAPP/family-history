@@ -5448,3 +5448,7 @@ h1, h2, h3 { font-weight: 500; }
 .card-quick-editor .notice { padding: 12px; }
 .card-quick-editor .people-associations { padding-left: 16px; }
 .card-quick-editor .people-associations li { min-width: 0; }
+
+.card-transcription { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 14px 0; font-size: 14px; }
+.card-transcription > span { padding: 5px 10px; border-radius: 8px; color: #2d5140; background: #e4eadf; }
+.card-transcription .text-link { min-height: 44px; display: inline-flex; align-items: center; }

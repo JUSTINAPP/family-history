@@ -1747,3 +1747,18 @@ test("Explore quick details save people places and dates without leaving the gri
   await card.getByRole("button",{name:"Who, where, when",exact:true}).click();
   await expect(card.getByText("c. 1984",{exact:true}).last()).toBeVisible();
 });
+
+test("Explore transcription badge links to the completed source reading", async ({page, request}) => {
+  const seed=await(await request.post("http://127.0.0.1:4301/__fixture/document-item")).json();
+  await page.context().addCookies([{name:"active_archive",value:archive,url:"http://127.0.0.1:4300"}]);
+  await page.goto("/sign-in?next="+encodeURIComponent(`/explore?archive=${archive}`));
+  await page.getByLabel("Email",{exact:true}).fill("visibility@example.test");
+  await page.getByLabel("Password",{exact:true}).fill("local-fixture-password");
+  await page.locator("form").getByRole("button",{name:"Sign in",exact:true}).click();
+  const card=page.locator(".item-card").filter({has:page.locator(`a[href="/archive/${seed.id}/review?run=${seed.runId}"]`)});
+  await expect(card.getByText("Transcribed",{exact:true})).toBeVisible();
+  await expect(page.locator('.item-card').filter({has:page.getByRole('heading',{name:'Quick photograph 1',exact:true})}).getByText('Transcribed',{exact:true})).toHaveCount(0);
+  await card.getByRole("link",{name:"Read transcription ↗",exact:true}).click();
+  await expect(page).toHaveURL(new RegExp(`/archive/${seed.id}/review\\?run=${seed.runId}`));
+  await expect(page.getByRole("region",{name:"Page transcription"}).getByText("Cher Jan, Auroville, 17 August 1978. [unclear]",{exact:true})).toBeVisible();
+});

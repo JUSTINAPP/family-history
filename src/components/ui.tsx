@@ -98,6 +98,10 @@ export function ItemCard({
         </div>
       </div>
       {inlineConversation && <InlineConversation item={item} />}
+      {item.transcriptionRunId && <div className="card-transcription">
+        <span>Transcribed</span>
+        <Link prefetch={false} className="text-link" href={`/archive/${item.id}/review?run=${item.transcriptionRunId}`}>Read transcription ↗</Link>
+      </div>}
       {inlineConversation && <CardDetails item={item} />}
     </article>
   );

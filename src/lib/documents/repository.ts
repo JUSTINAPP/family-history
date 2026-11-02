@@ -38,3 +38,16 @@ export async function reviewedDocumentSearch(archiveId:string) {
   for(const r of rows.data)if(!seen.has(r.original_file_id)){seen.add(r.original_file_id);text.set(r.item_id,[...(text.get(r.item_id)||[]),r.reviewed_text]);}
   return text;
 }
+
+/** One archive-scoped read for card status; never fetch full transcripts per card. */
+export async function completedTranscriptions(archiveId: string) {
+  const {client} = await requireSession();
+  const rows = await allRows<{id: string; item_id: string}>((from, to) => client.from("document_runs")
+    .select("id,item_id", {count: "exact"}).eq("archive_id", archiveId)
+    .eq("operation", "transcribe").eq("status", "complete")
+    .order("created_at", {ascending: false}).order("id").range(from, to).retry(false)
+    .abortSignal(AbortSignal.timeout(3000)), row => row.id);
+  const latest = new Map<string, string>();
+  for (const row of rows.data) if (!latest.has(row.item_id)) latest.set(row.item_id, row.id);
+  return latest;
+}

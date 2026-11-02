@@ -28,6 +28,7 @@ export interface ArchiveFile {
 export interface ArchiveItem {
   rawTitle?: string;
   reviewedText?: string;
+  transcriptionRunId?: string;
   commentCount?: number;
   originalId?: string;
   rotation?: number;
