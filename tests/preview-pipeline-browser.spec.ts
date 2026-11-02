@@ -1058,6 +1058,7 @@ test("home is a visit-stable private scrapbook using real small variants and wor
   expect(Math.abs(proportions.frame - proportions.source)).toBeLessThan(.08);
   const homeAddress = page.url();
   const homeCard = pieces.first();
+  const cardImagesBeforeViewer = [...images];
   await homeCard.getByRole("button", {name: "Record a message", exact: true}).click();
   const memory = homeCard.getByRole("region", {name: /Record a memory about/});
   await expect(memory.getByRole("button", {name: "Record", exact: true})).toBeVisible();
@@ -1075,21 +1076,42 @@ test("home is a visit-stable private scrapbook using real small variants and wor
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
   await page.screenshot({path: "/private/tmp/home-voice-memory-375.png", fullPage: true});
   page.once("dialog", dialog => dialog.accept());
-  await homeCard.getByRole("button", {name: "Close recorder", exact: true}).click();
+  await page.getByRole("button", {name: "Close photo", exact: true}).click();
   await expect(memory).toBeHidden();
   const memoryItem = links[0]!.split("/archive/")[1].split("?")[0];
   await request.post(`http://127.0.0.1:4301/__fixture/home-audio?item=${memoryItem}`);
   await page.reload();
+  await page.route("**/api/v1/files/*", async route => {await new Promise(resolve=>setTimeout(resolve,700));await route.continue();});
   await homeCard.getByRole("button", {name: /Listen to 2 memories about/}).click();
+  const viewer=page.getByRole("dialog");
+  await expect(viewer).toBeVisible();
+  await expect(viewer.locator('.archive-image img')).toHaveAttribute('data-image-variant','display');
+  await expect(viewer.getByText("Loading voice memory…", {exact:true})).toBeVisible();
   await expect(homeCard.getByRole("heading", {name: "Listen to Jan talk about this"})).toBeVisible();
+  await expect(viewer.locator('.memory-cinema')).toHaveAttribute('data-playing','true');
+  await viewer.getByRole('button',{name:'Pause memory',exact:true}).click();
+  await expect(viewer.locator('.memory-cinema')).toHaveAttribute('data-playing','false');
+  await viewer.getByRole('button',{name:'Craig',exact:true}).click();
   await expect(homeCard.getByRole("heading", {name: "Listen to Craig talk about this"})).toBeVisible();
-  const jan = homeCard.getByLabel("Play Jan's memory"), craig = homeCard.getByLabel("Play Craig's memory");
-  await jan.evaluate((audio: HTMLAudioElement) => audio.play());
-  await craig.evaluate((audio: HTMLAudioElement) => audio.play());
-  expect(await jan.evaluate((audio: HTMLAudioElement) => audio.paused)).toBe(true);
-  await craig.evaluate((audio: HTMLAudioElement) => audio.pause());
-  await page.screenshot({path: "/private/tmp/home-listen-memories-375.png", fullPage: true});
-  await homeCard.getByRole("button", {name: /Listen to 2 memories about/}).click();
+  await expect(homeCard.getByLabel("Play Jan's memory")).toHaveCount(0);
+  await expect(viewer.locator('.memory-cinema')).toHaveAttribute('data-playing','true');
+  await viewer.getByRole('button',{name:'Keep photo still',exact:true}).click();
+  await expect(viewer.locator('.memory-cinema')).toHaveAttribute('data-playing','false');
+  await page.emulateMedia({reducedMotion:'reduce'});
+  await expect(viewer.locator('.memory-cinema')).toHaveCSS('animation-name','none');
+  await page.screenshot({path: "/private/tmp/memory-viewer-375.png"});
+  await page.setViewportSize({width:1440,height:1000});
+  await page.screenshot({path: "/private/tmp/memory-viewer-1440.png"});
+  await page.setViewportSize({width:375,height:850});
+  await page.keyboard.press('Escape');
+  await expect(viewer).toHaveCount(0);
+  await expect(homeCard.getByRole("button", {name:/Listen to 2 memories about/})).toBeFocused();
+  await homeCard.getByRole('button',{name:/View photo:/}).click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  expect(page.url()).toBe(homeAddress);
+  await page.getByRole('button',{name:'Close photo',exact:true}).click();
+  await page.unroute("**/api/v1/files/*");
+  await page.emulateMedia({reducedMotion:'no-preference'});
   const homeCommentReads: string[] = [];
   page.on("request", request => {
     if (request.url().includes("/api/v1/conversations/")) homeCommentReads.push(request.url());
@@ -1132,7 +1154,7 @@ test("home is a visit-stable private scrapbook using real small variants and wor
   await page.screenshot({path: "/private/tmp/scrapbook-mobile.png", fullPage: true});
   await page.setViewportSize({width: 1440, height: 1000});
   await page.screenshot({path: "/private/tmp/scrapbook-desktop.png", fullPage: true});
-  for (const url of images) {
+  for (const url of cardImagesBeforeViewer) {
     expect(url).toContain("/api/v1/assets/");
     expect(smallIds.has(new URL(url).pathname.split("/").pop())).toBe(true);
   }

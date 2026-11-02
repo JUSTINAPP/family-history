@@ -12,7 +12,7 @@ import {
   emptyAudioMetadata,
 } from "@/lib/audio/validation";
 import { can } from "@/lib/permissions";
-export function AudioCapture({ itemId, inline = false, onSaved }: { itemId?: string; inline?: boolean; onSaved?: () => void }) {
+export function AudioCapture({ itemId, inline = false, onSaved, onDirtyChange, onSavingChange }: { itemId?: string; inline?: boolean; onSaved?: () => void; onDirtyChange?: (dirty: boolean) => void; onSavingChange?: (saving: boolean) => void }) {
   const workspace = useWorkspace(),
     router = useRouter();
   const [file, setFile] = useState<File | null>(null),
@@ -26,6 +26,8 @@ export function AudioCapture({ itemId, inline = false, onSaved }: { itemId?: str
     [items, setItems] = useState<string[]>([]),
     [key, setKey] = useState(0);
   const captureId = useRef("");
+  useEffect(() => {onDirtyChange?.(!!file || recording || !!metadata.speaker || !!metadata.title || !!metadata.description || people.length > 0);}, [file, recording, metadata.speaker, metadata.title, metadata.description, people.length, onDirtyChange]);
+  useEffect(() => {onSavingChange?.(saving);}, [saving, onSavingChange]);
   const mounted = useRef(true);
   useEffect(() => {
     mounted.current = true;
@@ -101,7 +103,7 @@ export function AudioCapture({ itemId, inline = false, onSaved }: { itemId?: str
     }
   }
   return (
-    <div className="catalogue-form">
+    <div className="catalogue-form audio-capture">
       <AudioRecorder
         key={key}
         disabled={saving}
