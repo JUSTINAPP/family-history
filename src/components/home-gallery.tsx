@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import type { ArchiveItem } from "@/lib/types";
@@ -7,7 +8,21 @@ import { InlineConversation } from "./live/inline-conversation";
 import { PhotoMemories } from "./audio/photo-memories";
 import type { RecordingView } from "@/lib/audio/repository";
 
-export function HomeGallery({ items, recordings = [] }: { items: ArchiveItem[]; recordings?: RecordingView[] }) {
+export function HomeGallery({ items, recordings = [], archiveId }: { items: ArchiveItem[]; recordings?: RecordingView[]; archiveId?: string }) {
+  const router = useRouter();
+  useEffect(() => {
+    const connection = (navigator as Navigator & {connection?: {saveData?: boolean; effectiveType?: string}}).connection;
+    if (!archiveId || connection?.saveData || /(^|-)2g$/.test(connection?.effectiveType || "")) return;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    const start = () => [`/explore?archive=${archiveId}`, "/explore", "/people", "/places"].forEach((path, index) => {
+      timers.push(setTimeout(() => {
+        if (document.visibilityState === "visible") router.prefetch(path);
+      }, 2500 + index * 2000));
+    });
+    if (document.readyState === "complete") start();
+    else window.addEventListener("load", start, {once: true});
+    return () => {timers.forEach(clearTimeout); window.removeEventListener("load", start);};
+  }, [router, archiveId]);
   const track = useRef<HTMLElement>(null);
   const [visible, setVisible] = useState(12);
   const [warmed, setWarmed] = useState(2);

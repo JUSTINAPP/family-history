@@ -21,7 +21,7 @@ function item(id: string, options: Partial<ArchiveItem> = {}) {
 }
 test("home selection is stable, varied and limited to actual ready material", () => {
   const rows = [item("a"),item("b"),item("c", {kind: "Letter"}),item("d", {people: ["person"]}),item("e", {placeIds: ["place"]}),item("f", {archivedAt: "2026"}),item("g", {imageSet: undefined})];
-  expect(homeMaterial(rows, 4).map(i => i.id)).toEqual(["a", "c", "d", "e"]);
+  expect(homeMaterial(rows, 4).map(i => i.id)).toEqual(["a", "b", "d", "c"]);
   expect(homeMaterial([...rows].reverse(), 4)).toEqual(homeMaterial(rows, 4));
   expect(homeMaterial(rows, 9)).toHaveLength(5);
   expect(homeMaterial([], 9)).toEqual([]);
@@ -35,7 +35,7 @@ test("visit seeds vary the feature without changing eligible data or reshuffling
     const chosen = homeMaterial(rows, 3, `visit-${visit}`);
     expect(chosen).toEqual(homeMaterial([...rows].reverse(), 3, `visit-${visit}`));
     expect(chosen).toHaveLength(3);
-    expect(new Set(chosen.map(i => i.kind)).size).toBe(3);
+    expect(chosen.every(i => i.kind === "Photograph")).toBe(true);
     expect(chosen.every(i => !["archived", "pending", "audio"].includes(i.id))).toBe(true);
     selections.add(chosen.map(i => i.id).join(","));
   }
@@ -48,4 +48,16 @@ test("visit seeds vary the feature without changing eligible data or reshuffling
 test("classification updates derived placeholder labels while retaining deliberate titles",()=>{
   expect(cataloguePresentation({kind:"Letter",title:"Photograph, still to be catalogued"}).title).toBe("Letter, still to be catalogued");
   expect(cataloguePresentation({kind:"Document",title:"A letter from Jan"}).title).toBe("A letter from Jan");
+});
+
+test("a letter dump cannot crowd photos out of Home and missing previews can recover", () => {
+  const photos = Array.from({length: 9}, (_, i) => item(`photo-${i}`));
+  const letters = Array.from({length: 100}, (_, i) => item(`letter-${i}`, {kind: "Letter", createdAt: "2026-12-01", imageSet: undefined, image: `/api/v1/previews/letter-${i}`}));
+  for (const visit of [undefined, "session-a", "session-b"]) {
+    const mix = homeMaterial([...letters, ...photos], 12, visit);
+    expect(mix.map(i => i.kind)).toEqual(Array.from({length: 12}, (_, i) => i % 4 === 3 ? "Letter" : "Photograph"));
+    expect(new Set(mix.map(i => i.id)).size).toBe(12);
+  }
+  expect(homeMaterial(letters, 4)).toHaveLength(4);
+  expect(homeMaterial(photos, 12)).toHaveLength(9);
 });

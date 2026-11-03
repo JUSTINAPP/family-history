@@ -1,3 +1,5 @@
+import { Suspense } from "react";
+import { ArchiveLoading } from "@/components/archive-loading";
 import { ImportSelectionProvider } from "@/components/import-selection";
 import { initialArchive } from "@/lib/demo-workspace";
 import type { Metadata } from "next";
@@ -34,7 +36,7 @@ export default function RootLayout({
               <Footer />
             </WorkspaceProvider>
           ) : (
-            <SessionLayout>{children}</SessionLayout>
+            <Suspense fallback={<ArchiveLoading />}><SessionLayout>{children}</SessionLayout></Suspense>
           )}
         </ImportSelectionProvider>
       </body>

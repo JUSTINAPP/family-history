@@ -1835,3 +1835,40 @@ test("saved recording links to a photo through the visual picker and survives re
   await page.goto(`/archive/${linked.item_id}?archive=${archive}`);
   await expect(page.getByRole('heading',{name:"Jan's memory",exact:true})).toBeVisible();
 });
+
+
+test("Home balances a letter batch and recovers its pending first-page preview", async ({page, request}) => {
+  test.setTimeout(90000);
+  const seeded = await (await request.get("http://127.0.0.1:4301/__fixture/quick-photos?home=1")).json();
+  await page.context().addCookies([{name:"active_archive",value:archive,url:"http://127.0.0.1:4300"}]);
+  await page.goto("/sign-in?next=%2F");
+  await page.getByLabel("Email", {exact:true}).fill("visibility@example.test");
+  await page.getByLabel("Password", {exact:true}).fill("local-fixture-password");
+  await page.locator("form").getByRole("button", {name:"Sign in",exact:true}).click();
+  await expect(page).toHaveURL(/\/$/);
+  const kinds = page.locator(".home-slider .scrapbook-caption > span");
+  await expect(kinds).toHaveCount(12);
+  expect(await kinds.allTextContents()).toEqual(Array.from({length:12},(_,i)=>i%4===3?"Letter":"Photograph"));
+  const recent = page.locator(".scrapbook-recent-list article");
+  await expect(recent).toHaveCount(4);
+  await recent.last().scrollIntoViewIfNeeded();
+  await expect(recent.last().locator("img")).toHaveAttribute("data-image-variant","small", {timeout:60000});
+  await expect.poll(async()=>{
+    const state = await (await request.get("http://127.0.0.1:4301/__fixture/summary")).json();
+    return state.imageSets.some((s:{item_id:string;status:string})=>s.item_id===seeded.ids[9] && s.status==="stored");
+  }).toBe(true);
+  await page.setViewportSize({width:375,height:850});
+  await page.screenshot({path:"/private/tmp/archive-home-mix-mobile.png"});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.setViewportSize({width:1440,height:1000});
+  await page.locator(".scrapbook-home").scrollIntoViewIfNeeded();
+  await page.screenshot({path:"/private/tmp/archive-home-mix-desktop.png"});
+  await request.post("http://127.0.0.1:4301/__fixture/failure?sets=1");
+  try {
+    await page.reload();
+    await expect(kinds).toHaveCount(12);
+    await expect(page.locator(".home-slider .scrapbook-piece").first().locator("img")).toHaveAttribute("data-image-variant","small", {timeout:30000});
+    await expect(page.getByText("Items are available below. Image previews are not ready yet.")).toHaveCount(0);
+  } finally {await request.post("http://127.0.0.1:4301/__fixture/failure?sets=0");}
+
+});

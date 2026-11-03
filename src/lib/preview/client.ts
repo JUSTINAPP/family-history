@@ -29,5 +29,6 @@ export function prepareDisplay(
     });
   queue = task;
   pending.set(url, task);
+  void task.catch(() => {if (pending.get(url) === task) pending.delete(url);});
   return task;
 }

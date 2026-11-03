@@ -149,6 +149,7 @@ export async function fixtureServer(
   let audioLinks = [];
   let failCaptureOnce = false;
   let failList = false;
+  let failSets = false;
   const server = createServer(async (req, res) => {
     res.setHeader("Access-Control-Allow-Origin", "http://127.0.0.1:4300");
     res.setHeader("Access-Control-Allow-Headers", "authorization,apikey,content-type,x-client-info,x-upsert,cache-control,content-profile,accept-profile,prefer,x-supabase-api-version");
@@ -441,7 +442,7 @@ export async function fixtureServer(
       const ids = [];
       for (let n=0;n<14;n++) {
         const id=crypto.randomUUID(), originalId=crypto.randomUUID();
-        rows.push({...rows.find(r => !r.archived_at),id,kind:"Photograph",title:`Quick photograph ${n+1}`,archived_at:null,split_from:null,
+        rows.push({...rows.find(r => !r.archived_at),id,kind:address.searchParams.has("home") && n >= 9 ? "Letter" : "Photograph",title:`Quick photograph ${n+1}`,archived_at:null,split_from:null,
           lifecycle:"active",ingestion_status:"ready",reported_date:"",date_precision:"unknown",reported_place:"",people_text:"",notes:"",catalogued_at:null,created_at:`${quickYear}-12-${String(31-n).padStart(2,"0")}T00:00:00Z`});
         const originalCopy={...source,id:originalId,item_id:id,storage_path:`${ARCHIVE}/${id}/${originalId}`};
         files.push(originalCopy); objects.set(`${source.bucket_id}/${originalCopy.storage_path}`,original);
@@ -452,7 +453,7 @@ export async function fixtureServer(
           file.storage_path=`${ARCHIVE}/${id}/${file.id}`;files.push(file);
           objects.set(`${file.bucket_id}/${file.storage_path}`,objects.get(`${old.bucket_id}/${old.storage_path}`));set[key]=file.id;
         }
-        if (n !== 13) imageSets.push(set); // Last test photo deliberately has no prepared small receipt.
+        if (n !== 13 && !(address.searchParams.has("home") && n === 9)) imageSets.push(set); // Last test photo deliberately has no prepared small receipt.
         ids.push(id);
       }
       comments.push({id:crypto.randomUUID(),archive_id:ARCHIVE,item_id:ids[0],author_id:"60000000-0000-4000-8000-000000000099",body:"Was this outside the house?",created_at:"2026-01-01T00:00:00Z",parent_id:null,revision:1});
@@ -460,6 +461,7 @@ export async function fixtureServer(
     }
     if (address.pathname === "/__fixture/failure") {
       failList = address.searchParams.get("list") === "1";
+      failSets = address.searchParams.get("sets") === "1";
       failPreview = address.searchParams.get("preview") === "1";
       failDelete = address.searchParams.get("delete") === "1";
       return send(200, { ok: true });
@@ -1236,6 +1238,7 @@ export async function fixtureServer(
     if (address.pathname.startsWith("/rest/v1/rpc/"))
       return send(503, { code: "fixture_preview_unavailable" });
     const table = address.pathname.split("/").pop();
+    if (table === "current_image_sets" && failSets) return send(503, {code:"fixture_sets_unavailable"});
     if (
       table === "archive_items" &&
       failList &&

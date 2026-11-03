@@ -16,11 +16,11 @@ export async function LiveHome() {
   const audio = await loadRecordings(client, workspace.archive.id).then(recordings => ({recordings, unavailable: false})).catch(() => ({recordings: [], unavailable: true}));
   try { workspace = workspaceWithPlaces(workspace, await loadPlaceData(workspace.archive.id)); } catch { /* Core material remains available if Place context is unavailable. */ }
   const visit = `${workspace.archive.id}:${(await cookies()).get(HOME_VISIT_COOKIE)?.value || "initial"}`;
-  const material = homeMaterial(workspace.catalogue, 3, visit);
-  const featuredIds = new Set(material.map(item => item.id));
-  const gallery = [...material, ...workspace.catalogue.filter(item => !featuredIds.has(item.id) && !item.archivedAt && item.imageSet && item.kind !== "Audio")
-    .sort((first, second) => homeVisitHash(`${visit}:${first.id}`) - homeVisitHash(`${visit}:${second.id}`))];
-  const recent = [...workspace.catalogue].sort((a,b) => (b.createdAt || "").localeCompare(a.createdAt || "") || b.id.localeCompare(a.id)).slice(0, 4);
+  const gallery = homeMaterial(workspace.catalogue, workspace.catalogue.length, visit);
+  const balancedRecent = homeMaterial(workspace.catalogue, 4);
+  const recent = balancedRecent.length ? balancedRecent : [...workspace.catalogue]
+    .filter(item => !item.archivedAt)
+    .sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || "") || a.id.localeCompare(b.id)).slice(0, 4);
   reportRender("home");
   return (
     <div className="page-shell scrapbook-home" data-arrangement={homeVisitHash(visit) % 3}>
@@ -33,16 +33,16 @@ export async function LiveHome() {
         <section className="empty-state"><h2>No items yet</h2><p>Add photographs, letters, documents or objects to this archive.</p><Link className="button" href="/add">Add to archive</Link></section>
       ) : <>
         {audio.unavailable && <p className="notice">Voice memories could not load. Refresh to try again.</p>}
-        {!!material.length && <LiveWorkspaceProvider snapshot={workspace}><HomeGallery items={gallery} recordings={audio.recordings} /></LiveWorkspaceProvider>}
-        {!material.length && <p className="notice">Items are available below. Image previews are not ready yet.</p>}
+        {!!gallery.length && <LiveWorkspaceProvider snapshot={workspace}><HomeGallery archiveId={workspace.archive.id} items={gallery} recordings={audio.recordings} /></LiveWorkspaceProvider>}
+        {!gallery.length && <p className="notice">Items are available below. Image previews are not ready yet.</p>}
         <div className="home-browse-actions">
           <Link prefetch={false} className="button" href={`/explore?archive=${workspace.archive.id}`}>Explore the collection <span aria-hidden="true">↗</span></Link>
           <Link prefetch={false} className="text-link" href={`/quick-catalogue?archive=${workspace.archive.id}`}>Help identify photographs ↗</Link>
         </div>
         <section className="scrapbook-recent" aria-labelledby="recent-title">
-          <div className="section-top baseline"><h2 id="recent-title">Recently added</h2><TextLink href={`/explore?archive=${workspace.archive.id}`}>View everything</TextLink></div>
+          <div className="section-top baseline"><h2 id="recent-title">Latest from the collection</h2><TextLink href={`/explore?archive=${workspace.archive.id}`}>View everything</TextLink></div>
           <div className="scrapbook-recent-list">{recent.map(item => <article key={item.id}>
-            {item.imageSet ? <ArchiveImage src={item.image} imageSet={item.imageSet} rotation={item.rotation} variant="small" autoPrepare={false} alt={item.title} href={item.href} />
+            {(item.imageSet || item.image.startsWith("/api/v1/previews/")) ? <ArchiveImage src={item.image} imageSet={item.imageSet} rotation={item.rotation} variant="small" alt={item.title} href={item.href} />
               : <Link prefetch={false} href={item.href!} className="scrapbook-preview-pending">{item.kind === "Audio" ? "Voice recollection" : "Preview pending"}</Link>}
             <Link prefetch={false} href={item.href!}><h3>{item.title}</h3><span className="muted-small">{item.kind} · {item.date}</span></Link>
           </article>)}</div>
