@@ -94,13 +94,15 @@ test("rejected, unlinked, foreign-archive and archived items cannot enter a Pers
   );
   expect(result).toEqual({});
 });
-test("missing thumbnail sets retain an honest linked count without requesting a master or starting conversion", () => {
+test("missing thumbnail sets retain linked sources for visible stack recovery", () => {
   const result = personMaterials(
     [item("pending", "Photograph", false)],
     [link("pending")],
     "a",
   ).person;
-  expect(result).toEqual({ count: 1, items: [] });
+  expect(result.count).toBe(1);
+  expect(result.items.map(i => i.id)).toEqual(["pending"]);
+  expect(result.items[0].imageSet).toBeUndefined();
 });
 test("the same item can belong to different People without copying full notes into card payloads", () => {
   const source = { ...item("one"), notes: "Private long recollection" };
@@ -112,4 +114,14 @@ test("the same item can belong to different People without copying full notes in
   expect(result.person.items[0].id).toBe("one");
   expect(result["other-person"].items[0].id).toBe("one");
   expect(result.person.items[0]).not.toHaveProperty("notes");
+});
+
+test("four linked photos survive loss of every preview receipt without admitting unrelated sources", () => {
+  const photos = ["jan-1", "jan-2", "johnny-1", "johnny-2"].map(id => item(id, "Photograph", false));
+  const links = photos.map(i => link(i.id));
+  const missing = {...item("no-source", "Photograph", false), image:"/images/empty-archive.svg"};
+  const result = personMaterials([...photos, missing, item("unlinked"), item("voice", "Audio", false)], [...links, link("no-source"), link("voice")], "a").person;
+  expect(result.count).toBe(6);
+  expect(result.items.map(i=>i.id)).toEqual(photos.map(i=>i.id));
+  expect(personMaterials([...photos].reverse(), [...links].reverse(), "a").person.items).toEqual(result.items);
 });

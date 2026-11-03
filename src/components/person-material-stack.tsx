@@ -54,6 +54,7 @@ export function PersonMaterialStack({
             }}
           >
             <ArchiveImage
+              key={item.imageSet?.id || item.image}
               src={item.image}
               alt={`${item.kind} from ${name}'s linked archive: ${item.title}`}
               imageSet={item.imageSet}

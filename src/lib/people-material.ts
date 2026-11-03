@@ -12,7 +12,8 @@ export type PersonLink = Pick<
   Identification,
   "id" | "archive_id" | "item_id" | "person_id" | "status" | "role_context"
 >;
-// Batched, deterministic selection. Live material must have a completed image set.
+// Batched, deterministic selection. Prefer ready previews; keep preserved
+// linked sources eligible so visible stacks can recover missing previews.
 export function personMaterials(
   items: ArchiveItem[],
   links: PersonLink[],
@@ -64,6 +65,15 @@ export function personMaterials(
       );
       const index = diverse < 0 ? 0 : diverse;
       selected.push(remaining.splice(index, 1)[0].item);
+    }
+    if (selected.length < 4) {
+      const selectedIds = new Set(selected.map(item => item.id));
+      const pending = [...values.values()]
+        .filter(({item}) => !selectedIds.has(item.id) && item.kind !== "Audio" && item.image.startsWith("/api/v1/previews/"))
+        .sort((a, b) => Number(b.confirmed) - Number(a.confirmed)
+          || Number(b.item.kind === "Photograph") - Number(a.item.kind === "Photograph")
+          || a.item.id.localeCompare(b.item.id));
+      selected.push(...pending.slice(0, 4 - selected.length).map(value => value.item));
     }
     result[personId] = {
       count: values.size,

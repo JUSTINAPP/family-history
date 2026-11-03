@@ -1872,3 +1872,29 @@ test("Home balances a letter batch and recovers its pending first-page preview",
   } finally {await request.post("http://127.0.0.1:4301/__fixture/failure?sets=0");}
 
 });
+
+
+test("People restores linked photo piles when the preview catalogue is unavailable", async ({page, request}) => {
+  test.setTimeout(90000);
+  await page.context().addCookies([{name:"active_archive",value:archive,url:"http://127.0.0.1:4300"}]);
+  await page.goto("/sign-in");
+  await page.getByLabel("Email", {exact:true}).fill("visibility@example.test");
+  await page.getByLabel("Password", {exact:true}).fill("local-fixture-password");
+  await page.locator("form").getByRole("button", {name:"Sign in",exact:true}).click();
+  await expect(page).toHaveURL(/\/$/);
+  await request.post("http://127.0.0.1:4301/__fixture/failure?sets=1");
+  try {
+    await page.setViewportSize({width:1440,height:1000});
+    await page.goto(`/people?archive=${archive}`);
+    const card = page.locator(".person-card").filter({has:page.getByRole("heading", {name:"01 Many materials",exact:true})});
+    await card.scrollIntoViewIfNeeded();
+    await expect(card.locator(".material-leaf")).toHaveCount(4);
+    await expect(card.locator('img[data-image-variant="small"]')).toHaveCount(4, {timeout:45000});
+    await expect.poll(()=>card.locator("img").evaluateAll(images=>images.every(i=>(i as HTMLImageElement).complete && (i as HTMLImageElement).naturalWidth>0))).toBe(true);
+    await page.screenshot({path:"/private/tmp/archive-people-recovered-desktop.png"});
+    await page.setViewportSize({width:375,height:850});
+    await card.scrollIntoViewIfNeeded();
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+    await page.screenshot({path:"/private/tmp/archive-people-recovered-mobile.png"});
+  } finally {await request.post("http://127.0.0.1:4301/__fixture/failure?sets=0");}
+});
