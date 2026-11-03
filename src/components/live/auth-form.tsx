@@ -3,12 +3,14 @@ import { useActionState, useState } from "react";
 import { signIn } from "@/app/sign-in/actions";
 export function AuthForm({ next, configured }: { next: string; configured: boolean }) {
   const [state, action, pending] = useActionState(signIn, { message: "" });
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   return <div className="auth-panel">
     <form action={action}>
       <input type="hidden" name="next" value={next} />
-      <label className="field"><span>Email</span><input name="email" type="email" required autoComplete="username" autoCapitalize="none" spellCheck={false} maxLength={254} /></label>
-      <label className="field"><span>Password</span><input name="password" type={showPassword ? "text" : "password"} required autoComplete="current-password" /></label>
+      <label className="field"><span>Email</span><input name="email" value={email} onChange={(event) => setEmail(event.target.value)} type="email" required autoComplete="username" autoCapitalize="none" spellCheck={false} maxLength={254} /></label>
+      <label className="field"><span>Password</span><input name="password" value={password} onChange={(event) => setPassword(event.target.value)} type={showPassword ? "text" : "password"} required autoComplete="current-password" /></label>
       <button type="button" className="subtle-button" aria-pressed={showPassword} onClick={() => setShowPassword(!showPassword)}>{showPassword ? "Hide password" : "Show password"}</button>
       {state.message && <p className="notice" role="status">{state.message}</p>}
       <button className="button" disabled={pending || !configured}>{pending ? "Signing in…" : "Sign in"}</button>

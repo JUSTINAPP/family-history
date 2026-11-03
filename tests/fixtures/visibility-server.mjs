@@ -591,7 +591,12 @@ export async function fixtureServer(
           .filter((r) => r.path.startsWith("/rest/v1/archive_items"))
           .slice(-30),
       });
-    if (address.pathname === "/auth/v1/token")
+    if (address.pathname === "/auth/v1/token") {
+      const chunks = [];
+      for await (const chunk of req) chunks.push(chunk);
+      const credentials = JSON.parse(Buffer.concat(chunks).toString() || "{}");
+      if (credentials.password === "synthetic-wrong-password")
+        return send(400, { code: "invalid_credentials", message: "Invalid login credentials" });
       return send(200, {
         access_token: token,
         refresh_token: "fixture-refresh",
@@ -599,6 +604,7 @@ export async function fixtureServer(
         token_type: "bearer",
         user,
       });
+    }
     if (address.pathname === "/auth/v1/logout") return send(204, null);
     if (address.pathname === "/auth/v1/user")
       return req.headers.authorization === `Bearer ${token}`

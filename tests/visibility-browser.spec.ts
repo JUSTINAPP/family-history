@@ -167,3 +167,20 @@ test("real-data path lists all permitted rows and reopens metadata-free, preview
     }),
   ).toBeVisible();
 });
+
+
+test("failed sign-in preserves details and allows a corrected retry", async ({ page }) => {
+  await page.goto("/sign-in?next=/explore");
+  const email = page.getByLabel("Email", { exact: true });
+  const password = page.getByLabel("Password", { exact: true });
+  await email.fill("visibility@example.test");
+  await password.fill("synthetic-wrong-password");
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(page.getByRole("status")).toContainText("We could not sign you in");
+  await expect(email).toHaveValue("visibility@example.test");
+  await expect(password).toHaveValue("synthetic-wrong-password");
+  await expect(password).toHaveAttribute("type", "password");
+  await password.fill("local-fixture-password");
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(page).toHaveURL(/\/explore/);
+});
