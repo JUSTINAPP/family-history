@@ -42,7 +42,7 @@ export default async function AudioEditPage({
         description="Edit details and links while the original audio stays untouched."
       />
       <RecordingEditor
-        key={`${recording.id}-${recording.updatedAt}`}
+        key={recording.id}
         recording={recording}
       />
     </div>

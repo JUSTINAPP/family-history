@@ -140,7 +140,7 @@ test("mobile letter capture reorders pages, saves without waiting and exports de
   await page.getByLabel("Upload existing images",{exact:true}).setInputFiles(photo);
   await expect(page.locator(".capture-page")).toHaveCount(2);
   await page.getByRole("checkbox",{name:"Keep together as one letter",exact:true}).uncheck();
-  await expect(page.getByRole("button",{name:"Save to archive",exact:true})).toBeDisabled();
+  await expect(page.getByRole("button",{name:"Save 2 items",exact:true})).toBeEnabled();
   await page.getByRole("checkbox",{name:"Keep together as one letter",exact:true}).check();
   await page
     .getByRole("combobox", { name: "Role for beach.jpg" })

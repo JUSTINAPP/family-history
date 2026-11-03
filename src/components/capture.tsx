@@ -4,6 +4,7 @@ import {useRouter} from "next/navigation";
 import Link from "next/link";
 import {Camera,Upload,ArrowUp,ArrowDown,X,Plus,Check} from "lucide-react";
 import {LocalSourcePreview} from "./local-source-preview";
+import {DocumentGroups} from "./document-groups";
 import {BulkImport} from "./live/bulk-import";
 import {PageIntro} from "./ui";
 import {useWorkspace} from "./workspace-provider";
@@ -71,7 +72,7 @@ export function Capture() {
     </>:<>
       <fieldset className="capture-selection" disabled={saving||locked}>
         <div className="capture-workspace">
-          <section className="capture-material" aria-label="Captured material">
+          <section className="capture-material" aria-label="Captured material" hidden={document && !together}>
             <div className="capture-main-image"><LocalSourcePreview file={active.file} url={active.url} alt={`Original local preview of ${active.originalName}`}/><span className="material-label">ORIGINAL · {active.originalName}</span></div>
             <div className="capture-pages">{files.map((file,index)=><div key={file.id} className={`capture-page ${index===activeImage?"selected":""}`}>
               <button className="capture-page-image" aria-label={`Preview image ${index+1}`} onClick={()=>setActiveImage(index)}><LocalSourcePreview file={file.file} url={file.url} alt=""/></button>
@@ -85,7 +86,7 @@ export function Capture() {
             <h2>What is this?</h2><label className="field"><span>Material type</span><select aria-label="Material type" value={kind==="Document"||kind==="Certificate"?"Letter":kind} onChange={e=>classify(e.target.value as CaptureKind)}><option value="Other">Not sure</option><option value="Photograph">Photograph</option><option value="Letter">Letter / document</option><option value="Object">Object</option><option value="Postcard">Postcard</option></select></label>
             {document&&kind!=="Postcard"&&<label className="field">Document type<select aria-label="Document type" value={kind} onChange={e=>classify(e.target.value as CaptureKind)}>{["Letter","Document","Certificate"].map(value=><option key={value}>{value}</option>)}</select></label>}
             <p role="status">{files.length} {kind==="Photograph"?files.length===1?"photograph selected":"photographs selected":files.length===1?"image selected":"images selected"}</p>
-            {document&&files.length>1&&<div className="capture-grouping"><p>Are these pages/sides of the same item?</p><label><input type="checkbox" checked={together} onChange={e=>setTogether(e.target.checked)}/> Keep together as one {kind==="Letter"?"letter":kind==="Postcard"?"postcard":"document"}</label>{!together&&<p>Save one document at a time. Remove other documents from this selection; their files stay on your device.</p>}</div>}
+            {document&&files.length>1&&<div className="capture-grouping"><p>Are these pages/sides of the same item?</p><label><input type="checkbox" checked={together} onChange={e=>setTogether(e.target.checked)}/> Keep together as one {kind==="Letter"?"letter":kind==="Postcard"?"postcard":"document"}</label>{!together&&<p>Arrange the thumbnails below into separate letters. Select only the pages that belong together.</p>}</div>}
             {kind==="Object"&&<p>These views stay together as one object.</p>}
             {kind==="Other"&&<p>{files.length>1?"These images will stay together as one uncategorised item.":"Save this as an uncategorised item."} You can change its type later.</p>}
             {kind==="Photograph"&&files.length>1&&<><p>Each photograph gets its own item.</p><details><summary>Front and back of one photograph?</summary><label><input type="checkbox" checked={groupedPhotograph} onChange={e=>setGroupedPhotograph(e.target.checked)}/> Keep together as one item</label></details></>}
@@ -94,7 +95,7 @@ export function Capture() {
           </section>
         </div>
       </fieldset>
-      {separatePhotos?<BulkImport key={files.map(f=>f.id).join(":")} initialFiles={files.map(f=>f.file)} initialContext={written} embedded onStarted={()=>setLocked(true)}/>:<div className="capture-save-bar"><div><strong>Ready to keep.</strong><p>Details and optional transcription can wait until after saving.</p></div><button className="button" disabled={saving||locked||(document&&!together)} onClick={()=>void save(true)}>Save to archive</button><button className="subtle-button" disabled={saving||locked||(document&&!together)} onClick={()=>void save(false)}>Save & capture another</button></div>}
+      {document && !together ? <DocumentGroups key={files.map(file => file.id).join(":")} files={files} kind={kind} written={written} quick={quick} onStarted={() => setLocked(true)} /> : separatePhotos?<BulkImport key={files.map(f=>f.id).join(":")} initialFiles={files.map(f=>f.file)} initialContext={written} embedded onStarted={()=>setLocked(true)}/>:<div className="capture-save-bar"><div><strong>Ready to keep.</strong><p>Details and optional transcription can wait until after saving.</p></div><button className="button" disabled={saving||locked||(document&&!together)} onClick={()=>void save(true)}>Save to archive</button><button className="subtle-button" disabled={saving||locked||(document&&!together)} onClick={()=>void save(false)}>Save & capture another</button></div>}
     </>}
     {saving&&<p className="notice" role="status">Saving unchanged originals. Keep this page open.</p>}
     {error&&<p className="form-error" role="alert">{error}</p>}

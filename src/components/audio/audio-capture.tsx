@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AudioRecorder } from "./recorder";
+import { AudioItemLinkPicker } from "./item-link-picker";
 import { AudioMetadataFields } from "./metadata-fields";
 import { useWorkspace } from "../workspace-provider";
 import { browserSupabase } from "@/lib/supabase/client";
@@ -170,6 +171,7 @@ export function AudioCapture({ itemId, inline = false, onSaved, onDirtyChange, o
           </div>
         </section>
       )}
+      {!inline && <AudioItemLinkPicker items={workspace.catalogue.filter(item => item.id !== itemId)} selected={items} onChange={setItems} disabled={saving || attempted} />}
       <AudioMetadataFields
         memory={inline}
         value={metadata}

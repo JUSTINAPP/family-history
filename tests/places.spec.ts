@@ -49,6 +49,10 @@ test("Place piles require actual same-archive active links and can try stored le
     role: "primary",
     status: "reported",
   } as ItemPlace;
+  const pending = {...item, id: "pending", imageSet: undefined, image: "/api/v1/previews/pending"};
+  const mixed = placeMaterials([item, pending], [link, {...link, id: "l2", item_id: pending.id}], "a").place;
+  expect(mixed.items.map(item => item.id)).toEqual(["photo", "pending"]);
+  expect(mixed.count).toBe(2);
   expect(placeMaterials([item], [], "a")).toEqual({});
   expect(placeMaterials([item], [link], "a").place.items).toHaveLength(1);
   expect(placeMaterials([item], [{ ...link, status: "removed" }], "a")).toEqual(

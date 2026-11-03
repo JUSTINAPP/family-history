@@ -146,9 +146,16 @@ export async function fixtureServer(
   let failDelete = false;
   const attempts = new Map();
   let homeAudio = null;
+  let audioLinks = [];
+  let failCaptureOnce = false;
   let failList = false;
   const server = createServer(async (req, res) => {
+    res.setHeader("Access-Control-Allow-Origin", "http://127.0.0.1:4300");
+    res.setHeader("Access-Control-Allow-Headers", "authorization,apikey,content-type,x-client-info,x-upsert,cache-control,content-profile,accept-profile,prefer,x-supabase-api-version");
+    res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+    if (req.method === "OPTIONS") { res.writeHead(204); res.end(); return; }
     const address = new URL(req.url, url);
+    if (address.pathname === "/__fixture/fail-capture-once" && management) { failCaptureOnce = true; res.writeHead(200); res.end("{}"); return; }
     requests.push({
       path: address.pathname,
       query: address.search,
@@ -167,7 +174,7 @@ export async function fixtureServer(
         files.push(file); objects.set(`${file.bucket_id}/${file.storage_path}`,bytes);
         return {id, archive_id:ARCHIVE, original_file_id:fileId, recollection_id:crypto.randomUUID(), title:`${speaker}'s memory`, speaker_text:speaker, speaker_person_id:null, contributed_by:USER, duration_ms:2000, recorded_date:"2026-11-03", date_precision:"exact", location:"", description:"", tags:[], created_at:"2026-11-03T00:00:00Z", updated_at:"2026-11-03T00:00:00Z", archived_at:null, standalone:false};
       });
-      return send(200, {count:homeAudio.length});
+      return send(200, {count:homeAudio.length, ids:homeAudio.map(recording => recording.id)});
     }
     if (homeAudio && address.pathname.startsWith("/storage/v1/object/sign/")) {
       const key = decodeURIComponent(address.pathname.replace("/storage/v1/object/sign/", ""));
@@ -177,8 +184,9 @@ export async function fixtureServer(
       res.writeHead(200, {"Content-Type":"audio/wav", "Content-Length":bytes.length});
       res.end(bytes); return;
     }
-    if (homeAudio && address.pathname === "/rest/v1/recollection_audio") return send(200, homeAudio);
-    if (homeAudio && ["/rest/v1/audio_people", "/rest/v1/audio_item_links"].includes(address.pathname)) return send(200, []);
+    if (homeAudio && address.pathname === "/rest/v1/recollection_audio") return send(200, homeAudio.filter(row => !address.searchParams.has("id") || `eq.${row.id}` === address.searchParams.get("id")));
+    if (homeAudio && address.pathname === "/rest/v1/audio_people") return send(200, []);
+    if (homeAudio && address.pathname === "/rest/v1/audio_item_links") return send(200, audioLinks);
     if (homeAudio && address.pathname === "/rest/v1/rpc/audio_attribution") return send(200, homeAudio.map(r => ({recording_id:r.id,display_name:"Test contributor"})));
     if (address.pathname === "/__fixture/metrics") {
       const counts = {};
@@ -565,6 +573,7 @@ export async function fixtureServer(
         originalHash: hash,
         attempts: [...attempts.values()],
         imageSets,
+        audioLinks,
         deletions,
         items: rows,
         people,
@@ -647,7 +656,7 @@ export async function fixtureServer(
           ),
         );
         if (req.method === "POST") {
-          if (!key.startsWith("archive-derived/"))
+          if (!key.startsWith("archive-derived/") && !files.some(file => file.status === "reserved" && `${file.bucket_id}/${file.storage_path}` === key))
             return send(403, { message: "Immutable original" });
           if (objects.has(key)) return send(409, { message: "Duplicate" });
           const chunks = [];
@@ -681,6 +690,31 @@ export async function fixtureServer(
       for await (const chunk of req) chunks.push(chunk);
       const body = JSON.parse(Buffer.concat(chunks).toString() || "{}");
       const rpc = address.pathname.split("/").pop();
+      if (rpc === "edit_audio_recording" && management) {
+        const recording = homeAudio?.find(row => row.id === body.p_recording_id);
+        if (!recording) return send(404, {});
+        audioLinks = audioLinks.filter(link => link.recording_id !== recording.id).concat(body.p_items.map(item_id => ({archive_id: ARCHIVE, recording_id: recording.id, item_id})));
+        recording.updated_at = new Date().toISOString();
+        return send(200, null);
+      }
+      if (rpc === "begin_ingestion" && management) {
+        const existing = rows.find(row => row.client_capture_id === body.p_capture_id);
+        if (existing) return send(200, existing.id);
+        const id = crypto.randomUUID();
+        rows.push({...rows[0], id, client_capture_id: body.p_capture_id, kind: body.p_kind, title: body.p_title, ingestion_status: "pending"});
+        for (const [index, file] of body.p_files.entries()) {
+          const fileId = crypto.randomUUID();
+          files.push({...files[0], id: fileId, item_id: id, status: "reserved", storage_path: `${ARCHIVE}/${id}/${fileId}`, mime_type: file.mimeType, original_filename: file.name, byte_size: file.size, sha256: file.sha256, page_order: index, page_role: file.role});
+        }
+        return send(200, id);
+      }
+      if (rpc === "complete_ingestion" && management) {
+        if (failCaptureOnce) { failCaptureOnce = false; return send(503, {message:"Synthetic completion interruption"}); }
+        const item = rows.find(row => row.id === body.p_item_id);
+        for (const file of files.filter(file => file.item_id === item.id)) file.status = "stored";
+        item.ingestion_status = "ready";
+        return send(200, null);
+      }
       if(rpc === "rotate_item_image") {
         const f=files.find(f=>f.id===body.p_source_id&&f.purpose==="original");
         if(!f)return send(403,{code:"42501"});

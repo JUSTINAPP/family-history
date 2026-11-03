@@ -112,7 +112,7 @@ export function Recordings({
                   href={`/audio/${recording.id}/edit`}
                   className="text-link"
                 >
-                  Edit recording details ↗
+                  Attach to photos / edit details ↗
                 </Link>
               )}
             </div>

@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useWorkspace } from "../workspace-provider";
+import { AudioItemLinkPicker } from "./item-link-picker";
 import { AudioMetadataFields } from "./metadata-fields";
 import type { RecordingView } from "@/lib/audio/repository";
 import { editAudioAction, archiveAudioAction } from "@/lib/audio/actions";
@@ -39,6 +40,7 @@ export function RecordingEditor({ recording }: { recording: RecordingView }) {
         fileId={recording.fileId}
         title={recording.metadata.title}
       />
+      <AudioItemLinkPicker items={workspace.catalogue.filter(item => item.id !== recording.itemId)} selected={items} onChange={setItems} disabled={busy} />
       <AudioMetadataFields
         value={metadata}
         onChange={setMetadata}

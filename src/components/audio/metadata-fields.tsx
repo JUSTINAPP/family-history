@@ -5,11 +5,8 @@ export function AudioMetadataFields({
   value,
   onChange,
   people,
-  items,
   relatedPeople,
-  relatedItems,
   onPeople,
-  onItems,
   disabled = false,
   memory = false,
 }: {
@@ -113,23 +110,6 @@ export function AudioMetadataFields({
         {people.map(p => <label key={p.id}><input type="checkbox" disabled={disabled} checked={relatedPeople.includes(p.id)} onChange={e => onPeople(e.target.checked ? [...relatedPeople, p.id] : relatedPeople.filter(id => id !== p.id))} />{p.name}</label>)}
         {!people.length && <p className="help-line">People can be added to the archive later.</p>}
       </fieldset>
-      <label className="field">
-        <span>Related archive items</span>
-        <select
-          multiple
-          disabled={disabled}
-          value={relatedItems}
-          onChange={(e) =>
-            onItems(Array.from(e.target.selectedOptions, (o) => o.value))
-          }
-        >
-          {items.map((i) => (
-            <option key={i.id} value={i.id}>
-              {i.title}
-            </option>
-          ))}
-        </select>
-      </label>
       <p className="help-line">
         Leave every field blank if you wish. Use the selection controls to link
         existing archive records; names alone remain reported text.
