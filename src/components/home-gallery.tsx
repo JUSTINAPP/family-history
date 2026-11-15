@@ -4,9 +4,11 @@ import {FaceSuggestions} from './face-suggestions';
 import {useWorkspace} from './workspace-provider';
 import {can} from '@/lib/permissions';
 import {useRouter} from 'next/navigation';
-import {useEffect,useRef,useState} from 'react';
+import {useEffect,useLayoutEffect,useRef,useState} from 'react';
 import {ArrowLeft,ArrowRight,X,Search} from 'lucide-react';
 import type {ArchiveItem} from '@/lib/types';
+import {feedCaption} from '@/lib/feed-caption';
+import {presentationRatio} from '@/lib/preview/types';
 import {relatedMaterial,feedColour} from '@/lib/related-material';
 import {ArchiveImage} from './archive-image';
 import {InlineConversation} from './live/inline-conversation';
@@ -17,12 +19,20 @@ export function HomeGallery({items,recordings=[],archiveId}:{items:ArchiveItem[]
  const workspace=useWorkspace();
  const [faceSearch,setFaceSearch]=useState(false);
  const router=useRouter(),[visible,setVisible]=useState(24),[filter,setFilter]=useState('All'),[query,setQuery]=useState(''),[selected,setSelected]=useState<string|null>(null);
- const scrollPosition=useRef(0);
+ const scrollPosition=useRef(0),grid=useRef<HTMLElement>(null);
  const more=useRef<HTMLDivElement>(null),ownHistory=useRef(false),returnFocus=useRef<HTMLElement|null>(null);
  const available=items.filter(item=>!item.archivedAt && (!archiveId || item.archiveId===archiveId));
- const filtered=available.filter(item=>(filter==='All'||item.kind===filter) && `${item.title} ${item.date} ${item.place} ${item.reportedPeople||''} ${item.people.map(id=>workspace.historicalPeople.find(p=>p.id===id)?.name||'').join(' ')}`.toLowerCase().includes(query.toLowerCase().trim()));
+ const filtered=available.filter(item=>(filter==='All'||item.kind===filter) && `${item.title} ${item.year||''} ${item.date} ${item.place} ${item.reportedPeople||''} ${item.people.map(id=>workspace.historicalPeople.find(p=>p.id===id)?.name||'').join(' ')}`.toLowerCase().includes(query.toLowerCase().trim()));
  const active=available.find(item=>item.id===selected);
  const memories=(item:ArchiveItem)=>recordings.filter(r=>!r.archived && (r.itemId===item.id||r.items.includes(item.id)));
+ useLayoutEffect(()=>{
+  const node=grid.current;if(!node)return;
+  const size=(card:HTMLElement)=>{card.style.gridRowEnd=`span ${Math.ceil((card.getBoundingClientRect().height+24)/8)}`;};
+  const cards=Array.from(node.children) as HTMLElement[];
+  cards.forEach(size);node.dataset.masonry='true';
+  const observer=new ResizeObserver(entries=>entries.forEach(entry=>size(entry.target as HTMLElement)));
+  cards.forEach(card=>observer.observe(card));return()=>observer.disconnect();
+ },[visible,filter,query,filtered.length]);
  useEffect(()=>{
    const pop=()=>{const state=history.state,id=state?.archiveFeedPhoto;setSelected(typeof id==='string'?id:null);
     if(id){ownHistory.current=true;scrollPosition.current=state.feedScroll||0;setVisible(state.feedVisible||24);setQuery(state.feedQuery||'');setFilter(state.feedFilter||'All');}
@@ -50,12 +60,12 @@ export function HomeGallery({items,recordings=[],archiveId}:{items:ArchiveItem[]
  return <div className="home-gallery collection-feed">
   <div className="feed-toolbar"><label className="feed-search"><Search size={20} aria-hidden="true"/><input aria-label="Search this collection" placeholder="Search photos, names, places or dates" value={query} onChange={e=>{setQuery(e.target.value);setVisible(24);}}/></label><Link href="/explore" className="text-link">All filters ↗</Link>{can(workspace.role,"commenter")&&<button className="subtle-button" onClick={()=>setFaceSearch(true)}>Find people</button>}</div>
   <div className="feed-filters" aria-label="Material type">{['All','Photograph','Letter','Document','Object'].map(kind=><button type="button" key={kind} aria-pressed={filter===kind} onClick={()=>{setFilter(kind);setVisible(24);}}>{kind==='All'?'Everything':`${kind}s`}</button>)}</div>
-  <section className="collection-grid" aria-label="Material from your archive">
-   {filtered.slice(0,visible).map((item,index)=><article className="feed-card" data-item-id={item.id} data-kind={item.kind} key={item.id} style={{backgroundColor:feedColour(item.id)}}>
-    <div className="feed-image-wrap"><button type="button" className="feed-image-open" aria-label={`View ${item.title}`} aria-haspopup="dialog" onClick={()=>open(item.id)}/>
+  <section ref={grid} className="collection-grid" aria-label="Material from your archive">
+   {filtered.slice(0,visible).map((item,index)=><article className="feed-card" data-item-id={item.id} data-kind={item.kind} key={item.id}>
+    <div className="feed-image-wrap" style={{backgroundColor:feedColour(item.id),aspectRatio:item.imageSet?presentationRatio(item.imageSet):item.aspect==='portrait'?.75:item.aspect==='landscape'?1.4:1}} onLoadCapture={e=>{const image=e.target as HTMLImageElement;if(image.tagName==='IMG'&&image.naturalWidth){const quarter=(item.imageSet?.rotation??item.rotation??0)%180;e.currentTarget.style.aspectRatio=String(quarter?image.naturalHeight/image.naturalWidth:image.naturalWidth/image.naturalHeight);}}}><button type="button" className="feed-image-open" aria-label={`View ${item.title}`} aria-haspopup="dialog" onClick={()=>open(item.id)}/>
      <ArchiveImage src={item.image} imageSet={item.imageSet} rotation={item.rotation} variant="small" priority={index<4} alt={item.alt||item.title} sizes="(max-width:700px) 46vw, (max-width:1100px) 30vw, 24vw"/>
     </div>
-    <div className="feed-caption"><button type="button" onClick={()=>open(item.id)}>{item.title.includes('still to be catalogued')?item.kind:item.title}</button><span>{item.year||item.kind}{memories(item).length?' · Listen available':''}</span></div>
+    {(feedCaption(item,workspace.historicalPeople)||memories(item).length>0)&&<div className="feed-caption">{feedCaption(item,workspace.historicalPeople)&&<button type="button" onClick={()=>open(item.id)}>{feedCaption(item,workspace.historicalPeople)}</button>}{memories(item).length>0&&<span>Listen available</span>}</div>}
    </article>)}
   </section>
   {!filtered.length&&<p className="notice">No matching images. Try another search or material type.</p>}

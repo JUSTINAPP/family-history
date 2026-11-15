@@ -1,6 +1,6 @@
 # Image feed and private face review
 
-Home now presents the existing visit-stable collection as square tiles, in a three-photo / one-letter pattern while both types are available. It mounts 24 at a time, loads private previews near the viewport, and shows muted colour placeholders. The full photo retains its proportions when opened. People and Places photo piles are unchanged.
+Home now presents the existing visit-stable collection as natural-height masonry tiles, in a three-photo / one-letter pattern while both types are available. It mounts 24 at a time, loads private previews near the viewport, and shows muted colour placeholders. The full photo retains its proportions when opened. People and Places photo piles are unchanged.
 
 Opening a tile keeps browsing on Home. The viewer includes comments, voice recording/listening, previous/next, related material, and a link to the full editing page. Related material prioritises shared People links, then the same or nearby year and shared Places. Unlinked fallback material is labelled honestly. Browser Back closes the viewer; returning from the editing page restores the viewer and feed position.
 
@@ -16,7 +16,7 @@ This first version runs comparisons on the visitor's device, not a permanent ser
 
 ## Acceptance checks
 
-- Home: first screen contains square tiles with coloured loading states; three photos per letter when possible.
+- Home: first screen contains staggered, rounded images with coloured loading states; three photos per letter when possible.
 - Open, follow a related photo, close: return to the same position. Open full details and use Back: return to the viewer.
 - Comments, voice capture, listening and cinematic pause/close still work.
 - Find people: select a clear known portrait; check a batch; dismiss a false match and confirm a true match. Verify the People page after confirmation.
@@ -29,3 +29,7 @@ Validation results are recorded in the change report after checks complete. Synt
 Production build, lint, TypeScript and whitespace checks passed. Eight selection/related-material regressions passed. All 29 authenticated browser checks passed across the core run and focused reruns, including the eight-width audit (320, 360, 375, 390, 430, 768, 1024, 1440), accessibility checks, preserved voice/comment flows, browser Back, preview recovery, and the explicit face-confirmation boundary. Retina delivery was verified with a synthetic 1800×1200 HEIC rather than the small default fixture. Model/library checksums matched the pinned sources. Upstream assets retain their exact bytes; vendor whitespace is excluded via `.gitattributes`. No external recognition requests were made by the real-model browser check.
 
 Physical iPhone Safari acceptance and positive-match quality on real family photographs remain pending. No database migration was introduced. Generated `next-env.d.ts` is excluded from this change.
+
+## Simplified browsing — 15 November 2026
+
+Home preserves image proportions in a measured masonry grid with rounded image corners and stable reading order. Captions show recorded names, date/year or useful descriptions; generic type labels are omitted. The archive name links Home, search leads browsing, and the desktop directories are available from the Archive menu. Mobile bottom navigation remains available. Focused production browser checks cover image visibility, varied heights without overlap, mobile bounds, menu loading feedback and Back navigation.

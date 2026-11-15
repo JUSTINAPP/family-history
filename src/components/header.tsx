@@ -1,7 +1,7 @@
 "use client";
 import { PendingLink as Link } from "./pending-link";
 import { usePathname } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { signOut } from "@/app/sign-in/actions";
 import { ArchiveSwitcher } from "./archive-switcher";
 import { useWorkspace } from "./workspace-provider";
@@ -20,6 +20,7 @@ export function Header() {
   const menuButton=useRef<HTMLButtonElement>(null),profileButton=useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
   const [profile, setProfile] = useState(false);
+  useEffect(()=>{queueMicrotask(()=>{setOpen(false);setProfile(false);});},[path]);
   return (
     <>
       <a href="#main" className="skip-link">
@@ -27,30 +28,14 @@ export function Header() {
       </a>
       <header className="site-header" onKeyDown={e=>{if(e.key==="Escape"){if(open){setOpen(false);menuButton.current?.focus();}else if(profile){setProfile(false);profileButton.current?.focus();}}}}>
         <ArchiveSwitcher />
-        <nav className="desktop-nav" aria-label="Main navigation">
-          {nav.map(([name, href]) => (
-            <Link
-              key={href}
-              className={
-                path === href || (href !== "/" && path.startsWith(href))
-                  ? "active"
-                  : ""
-              }
-              href={href}
-              aria-current={path === href ? "page" : undefined}
-            >
-              {name}
-            </Link>
-          ))}
-        </nav>
         <div className="header-actions">
-          <Link
+          {path!=="/" && path!=="/explore" && <Link
             href="/explore?focus=search"
             aria-label="Search the archive"
             className="icon-button"
           >
             <Search size={19} />
-          </Link>
+          </Link>}
           <Link href="/add" className="add-button" aria-label="Add to archive">
             <Plus size={17} />
             <span>Add to archive</span>
@@ -120,21 +105,21 @@ export function Header() {
           ))}
         </nav>
         {open && (
-          <nav id="mobile-navigation" className="mobile-nav" aria-label="Mobile navigation">
+          <nav id="mobile-navigation" className="mobile-nav" aria-label="Archive menu">
             {nav.map(([name, href]) => (
-              <Link prefetch={false} key={href} href={href} onClick={() => setOpen(false)}>
+              <Link prefetch={false} key={href} href={href} >
                 {name}
                 <ArrowUpRight size={20} />
               </Link>
             ))}
-            <Link prefetch={false} href="/quick-catalogue" onClick={() => setOpen(false)}>Quick catalogue <ArrowUpRight size={20} /></Link>
-            {mode === "live" && can(role, "contributor") && <Link prefetch={false} href="/invite" onClick={() => setOpen(false)}>Invite someone <ArrowUpRight size={20} /></Link>}
-            <Link prefetch={false} href="/add/bulk" onClick={() => setOpen(false)}>Bulk upload <ArrowUpRight size={20} /></Link>
-            <Link prefetch={false} href="/admin" onClick={() => setOpen(false)}>
+            <Link prefetch={false} href="/quick-catalogue" >Quick catalogue <ArrowUpRight size={20} /></Link>
+            {mode === "live" && can(role, "contributor") && <Link prefetch={false} href="/invite" >Invite someone <ArrowUpRight size={20} /></Link>}
+            <Link prefetch={false} href="/add/bulk" >Bulk upload <ArrowUpRight size={20} /></Link>
+            <Link prefetch={false} href="/admin" >
               Admin
               <ArrowUpRight size={20} />
             </Link>
-            <Link prefetch={false} href="/tree" onClick={() => setOpen(false)}>
+            <Link prefetch={false} href="/tree" >
               Family tree
               <ArrowUpRight size={20} />
             </Link>

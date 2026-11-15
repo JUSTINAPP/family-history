@@ -1048,7 +1048,8 @@ test("home is a visit-stable private image feed using real small variants and wo
   const bottomNav = await page.locator(".mobile-primary-nav").boundingBox();
   expect(bottomNav!.y + bottomNav!.height).toBeCloseTo(850, 0);
   const proportions = await pieces.first().locator(".feed-image-wrap").evaluate(element => element.clientWidth/element.clientHeight);
-  expect(proportions).toBeCloseTo(1,1);
+  expect(proportions).toBeGreaterThan(0);
+  await expect(page.locator(".collection-grid")).toHaveAttribute("data-masonry","true");
   const cardImagesBeforeViewer = [...images];
   await pieces.first().locator('.feed-image-open').click();
   const feedViewer=page.getByRole('dialog',{name:'Photo and related material'});
@@ -1196,13 +1197,14 @@ test("desktop navigation shows feedback inside the selected link while loading",
   await page.getByLabel("Password", {exact:true}).fill("local-fixture-password");
   await page.getByRole("button", {name:"Sign in",exact:true}).click();
   await expect(page).toHaveURL(/\/$/);
-  const link = page.getByRole("navigation", {name:"Main navigation"}).locator('a[href="/places"]');
+  await page.getByRole("button",{name:"Open menu",exact:true}).click();
+  const link = page.getByRole("navigation", {name:"Archive menu"}).locator('a[href="/places"]');
   await link.hover();
   await expect(link).toHaveCSS("background-color", "rgb(227, 232, 220)");
   await link.click();
   await expect(link.locator('[data-pending="true"]')).toBeVisible();
   await expect(page).toHaveURL(/\/places$/);
-  await expect(link.locator('[data-pending="true"]')).toHaveCount(0);
+  await expect(page.getByRole("navigation",{name:"Archive menu"})).toHaveCount(0);
 });
 
 test("quick catalogue saves fields independently and supports a private attributed family conversation", async ({page,request}) => {
@@ -1642,11 +1644,11 @@ test.describe("site-wide phone audit",()=>{
   await page.locator(".archive-current-name").evaluate(e=>e.textContent="The Allen & Cork Family History Archive");
   const name=await page.locator(".archive-current-name").evaluate(e=>({height:e.clientHeight,scroll:e.scrollHeight,rect:e.getBoundingClientRect().toJSON()}));expect(name.scroll).toBeLessThanOrEqual(name.height+1);expect(name.rect.x).toBeGreaterThanOrEqual(0);expect(name.rect.right).toBeLessThanOrEqual(width);
   await page.getByRole("button",{name:"Account"}).click();const panel=await page.locator(".profile-panel").boundingBox();expect(panel!.x).toBeGreaterThanOrEqual(0);expect(panel!.x+panel!.width).toBeLessThanOrEqual(width);await bounds(page);await page.keyboard.press("Escape");await expect(page.getByRole("button",{name:"Account"})).toBeFocused();
-  await expect(page.getByRole("navigation",{name:"Mobile navigation",exact:true})).toHaveCount(0);
+  await expect(page.getByRole("navigation",{name:"Archive menu",exact:true})).toHaveCount(0);
   if(width<=820){
    const primary=page.getByRole("navigation",{name:"Primary mobile navigation",exact:true});
    for(const label of ["Home","Explore","Add","People"])await hit(primary.getByRole("link",{name:label,exact:true}));
-   await page.getByRole("button",{name:"Open menu",exact:true}).click();await expect(page.getByRole("navigation",{name:"Mobile navigation",exact:true})).toBeVisible();await bounds(page);await page.keyboard.press("Escape");await expect(page.getByRole("button",{name:"Open menu",exact:true})).toBeFocused();
+   await page.getByRole("button",{name:"Open menu",exact:true}).click();await expect(page.getByRole("navigation",{name:"Archive menu",exact:true})).toBeVisible();await bounds(page);await page.keyboard.press("Escape");await expect(page.getByRole("button",{name:"Open menu",exact:true})).toBeFocused();
   }
   const archiveSwitch=page.getByLabel("Current archive: Test archive",{exact:true});if(await archiveSwitch.count()){await archiveSwitch.click();await bounds(page);await page.keyboard.press("Escape");}
   await page.locator(".feed-card .archive-image").evaluateAll(es=>es.forEach(e=>(e as HTMLElement).style.aspectRatio="0.06"));await bounds(page);
@@ -2023,4 +2025,31 @@ test('image feed keeps browsing in place and hosts face tools without external r
  const confirmed=await (await request.get('http://127.0.0.1:4301/__fixture/summary')).json();
  expect(confirmed.identifications.length).toBe(before.identifications.length+1);
  await faces.getByRole('button',{name:'Close',exact:true}).click();
+});
+
+test('masonry preserves reading order, fits varied photos and simplifies the header',async({page,request})=>{
+ test.setTimeout(60000);
+ await request.post('http://127.0.0.1:4301/__fixture/quick-photos');
+ await page.context().addCookies([{name:'active_archive',value:archive,url:'http://127.0.0.1:4300'}]);
+ await page.goto('/sign-in');await page.getByLabel('Email',{exact:true}).fill('visibility@example.test');await page.getByLabel('Password',{exact:true}).fill('local-fixture-password');await page.locator('form').getByRole('button',{name:'Sign in',exact:true}).click();await expect(page).toHaveURL(/\/$/);
+ await page.setViewportSize({width:1440,height:1000});
+ await expect(page.locator('.collection-grid')).toHaveAttribute('data-masonry','true');
+ await expect(page.locator('.desktop-nav')).toHaveCount(0);await expect(page.getByRole('link',{name:'Search the archive',exact:true})).toHaveCount(0);
+ await expect(page.getByRole('heading',{name:'From the collection',exact:true}).locator('..')).toHaveClass('sr-only');
+ await page.locator('.feed-image-wrap img').first().evaluate((img:HTMLImageElement)=>img.decode());
+ await page.locator('.feed-image-wrap').first().evaluate(el=>(el as HTMLElement).style.aspectRatio='.65');
+ await page.locator('.feed-image-wrap').nth(1).evaluate(el=>(el as HTMLElement).style.aspectRatio='1.6');
+ const cards=page.locator('.feed-card');
+ await expect.poll(async()=>{const a=await cards.nth(0).boundingBox(),b=await cards.nth(1).boundingBox();return Math.abs(a!.height-b!.height);}).toBeGreaterThan(50);
+ await expect.poll(async()=>{
+  const boxes=await cards.evaluateAll(nodes=>nodes.map(n=>{const b=n.getBoundingClientRect();return{x:b.x,y:b.y,right:b.right,bottom:b.bottom};}));
+  return boxes.every((a,i)=>boxes.every((b,j)=>i===j||a.right<=b.x+1||b.right<=a.x+1||a.bottom<=b.y+1||b.bottom<=a.y+1));
+ }).toBe(true);
+ await expect(page.locator('.feed-image-wrap').first()).toHaveCSS('border-bottom-left-radius','16px');
+ await expect.poll(()=>page.locator('.feed-image-wrap img').first().evaluate(img=>img.getBoundingClientRect().height)).toBeGreaterThan(100);
+ await page.screenshot({path:'/private/tmp/archive-masonry-desktop.png'});
+ await page.getByRole('button',{name:'Open menu',exact:true}).click();await expect(page.getByRole('navigation',{name:'Archive menu'}).getByRole('link',{name:'People',exact:true})).toBeVisible();await page.keyboard.press('Escape');
+ await page.setViewportSize({width:375,height:844});await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await page.screenshot({path:'/private/tmp/archive-masonry-mobile.png'});
+ await page.locator('.feed-image-open').first().click();await expect(page.getByRole('dialog',{name:'Photo and related material'})).toBeVisible();await page.goBack();await expect(page.getByRole('dialog',{name:'Photo and related material'})).toHaveCount(0);
 });

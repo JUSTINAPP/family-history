@@ -19,7 +19,7 @@ export async function LiveHome() {
   reportRender("home");
   return (
     <div className="page-shell scrapbook-home" data-arrangement={homeVisitHash(visit) % 3}>
-      <div className="section-top baseline scrapbook-heading">
+      <div className="sr-only">
         <h1>From the collection</h1>
       </div>
       {!workspace.catalogueAvailable ? (
