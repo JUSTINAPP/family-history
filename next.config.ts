@@ -16,6 +16,9 @@ const config: NextConfig = {
   },
   distDir: process.env.ARCHIVE_BUILD_DIR || ".next",
   allowedDevOrigins: ["127.0.0.1"],
-  experimental: { proxyClientMaxBodySize: "90mb", staleTimes: { dynamic: 60, static: 180 } },
+  // Keep visited pages in this browser's router cache during archive browsing.
+  // Existing mutation refreshes/revalidation and sign-out invalidate this cache.
+  // This does not cache private pages on a shared server or CDN.
+  experimental: { proxyClientMaxBodySize: "90mb", staleTimes: { dynamic: 600, static: 600 } },
 };
 export default config;

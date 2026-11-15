@@ -2459,3 +2459,31 @@ test("saved letter pages remain grouped in feed and details on desktop and mobil
  await expect(editPager).toContainText("3 of 4");
  expect(page.url()).toBe(url);
 });
+
+
+test("visited collection and people pages reuse browser cache beyond one minute", async ({page})=>{
+ test.setTimeout(120000);
+ await page.clock.install();
+ await page.context().addCookies([{name:"active_archive",value:archive,url:"http://127.0.0.1:4300"}]);
+ await page.setViewportSize({width:375,height:844});
+ await page.goto("/sign-in");
+ await page.getByLabel("Email",{exact:true}).fill("visibility@example.test");
+ await page.getByLabel("Password",{exact:true}).fill("local-fixture-password");
+ await page.getByRole("button",{name:"Sign in",exact:true}).click();
+ await expect(page.locator(".feed-card").first()).toBeVisible();
+ const nav=page.getByRole("navigation",{name:"Primary mobile navigation"});
+ await nav.getByRole("link",{name:"People",exact:true}).click();
+ await expect(page).toHaveURL(/\/people$/);
+ await expect(page.getByRole("heading",{name:"People",exact:true})).toBeVisible();
+ await page.clock.fastForward(65000);
+ const fetches:string[]=[];
+ page.on("request",request=>{
+  const url=new URL(request.url());
+  if((url.pathname==="/"||url.pathname==="/people")&&(url.searchParams.has("_rsc")||request.isNavigationRequest()))fetches.push(request.url());
+ });
+ await nav.getByRole("link",{name:"Home",exact:true}).click();
+ await expect(page.locator(".feed-card").first()).toBeVisible();
+ await nav.getByRole("link",{name:"People",exact:true}).click();
+ await expect(page.getByRole("heading",{name:"People",exact:true})).toBeVisible();
+ expect(fetches).toEqual([]);
+});
