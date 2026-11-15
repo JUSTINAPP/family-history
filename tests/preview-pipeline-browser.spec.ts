@@ -2270,6 +2270,18 @@ test('unified editor saves artwork, accepts existing audio, and starts recording
  await expect(editor.getByRole('link',{name:/Open photo details|Back to item/})).toHaveCount(0);
  await editor.getByText('Change item type',{exact:true}).click();
  await editor.getByLabel('Archive item type').selectOption('Artwork');
+ for (const width of [1440, 375, 320]) {
+  await page.setViewportSize({width,height:900});
+  const panel=editor.locator('.item-type-field');
+  const saveType=editor.getByRole('button',{name:'Save item type',exact:true});
+  await saveType.scrollIntoViewIfNeeded();
+  const panelBox=await panel.boundingBox(),buttonBox=await saveType.boundingBox();
+  expect(panelBox).not.toBeNull();expect(buttonBox).not.toBeNull();
+  expect(panelBox!.y+panelBox!.height-(buttonBox!.y+buttonBox!.height)).toBeGreaterThanOrEqual(16);
+  await expect.poll(()=>editor.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
+  await page.screenshot({path:`/private/tmp/item-type-spacing-${width}.png`});
+ }
+ await page.setViewportSize({width:1440,height:1000});
  await editor.getByRole('button',{name:'Save item type',exact:true}).click();
  await expect(editor.getByLabel('Artist name(s)',{exact:true})).toBeVisible();
  await editor.getByLabel('Artist name(s)',{exact:true}).fill('Example Artist');
