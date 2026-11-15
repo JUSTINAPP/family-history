@@ -16,6 +16,7 @@ import {presentationRatio} from '@/lib/preview/types';
 import {relatedMaterial,feedColour} from '@/lib/related-material';
 import {ArchiveImage} from './archive-image';
 import {InlineConversation} from './live/inline-conversation';
+import {MemoryViewer} from "./audio/memory-viewer";
 import {PhotoMemories} from './audio/photo-memories';
 import type {RecordingView} from '@/lib/audio/repository';
 
@@ -24,6 +25,7 @@ export function HomeGallery({items,recordings=[],archiveId,showControls=true}:{i
  const [readyImages,setReadyImages]=useState<Set<string>>(()=>new Set());
  const [listening,setListening]=useState<string|null>(null);
  const [faceSearch,setFaceSearch]=useState(false);
+ const [readingItem,setReadingItem]=useState<ArchiveItem|null>(null);
  const router=useRouter(),[visible,setVisible]=useState(24),[filter,setFilter]=useState('All'),[query,setQuery]=useState(''),[selected,setSelected]=useState<string|null>(null);
  const [instantPreview,setInstantPreview]=useState<{src:string;width:number;height:number}|undefined>();
  const scrollPosition=useRef(0),grid=useRef<HTMLElement>(null);
@@ -78,11 +80,13 @@ export function HomeGallery({items,recordings=[],archiveId,showControls=true}:{i
      <ArchiveImage onReady={()=>setReadyImages(old=>old.has(item.id)?old:new Set([...old,item.id]))} src={item.image} imageSet={item.imageSet} rotation={item.rotation} variant="thumbnail" priority={index<4} alt={item.alt||item.title} sizes="(max-width:700px) 46vw, (max-width:1100px) 30vw, 24vw"/></>}
     {(item.sourceCount||0)>1&&<button className="feed-page-count" onClick={()=>open(item.id)} aria-label={`View ${item.sourceCount} pages of ${item.title}`}>{item.sourceCount} pages</button>}
     </div>
+    {item.transcriptionRunId&&<button type="button" className="feed-transcription" onClick={()=>{setListening(null);setReadingItem(item);}}>Read transcription</button>}
     {feedCaption(item,workspace.historicalPeople)&&<div className="feed-caption">{feedCaption(item,workspace.historicalPeople)&&<button type="button" onClick={()=>open(item.id)}>{feedCaption(item,workspace.historicalPeople)}</button>}</div>}
    </article>)}
   </section>
   {!filtered.length&&<p className="notice">No matching images. Try another search or material type.</p>}
   {visible<filtered.length&&<div ref={more} className="feed-more"><button className="subtle-button" onClick={()=>setVisible(n=>n+24)}>Show more images</button></div>}
+  {readingItem&&<MemoryViewer item={readingItem} recordings={memories(readingItem)} initialMode="read" onClose={()=>setReadingItem(null)}/>}
   {faceSearch&&<FaceSuggestions items={available} onClose={()=>setFaceSearch(false)}/>}
   {active&&<FeedViewer instantPreview={instantPreview} item={active} related={relatedMaterial(active,available)} recordings={memories(active)} onOpen={open} onClose={close}
    onPrevious={()=>open(available[(available.findIndex(i=>i.id===active.id)-1+available.length)%available.length].id)}

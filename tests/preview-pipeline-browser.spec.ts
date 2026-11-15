@@ -2387,6 +2387,16 @@ test("letter transcription opens inside the editor and switches original/text on
  await page.getByLabel("Email",{exact:true}).fill("visibility@example.test");
  await page.getByLabel("Password",{exact:true}).fill("local-fixture-password");
  await page.getByRole("button",{name:"Sign in",exact:true}).click();
+ await expect(page).toHaveURL("http://127.0.0.1:4300/");
+ const homeUrl=page.url();
+ await page.locator(`article[data-item-id="${seed.id}"]`).getByRole("button",{name:"Read transcription",exact:true}).click();
+ const directReader=page.getByRole("dialog",{name:"Letter transcription",exact:true});
+ await expect(directReader.getByText("Cher Jan, Auroville, 17 August 1978. [unclear]",{exact:true})).toBeVisible();
+ expect(page.url()).toBe(homeUrl);
+ await page.setViewportSize({width:375,height:844});
+ await expect(directReader.getByText("Cher Jan, Auroville, 17 August 1978. [unclear]",{exact:true})).toBeVisible();
+ await directReader.getByRole("button",{name:"Close photo",exact:true}).click();
+ await page.setViewportSize({width:1440,height:1000});
  await page.getByRole("button",{name:"View Fixture four-page letter",exact:true}).last().click();
  await page.getByRole("dialog",{name:"Photo and related material"}).getByRole("button",{name:"Edit details",exact:true}).click();
  const url=page.url();

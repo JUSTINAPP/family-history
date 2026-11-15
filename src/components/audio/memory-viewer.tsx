@@ -9,13 +9,13 @@ import { ArchiveImage } from "../archive-image";
 import { useWorkspace } from "../workspace-provider";
 import type { ArchiveItem } from "@/lib/types";
 import type { RecordingView } from "@/lib/audio/repository";
-export function MemoryViewer({item, recordings, initialMode, onClose}: {item: ArchiveItem; recordings: RecordingView[]; initialMode: "listen" | "record" | "edit"; onClose: () => void}) {
+export function MemoryViewer({item, recordings, initialMode, onClose}: {item: ArchiveItem; recordings: RecordingView[]; initialMode: "listen" | "record" | "edit" | "read"; onClose: () => void}) {
   const workspace = useWorkspace(), dialog = useRef<HTMLDialogElement>(null), id = useId();
   const savedPages=useItemPages(item,workspace.mode==="live" && initialMode!=="listen");
   const pageItem=savedPages.item;
   const [mode] = useState(initialMode), [selected, setSelected] = useState(recordings[0]?.id), [playing, setPlaying] = useState(false);
   const [imageReady, setImageReady] = useState(false), [imageFailed, setImageFailed] = useState(false), [still, setStill] = useState(false);
-  const [reading,setReading]=useState(false);
+  const [reading,setReading]=useState(initialMode==="read");
   const [dirty, setDirty] = useState(false), [saving, setSaving] = useState(false);
   useEffect(() => {
     const element=dialog.current, focused=document.activeElement as HTMLElement | null, overflow=document.body.style.overflow;

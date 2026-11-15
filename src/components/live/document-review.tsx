@@ -59,10 +59,10 @@ export function DocumentReview({archiveId,itemId,kind,title,files,sets,source,ru
         <button className="subtle-button" disabled={busy} onClick={async()=>{try{await post(`/api/v1/document-runs/${run.id}`,{action:"cancel"});setMessage("Attempt stopped. Saved page drafts remain in history.");reload();}catch{setMessage("Could not stop this attempt. Reload and check its state.");}}}>Stop this attempt</button>
       </>}
     </div>
-    {confirm && <section className="notice" role="dialog" aria-labelledby="document-confirm-title">
+    {confirm && <section className="notice document-confirmation" role="dialog" aria-labelledby="document-confirm-title">
       <h2 id="document-confirm-title">{confirm==="translate"?"Translate":"Transcribe"} {source.pages.length} pages?</h2>
       <p>{confirm==="translate"?"The saved source transcription will be sent to the configured AI service for a separate English draft.":"Copies of these ordered pages will be sent to the configured AI service for transcription and draft suggestions."} This may incur processing costs. Originals and earlier attempts stay unchanged.</p>
-      <button className="subtle-button" onClick={()=>setConfirm(null)}>Cancel</button><button className="button" onClick={()=>void process(confirm)}>{confirm==="translate"?"Translate these pages":"Transcribe these pages"}</button>
+      <div className="document-confirmation-actions"><button type="button" className="button" disabled={busy} onClick={()=>void process(confirm)}>{confirm==="translate"?"Translate these pages":"Transcribe these pages"}</button><button type="button" className="subtle-button" disabled={busy} onClick={()=>setConfirm(null)}>Cancel</button></div>
     </section>}
     {message && <p role="status" className="notice">{message}</p>}
     {run && <p>{run.operation==="translate"?"English translation":"Source-language transcription"} · {run.status==="complete"?"Draft ready for review":run.status==="failed"?"Incomplete attempt — saved page drafts retained":"Processing attempt"}

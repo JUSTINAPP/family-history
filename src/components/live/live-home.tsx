@@ -2,6 +2,7 @@ import { ArchiveLoading } from "../archive-loading";
 import { HomeGallery } from "../home-gallery";
 import Link from "next/link";
 import { loadWorkspace, requireSession } from "@/lib/backend/repository";
+import { completedTranscriptions } from "@/lib/documents/repository";
 import { loadRecordings } from "@/lib/audio/repository";
 import { LiveWorkspaceProvider } from "./live-workspace";
 import { loadPlaceData, workspaceWithPlaces } from "@/lib/backend/places";
@@ -13,8 +14,13 @@ export async function LiveHome() {
   let workspace = await loadWorkspace({ materialOnly: true });
   if (!workspace) return null;
   const { client } = await requireSession();
-  const audio = await loadRecordings(client, workspace.archive.id).then(recordings => ({recordings, unavailable: false})).catch(() => ({recordings: [], unavailable: true}));
-  try { workspace = workspaceWithPlaces(workspace, await loadPlaceData(workspace.archive.id)); } catch { /* Core material remains available if Place context is unavailable. */ }
+  const [audio, places, transcriptions] = await Promise.all([
+    loadRecordings(client, workspace.archive.id).then(recordings => ({recordings, unavailable: false})).catch(() => ({recordings: [], unavailable: true})),
+    loadPlaceData(workspace.archive.id).catch(() => null),
+    completedTranscriptions(workspace.archive.id).catch(() => new Map<string, string>()),
+  ]);
+  if (places) workspace = workspaceWithPlaces(workspace, places);
+  workspace = {...workspace, catalogue: workspace.catalogue.map(item => ({...item, transcriptionRunId: transcriptions.get(item.id)}))};
   const visit = `${workspace.archive.id}:${(await cookies()).get(HOME_VISIT_COOKIE)?.value || "initial"}`;
   const gallery = homeMaterial(workspace.catalogue, workspace.catalogue.length, visit);
   reportRender("home");
