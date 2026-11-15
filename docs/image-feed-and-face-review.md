@@ -33,3 +33,7 @@ Physical iPhone Safari acceptance and positive-match quality on real family phot
 ## Simplified browsing — 15 November 2026
 
 Home preserves image proportions in a measured masonry grid with rounded image corners and stable reading order. Captions show recorded names, date/year or useful descriptions; generic type labels are omitted. The archive name links Home, search leads browsing, and the desktop directories are available from the Archive menu. Mobile bottom navigation remains available. Focused production browser checks cover image visibility, varied heights without overlap, mobile bounds, menu loading feedback and Back navigation.
+
+## Inline voice memories — 15 November 2026
+
+Photos with recordings show a small headphones badge. The first tap starts the voice and gentle motion within the tile; the next tap expands the image while retaining the same audio element and playback position. Pause, loading/retry feedback, Close and Photo details remain available. Only one tile plays at a time; recordings play sequentially and motion respects reduced-motion settings. Production browser checks verify inline playback, expansion continuity, pause/resume, close/reopen and mobile width. Physical iPhone acceptance remains pending.

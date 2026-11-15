@@ -2053,3 +2053,31 @@ test('masonry preserves reading order, fits varied photos and simplifies the hea
  await page.screenshot({path:'/private/tmp/archive-masonry-mobile.png'});
  await page.locator('.feed-image-open').first().click();await expect(page.getByRole('dialog',{name:'Photo and related material'})).toBeVisible();await page.goBack();await expect(page.getByRole('dialog',{name:'Photo and related material'})).toHaveCount(0);
 });
+
+
+test('feed memories play inline and expand without restarting audio',async({page,request})=>{
+ await page.context().addCookies([{name:'active_archive',value:archive,url:'http://127.0.0.1:4300'}]);
+ await page.goto('/sign-in');await page.getByLabel('Email',{exact:true}).fill('visibility@example.test');await page.getByLabel('Password',{exact:true}).fill('local-fixture-password');await page.locator('form').getByRole('button',{name:'Sign in',exact:true}).click();await expect(page).toHaveURL(/\/$/);
+ const memoryItem=await page.locator(".feed-card").first().getAttribute("data-item-id");
+ await request.post(`http://127.0.0.1:4301/__fixture/home-audio?item=${memoryItem}`);await page.reload();
+ const card=page.locator(`.feed-card[data-item-id="${memoryItem}"]`);
+ await expect(card.locator('.feed-listen-icon')).toBeVisible();
+ await page.route('**/api/v1/files/*',async route=>{await new Promise(r=>setTimeout(r,600));await route.continue();});
+ await card.locator('.feed-image-open').click();
+ await expect(card.locator('.feed-listen-icon .memory-spinner')).toBeVisible();
+ await expect(page.getByRole('dialog')).toHaveCount(0);
+ await expect(card.locator('.feed-memory-image')).toHaveAttribute('data-playing','true');
+ await expect.poll(()=>card.locator('audio').evaluate((a:HTMLAudioElement)=>a.currentTime)).toBeGreaterThan(.15);
+ await card.getByRole('button',{name:'Pause memory',exact:true}).click();
+ const position=await card.locator('audio').evaluate((a:HTMLAudioElement)=>{a.dataset.continuity='same-audio';return a.currentTime;});
+ await card.locator('.feed-image-open').click();
+ const viewer=page.locator('.feed-memory-expanded');await expect(viewer).toBeVisible();
+ await expect(card.locator('audio')).toHaveAttribute('data-continuity','same-audio');
+ expect(await card.locator('audio').evaluate((a:HTMLAudioElement)=>a.currentTime)).toBeCloseTo(position,1);
+ await viewer.getByRole('button',{name:'Play memory',exact:true}).click();
+ await expect(viewer.locator('.feed-memory-stage')).toHaveAttribute('data-playing','true');
+ await page.emulateMedia({reducedMotion:'reduce'});await expect(viewer.locator('.feed-memory-stage')).toHaveCSS('animation-name','none');
+ await viewer.getByRole('button',{name:'Close memory',exact:true}).click();await expect(card.locator('audio')).toHaveCount(0);
+ await card.locator('.feed-listen-icon').click();await expect(card.locator('.feed-memory-image')).toHaveAttribute('data-playing','true');
+ await page.setViewportSize({width:375,height:844});await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});

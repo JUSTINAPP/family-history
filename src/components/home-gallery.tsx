@@ -1,5 +1,6 @@
 "use client";
 import Link from 'next/link';
+import {FeedMemory} from './audio/feed-memory';
 import {FaceSuggestions} from './face-suggestions';
 import {useWorkspace} from './workspace-provider';
 import {can} from '@/lib/permissions';
@@ -17,6 +18,7 @@ import type {RecordingView} from '@/lib/audio/repository';
 
 export function HomeGallery({items,recordings=[],archiveId}:{items:ArchiveItem[];recordings?:RecordingView[];archiveId?:string}) {
  const workspace=useWorkspace();
+ const [listening,setListening]=useState<string|null>(null);
  const [faceSearch,setFaceSearch]=useState(false);
  const router=useRouter(),[visible,setVisible]=useState(24),[filter,setFilter]=useState('All'),[query,setQuery]=useState(''),[selected,setSelected]=useState<string|null>(null);
  const scrollPosition=useRef(0),grid=useRef<HTMLElement>(null);
@@ -52,6 +54,7 @@ export function HomeGallery({items,recordings=[],archiveId}:{items:ArchiveItem[]
    return()=>clearTimeout(timer);
  },[router]);
  function open(id:string) {
+   setListening(null);
    if(!selected){returnFocus.current=document.activeElement as HTMLElement;scrollPosition.current=window.scrollY;history.pushState({...history.state,archiveFeedPhoto:id,feedScroll:window.scrollY,feedVisible:visible,feedFilter:filter,feedQuery:query},'',`${location.pathname}${location.search}#photo=${id}`);ownHistory.current=true;}
    else history.replaceState({...history.state,archiveFeedPhoto:id},'',`${location.pathname}${location.search}#photo=${id}`);
    setSelected(id);
@@ -62,10 +65,10 @@ export function HomeGallery({items,recordings=[],archiveId}:{items:ArchiveItem[]
   <div className="feed-filters" aria-label="Material type">{['All','Photograph','Letter','Document','Object'].map(kind=><button type="button" key={kind} aria-pressed={filter===kind} onClick={()=>{setFilter(kind);setVisible(24);}}>{kind==='All'?'Everything':`${kind}s`}</button>)}</div>
   <section ref={grid} className="collection-grid" aria-label="Material from your archive">
    {filtered.slice(0,visible).map((item,index)=><article className="feed-card" data-item-id={item.id} data-kind={item.kind} key={item.id}>
-    <div className="feed-image-wrap" style={{backgroundColor:feedColour(item.id),aspectRatio:item.imageSet?presentationRatio(item.imageSet):item.aspect==='portrait'?.75:item.aspect==='landscape'?1.4:1}} onLoadCapture={e=>{const image=e.target as HTMLImageElement;if(image.tagName==='IMG'&&image.naturalWidth){const quarter=(item.imageSet?.rotation??item.rotation??0)%180;e.currentTarget.style.aspectRatio=String(quarter?image.naturalHeight/image.naturalWidth:image.naturalWidth/image.naturalHeight);}}}><button type="button" className="feed-image-open" aria-label={`View ${item.title}`} aria-haspopup="dialog" onClick={()=>open(item.id)}/>
-     <ArchiveImage src={item.image} imageSet={item.imageSet} rotation={item.rotation} variant="small" priority={index<4} alt={item.alt||item.title} sizes="(max-width:700px) 46vw, (max-width:1100px) 30vw, 24vw"/>
+    <div className="feed-image-wrap" style={{backgroundColor:feedColour(item.id),aspectRatio:item.imageSet?presentationRatio(item.imageSet):item.aspect==='portrait'?.75:item.aspect==='landscape'?1.4:1}} onLoadCapture={e=>{const image=e.target as HTMLImageElement;if(image.tagName==='IMG'&&image.naturalWidth){const quarter=(item.imageSet?.rotation??item.rotation??0)%180;e.currentTarget.style.aspectRatio=String(quarter?image.naturalHeight/image.naturalWidth:image.naturalWidth/image.naturalHeight);}}}>{memories(item).length>0?<FeedMemory item={item} recordings={memories(item)} active={listening===item.id} onActivate={()=>setListening(item.id)} onStop={()=>setListening(null)} onDetails={()=>open(item.id)}><ArchiveImage src={item.image} imageSet={item.imageSet} rotation={item.rotation} variant="small" priority={index<4} alt={item.alt||item.title} sizes="(max-width:700px) 46vw, (max-width:1100px) 30vw, 24vw"/></FeedMemory>:<><button type="button" className="feed-image-open" aria-label={`View ${item.title}`} aria-haspopup="dialog" onClick={()=>open(item.id)}/>
+     <ArchiveImage src={item.image} imageSet={item.imageSet} rotation={item.rotation} variant="small" priority={index<4} alt={item.alt||item.title} sizes="(max-width:700px) 46vw, (max-width:1100px) 30vw, 24vw"/></>}
     </div>
-    {(feedCaption(item,workspace.historicalPeople)||memories(item).length>0)&&<div className="feed-caption">{feedCaption(item,workspace.historicalPeople)&&<button type="button" onClick={()=>open(item.id)}>{feedCaption(item,workspace.historicalPeople)}</button>}{memories(item).length>0&&<span>Listen available</span>}</div>}
+    {feedCaption(item,workspace.historicalPeople)&&<div className="feed-caption">{feedCaption(item,workspace.historicalPeople)&&<button type="button" onClick={()=>open(item.id)}>{feedCaption(item,workspace.historicalPeople)}</button>}</div>}
    </article>)}
   </section>
   {!filtered.length&&<p className="notice">No matching images. Try another search or material type.</p>}
