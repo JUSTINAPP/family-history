@@ -23,10 +23,18 @@ export function ItemEditor({
   item,
   nextId,
   batchId,
+  embedded = false,
+  onSaved,
+  onDirtyChange,
+  onSavingChange,
 }: {
   item: EditableItem;
   nextId?: string;
   batchId?: string;
+  embedded?: boolean;
+  onSaved?: ()=>void;
+  onDirtyChange?: (dirty:boolean)=>void;
+  onSavingChange?: (saving:boolean)=>void;
 }) {
   const router = useRouter();
   const operation = useRef<{ signature: string; id: string } | null>(null);
@@ -34,6 +42,7 @@ export function ItemEditor({
   const [message, setMessage] = useState("");
   async function save(form: HTMLFormElement, next: boolean) {
     setBusy(true);
+    onSavingChange?.(true);
     setMessage("");
     try {
       const data = new FormData(form);
@@ -46,6 +55,7 @@ export function ItemEditor({
       else {
         setMessage("Changes saved. Original files unchanged.");
         operation.current = null;
+        onDirtyChange?.(false);
         const words = form.elements.namedItem(
           "newRecollection",
         ) as HTMLTextAreaElement | null;
@@ -54,6 +64,7 @@ export function ItemEditor({
           router.push(
             `/archive/${nextId}/edit${batchId ? `?batch=${batchId}` : ""}`,
           );
+        onSaved?.();
         router.refresh();
       }
     } catch {
@@ -62,13 +73,15 @@ export function ItemEditor({
       );
     } finally {
       setBusy(false);
+      onSavingChange?.(false);
     }
   }
   return (
     <>
-    <ItemTypeField key={item.kind} archiveId={item.archive_id} itemId={item.id} kind={item.kind} editable={item.lifecycle === "active" && item.ingestion_status === "ready" && !item.archived_at && item.grouping_kind !== "split_context"} />
+    <ItemTypeField onSaved={onSaved} key={item.kind} archiveId={item.archive_id} itemId={item.id} kind={item.kind} editable={item.lifecycle === "active" && item.ingestion_status === "ready" && !item.archived_at && item.grouping_kind !== "split_context"} />
     <form
       className="catalogue-form"
+      onChange={()=>onDirtyChange?.(true)}
       onSubmit={(e) => {
         e.preventDefault();
         const next =
@@ -89,12 +102,12 @@ export function ItemEditor({
       <div className="catalogue-grid">
         <input type="hidden" name="kind" value={item.kind}/>
         <label className="field">
-          <span>Reported people notes (text)</span>
+          <span>{item.kind === "Artwork" ? "Artist name(s)" : "People notes"}</span>
           <input
             name="people"
             defaultValue={item.people_text}
             maxLength={1000}
-            placeholder="Preserved name notes; use People below to link Person records"
+            placeholder={item.kind === "Artwork" ? "Artist or maker; link their People record below" : "Names or identification notes"}
           />
         </label>
         <label className="field">
@@ -186,9 +199,9 @@ export function ItemEditor({
             View this import ↗
           </Link>
         )}
-        <Link className="text-link" href={`/archive/${item.id}`}>
+        {!embedded && <Link className="text-link" href={`/archive/${item.id}`}>
           Back to item
-        </Link>
+        </Link>}
       </div>
     </form>
     </>

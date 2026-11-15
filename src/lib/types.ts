@@ -1,6 +1,6 @@
 export type UUID = string;
 export type ItemKind =
-  "Photograph" | "Letter" | "Object" | "Document" | "Other" | "Audio";
+  "Photograph" | "Letter" | "Object" | "Document" | "Other" | "Audio" | "Artwork";
 export type EvidenceStatus =
   "verified" | "family_reported" | "ai_suggested" | "uncertain";
 export type MemberRole =

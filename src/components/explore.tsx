@@ -14,6 +14,7 @@ const kinds = [
   "Photographs",
   "Letters",
   "Objects",
+  "Artworks",
   "Documents",
   "Audio",
 ];
@@ -22,6 +23,7 @@ const typeMap: Record<string, string> = {
   Photographs: "Photograph",
   Letters: "Letter",
   Objects: "Object",
+  Artworks: "Artwork",
   Documents: "Document",
 };
 export function Explore({recordings=[]}: {recordings?:RecordingView[]}) {

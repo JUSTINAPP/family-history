@@ -1,6 +1,5 @@
 "use client";
 import Link from 'next/link';
-import {CardDetails} from './live/card-details';
 import {PhotoLoadingStatus} from './photo-loading-status';
 import {FeedMemory} from './audio/feed-memory';
 import {FaceSuggestions} from './face-suggestions';
@@ -70,7 +69,7 @@ export function HomeGallery({items,recordings=[],archiveId,showControls=true}:{i
  return <div className="home-gallery collection-feed">
   {filtered.slice(0,4).some(item=>!readyImages.has(item.id))&&<PhotoLoadingStatus names={workspace.historicalPeople.filter(person=>filtered.slice(0,4).some(item=>item.people.includes(person.id))).map(person=>person.name).slice(0,8)}/>}
   {showControls&&<><div className="feed-toolbar"><label className="feed-search"><Search size={20} aria-hidden="true"/><input aria-label="Search this collection" placeholder="Search photos, names, places or dates" value={query} onChange={e=>{setQuery(e.target.value);setVisible(24);}}/></label><Link href="/explore" className="text-link">All filters ↗</Link>{can(workspace.role,"commenter")&&<button className="subtle-button" onClick={()=>setFaceSearch(true)}>Find people</button>}</div>
-  <div className="feed-filters" aria-label="Material type">{['All','Photograph','Letter','Document','Object'].map(kind=><button type="button" key={kind} aria-pressed={filter===kind} onClick={()=>{setFilter(kind);setVisible(24);}}>{kind==='All'?'Everything':`${kind}s`}</button>)}</div></>}
+  <div className="feed-filters" aria-label="Material type">{['All','Photograph','Letter','Document','Object','Artwork'].map(kind=><button type="button" key={kind} aria-pressed={filter===kind} onClick={()=>{setFilter(kind);setVisible(24);}}>{kind==='All'?'Everything':`${kind}s`}</button>)}</div></>}
   <section ref={grid} className="collection-grid" aria-label="Material from your archive">
    {filtered.slice(0,visible).map((item,index)=><article className="feed-card" data-item-id={item.id} data-kind={item.kind} key={item.id}>
     <div className="feed-image-wrap" style={{backgroundColor:feedColour(item.id),aspectRatio:item.imageSet?presentationRatio(item.imageSet):item.aspect==='portrait'?.75:item.aspect==='landscape'?1.4:1}} onLoadCapture={e=>{const image=e.target as HTMLImageElement;if(image.tagName==='IMG'&&image.naturalWidth){const quarter=(item.imageSet?.rotation??item.rotation??0)%180;e.currentTarget.style.aspectRatio=String(quarter?image.naturalHeight/image.naturalWidth:image.naturalWidth/image.naturalHeight);}}}>{memories(item).length>0?<FeedMemory item={item} recordings={memories(item)} active={listening===item.id} onActivate={()=>setListening(item.id)} onDetails={()=>open(item.id)}><ArchiveImage onReady={()=>setReadyImages(old=>old.has(item.id)?old:new Set([...old,item.id]))} src={item.image} imageSet={item.imageSet} rotation={item.rotation} variant="thumbnail" priority={index<4} alt={item.alt||item.title} sizes="(max-width:700px) 46vw, (max-width:1100px) 30vw, 24vw"/></FeedMemory>:<><button type="button" className="feed-image-open" aria-label={`View ${item.title}`} aria-haspopup="dialog" onClick={()=>open(item.id)}/>
@@ -96,15 +95,14 @@ function FeedViewer({instantPreview,item,related,recordings,onOpen,onClose,onPre
  return <dialog ref={dialog} className={`feed-viewer ${detailsFor===item.id ? "feed-viewer-details" : "feed-viewer-simple"}`} aria-label="Photo and related material" onCancel={e=>{if(e.target!==e.currentTarget)return;e.preventDefault();onClose();}}>
   <header className="feed-viewer-top"><button type="button" className="memory-button" aria-label="Back to collection" onClick={onClose}><ArrowLeft size={18}/><span>Back to collection</span></button><div><button className="icon-button" aria-label="Previous image" onClick={onPrevious}><ArrowLeft/></button><button className="icon-button" aria-label="Next image" onClick={onNext}><ArrowRight/></button><button className="icon-button" aria-label="Close image" onClick={onClose}><X/></button></div></header>
   <div className="feed-viewer-layout"><section className="feed-feature" key={item.id}>
-   <PhotoMemories instantPreview={instantPreview} item={item} recordings={recordings} priority variant="thumbnail" staticPhoto onPhotoClick={()=>setDetailsFor(item.id)}>
+   <PhotoMemories instantPreview={instantPreview} item={item} recordings={recordings} priority variant="thumbnail" staticPhoto showEditor onPhotoClick={()=>setDetailsFor(item.id)}>
     <div className="feed-photo-details">
     {feedCaption(item,workspace.historicalPeople)&&<h2>{feedCaption(item,workspace.historicalPeople)}</h2>}
     <InlineConversation item={item}/>
     </div>
    </PhotoMemories>
    <div className="feed-photo-details">
-   <Link className="text-link" href={item.href!}>Edit details, people or crop ↗</Link>
-   <CardDetails item={item} showRecorder={false}/>
+
    {item.transcriptionRunId&&<Link className="text-link" href={`/archive/${item.id}/review?run=${item.transcriptionRunId}`}>Read transcription ↗</Link>}
    </div>
   </section><aside className="feed-related"><h2>More to explore</h2><div className="feed-related-grid">{related.map(({item:other,reason})=><button type="button" key={other.id} onClick={()=>onOpen(other.id)} className="feed-related-card" style={{backgroundColor:feedColour(other.id)}}>

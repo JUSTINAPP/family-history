@@ -3,14 +3,14 @@ import {prepareVoicePlayback} from "@/lib/audio/playback";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { prepareDisplay } from "@/lib/preview/client";
 import type { ImageSet } from "@/lib/preview/types";
-import { Mic, Headphones } from "lucide-react";
+import { Mic, Headphones, PencilLine } from "lucide-react";
 import { useWorkspace } from "../workspace-provider";
 import { can } from "@/lib/permissions";
 import { ArchiveImage } from "../archive-image";
 import { MemoryViewer } from "./memory-viewer";
 import type { RecordingView } from "@/lib/audio/repository";
 import type { ArchiveItem } from "@/lib/types";
-export function PhotoMemories({ item, recordings, priority, eager = false, variant = "small", staticPhoto = false, onPhotoClick, instantPreview, children }: { item: ArchiveItem; recordings: RecordingView[]; priority: boolean; eager?: boolean; variant?: "small" | "thumbnail"; staticPhoto?: boolean; onPhotoClick?: () => void; instantPreview?: {src:string;width:number;height:number}; children: ReactNode }) {
+export function PhotoMemories({ item, recordings, priority, eager = false, variant = "small", staticPhoto = false, onPhotoClick, showEditor = false, instantPreview, children }: { item: ArchiveItem; recordings: RecordingView[]; priority: boolean; eager?: boolean; variant?: "small" | "thumbnail"; staticPhoto?: boolean; onPhotoClick?: () => void; showEditor?: boolean; instantPreview?: {src:string;width:number;height:number}; children: ReactNode }) {
   const workspace = useWorkspace();
   const root = useRef<HTMLDivElement>(null);
   const [prepared, setPrepared] = useState<ImageSet>();
@@ -30,7 +30,7 @@ export function PhotoMemories({ item, recordings, priority, eager = false, varia
     observer.observe(root.current);
     return () => {active = false; observer.disconnect();};
   }, [item.image, item.imageSet, prepared, retry]);
-  const [mode, setMode] = useState<"listen" | "record" | null>(null);
+  const [mode, setMode] = useState<"listen" | "record" | "edit" | null>(null);
   return <div className="photo-memories" ref={root}>
     {onPhotoClick ? <button type="button" className="photo-open" aria-label="Show photo details and editing options" onClick={onPhotoClick}><ArchiveImage instantPreview={instantPreview} src={item.image} alt={item.title} imageSet={displayItem.imageSet} rotation={item.rotation} variant={variant} autoPrepare={false} priority={priority} fitFrame sizes="(max-width: 700px) 100vw, 700px" /></button> : staticPhoto ? <div className="photo-open">      <ArchiveImage key={displayItem.imageSet?.id || item.image} src={item.image} alt={item.title} imageSet={displayItem.imageSet} rotation={item.rotation} variant={variant} autoPrepare={false} priority={priority} eager={eager} fetchPriority={priority ? "high" : "low"} fitFrame sizes="(max-width: 820px) 80vw, 400px" /></div> : <button type="button" className="photo-open" aria-label={`View photo: ${item.title}`} aria-haspopup="dialog" onClick={() => {prepareVoicePlayback();setMode("listen");}}>
       <ArchiveImage key={displayItem.imageSet?.id || item.image} src={item.image} alt={item.title} imageSet={displayItem.imageSet} rotation={item.rotation} variant={variant} autoPrepare={false} priority={priority} eager={eager} fetchPriority={priority ? "high" : "low"} fitFrame sizes="(max-width: 820px) 80vw, 400px" />
@@ -38,7 +38,8 @@ export function PhotoMemories({ item, recordings, priority, eager = false, varia
     {previewError && !displayItem.imageSet && <button className="text-link" onClick={() => {setPreviewError(false); setRetry(n => n + 1);}}>Retry image preview</button>}
     {children}
     <div className="memory-actions">
-      {can(workspace.role, "contributor") && <button type="button" className="memory-button" aria-haspopup="dialog" onClick={() => setMode("record")}><Mic size={18} aria-hidden="true" />Record a message</button>}
+      {can(workspace.role, "contributor") && <button type="button" className="memory-button record-primary" aria-haspopup="dialog" onClick={() => setMode("record")}><Mic size={18} aria-hidden="true" />Record a message</button>}
+      {showEditor && <button type="button" className="memory-button" onClick={()=>setMode("edit")}><PencilLine size={18} aria-hidden="true"/>Edit details</button>}
       {!!recordings.length && <button type="button" className="memory-button listen-badge" aria-label={`Listen to ${recordings.length} ${recordings.length === 1 ? "memory" : "memories"} about ${item.title}`} aria-haspopup="dialog" onClick={() => {prepareVoicePlayback();setMode("listen");}}><Headphones size={18} aria-hidden="true" />Listen{recordings.length > 1 ? ` (${recordings.length})` : ""}</button>}
     </div>
     {mode && <MemoryViewer item={displayItem} recordings={recordings} initialMode={mode} onClose={() => setMode(null)} />}

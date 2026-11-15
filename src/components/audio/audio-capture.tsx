@@ -13,7 +13,7 @@ import {
   emptyAudioMetadata,
 } from "@/lib/audio/validation";
 import { can } from "@/lib/permissions";
-export function AudioCapture({ itemId, inline = false, onSaved, onDirtyChange, onSavingChange }: { itemId?: string; inline?: boolean; onSaved?: () => void; onDirtyChange?: (dirty: boolean) => void; onSavingChange?: (saving: boolean) => void }) {
+export function AudioCapture({ itemId, inline = false, onSaved, onDirtyChange, onSavingChange, startImmediately = false }: { itemId?: string; inline?: boolean; startImmediately?: boolean; onSaved?: () => void; onDirtyChange?: (dirty: boolean) => void; onSavingChange?: (saving: boolean) => void }) {
   const workspace = useWorkspace(),
     router = useRouter();
   const [file, setFile] = useState<File | null>(null),
@@ -87,6 +87,10 @@ export function AudioCapture({ itemId, inline = false, onSaved, onDirtyChange, o
       });
       setMessage("Voice recording preserved.");
       setFile(null);
+      setMetadata(emptyAudioMetadata);
+      setPeople([]);
+      setItems([]);
+      setAttempted(false);
       setKey((k) => k + 1);
       captureId.current = crypto.randomUUID();
       if (inline) onSaved?.();
@@ -107,6 +111,7 @@ export function AudioCapture({ itemId, inline = false, onSaved, onDirtyChange, o
     <div className="catalogue-form audio-capture">
       <AudioRecorder
         key={key}
+        startImmediately={startImmediately && key === 0}
         disabled={saving}
         onBusy={setRecording}
         onChange={choose}

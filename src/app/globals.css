@@ -5677,3 +5677,34 @@ h1, h2, h3 { font-weight: 500; }
 
 .feed-feature .photo-open { display: block; }
 .feed-feature .photo-open > .archive-image { flex: none; }
+
+/* One editor, with the image kept in view and distinct save actions per section. */
+.memory-viewer[data-mode="record"] { width:min(1320px,96vw); }
+.memory-viewer[data-mode="record"] .memory-viewer-body { grid-template-columns:minmax(0,1fr) minmax(380px,520px); }
+.memory-viewer[data-mode="record"] .memory-stage { position:sticky;top:0;align-self:start; }
+.memory-viewer[data-mode="record"] .memory-cinema .archive-image { --archive-frame-height:75dvh; }
+.unified-item-editor { min-width:0; }
+.unified-section { padding:24px 0;border-bottom:1px solid #d7dacd; }
+.unified-section:first-child { padding-top:0; }
+.unified-section h3 { font-size:23px;margin:0 0 12px; }
+.unified-section h2 { font-size:19px; }
+.unified-section .catalogue-grid { grid-template-columns:1fr; }
+.unified-section .catalogue-form { gap:16px; }
+.unified-section summary { cursor:pointer;padding:12px 0;font-weight:600; }
+.unified-section .button,.unified-section input,.unified-section select,.unified-section textarea { border-radius:10px; }
+.unified-section .item-type-field { background:#e8ecdf;padding:0 16px;border-radius:12px;margin-bottom:20px; }
+@media(max-width:700px) {
+ .memory-viewer[data-mode="record"] { width:100vw;max-width:100vw; }
+ .memory-viewer[data-mode="record"] .memory-viewer-body { display:block; }
+ .memory-viewer[data-mode="record"] .memory-stage { position:relative; }
+ .memory-viewer[data-mode="record"] .memory-cinema .archive-image { --archive-frame-height:28dvh; }
+ .memory-viewer[data-mode="record"] .memory-viewer-controls { padding:20px 16px 48px; }
+ .unified-section .import-actions { flex-wrap:wrap; }
+}
+
+.editor-section-nav { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px; }
+.editor-section-nav .subtle-button { padding:8px 12px; font-size:14px; min-height:44px; }
+.unified-section { scroll-margin-top:96px; }
+.memory-viewer[data-mode="record"] .memory-stage { top:85px; }
+.memory-actions .record-primary { background:var(--forest, #355544); color:#fff; border-color:var(--forest, #355544); }
+@media(max-width:700px) { .memory-viewer[data-mode="record"] .memory-stage { top:auto; } }

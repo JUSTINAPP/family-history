@@ -9,10 +9,12 @@ export function AudioRecorder({
   onChange,
   onBusy,
   disabled = false,
+  startImmediately = false,
 }: {
   onChange: (file: File | null, durationMs?: number) => void;
   onBusy: (busy: boolean) => void;
   disabled?: boolean;
+  startImmediately?: boolean;
 }) {
   const [state, setState] = useState<
     "ready" | "requesting" | "recording" | "paused" | "stopped"
@@ -22,6 +24,15 @@ export function AudioRecorder({
   const recorder = useRef<MediaRecorder | null>(null),
     stream = useRef<MediaStream | null>(null),
     alive = useRef(true);
+  const startedOnOpen = useRef(false);
+  useEffect(() => {
+    if (startImmediately && !startedOnOpen.current) {
+      startedOnOpen.current = true;
+      void start();
+    }
+    // Only the initiating user action starts recording, never later re-renders.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const clock = useRef({ elapsed: 0, started: 0 });
   useEffect(() => {
     alive.current = true;
