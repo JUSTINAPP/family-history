@@ -1,6 +1,5 @@
 import { HomeGallery } from "../home-gallery";
 import Link from "next/link";
-import { ArchiveImage, TextLink } from "../ui";
 import { loadWorkspace, requireSession } from "@/lib/backend/repository";
 import { loadRecordings } from "@/lib/audio/repository";
 import { LiveWorkspaceProvider } from "./live-workspace";
@@ -17,10 +16,6 @@ export async function LiveHome() {
   try { workspace = workspaceWithPlaces(workspace, await loadPlaceData(workspace.archive.id)); } catch { /* Core material remains available if Place context is unavailable. */ }
   const visit = `${workspace.archive.id}:${(await cookies()).get(HOME_VISIT_COOKIE)?.value || "initial"}`;
   const gallery = homeMaterial(workspace.catalogue, workspace.catalogue.length, visit);
-  const balancedRecent = homeMaterial(workspace.catalogue, 4);
-  const recent = balancedRecent.length ? balancedRecent : [...workspace.catalogue]
-    .filter(item => !item.archivedAt)
-    .sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || "") || a.id.localeCompare(b.id)).slice(0, 4);
   reportRender("home");
   return (
     <div className="page-shell scrapbook-home" data-arrangement={homeVisitHash(visit) % 3}>
@@ -39,14 +34,7 @@ export async function LiveHome() {
           <Link prefetch={false} className="button" href={`/explore?archive=${workspace.archive.id}`}>Explore the collection <span aria-hidden="true">↗</span></Link>
           <Link prefetch={false} className="text-link" href={`/quick-catalogue?archive=${workspace.archive.id}`}>Help identify photographs ↗</Link>
         </div>
-        <section className="scrapbook-recent" aria-labelledby="recent-title">
-          <div className="section-top baseline"><h2 id="recent-title">Latest from the collection</h2><TextLink href={`/explore?archive=${workspace.archive.id}`}>View everything</TextLink></div>
-          <div className="scrapbook-recent-list">{recent.map(item => <article key={item.id}>
-            {(item.imageSet || item.image.startsWith("/api/v1/previews/")) ? <ArchiveImage src={item.image} imageSet={item.imageSet} rotation={item.rotation} variant="small" alt={item.title} href={item.href} />
-              : <Link prefetch={false} href={item.href!} className="scrapbook-preview-pending">{item.kind === "Audio" ? "Voice recollection" : "Preview pending"}</Link>}
-            <Link prefetch={false} href={item.href!}><h3>{item.title}</h3><span className="muted-small">{item.kind} · {item.date}</span></Link>
-          </article>)}</div>
-        </section>
+
       </>}
     </div>
   );

@@ -8,6 +8,7 @@ export default defineConfig([
     ".next/**",
     ".next-test/**",
     "public/codecs/**",
+    "public/face-models/**",
     "next-env.d.ts",
     "playwright-report/**",
     "test-results/**",

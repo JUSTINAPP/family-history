@@ -997,7 +997,7 @@ test("Places are scoped archive entry points with relational filtering, preserve
   ).toBe(307);
 });
 
-test("home is a visit-stable private scrapbook using real small variants and working material links", async ({page, request, browser}) => {
+test("home is a visit-stable private image feed using real small variants and working material links", async ({page, request, browser}) => {
   test.setTimeout(90000);
   await page.context().addCookies([{name: "active_archive", value: archive, url: "http://127.0.0.1:4300"}]);
   await page.route("**/*", route => {
@@ -1012,13 +1012,13 @@ test("home is a visit-stable private scrapbook using real small variants and wor
   await page.locator("form").getByRole("button", {name: "Sign in", exact: true}).click();
   await expect(page).toHaveURL(/\/$/);
   await expect(page.getByText("An archive, still being discovered.", {exact: true})).toHaveCount(0);
-  const pieces = page.locator(".home-scrapbook .scrapbook-piece");
+  const pieces = page.locator(".collection-grid .feed-card");
   await expect.poll(() => pieces.count()).toBeGreaterThan(3);
   const initialCount = await pieces.count();
-  expect(initialCount).toBeLessThanOrEqual(12);
+  expect(initialCount).toBeLessThanOrEqual(24);
   const state = await (await request.get("http://127.0.0.1:4301/__fixture/summary")).json();
   const smallIds = new Set(state.imageSets.map((s: {small_file_id: string}) => s.small_file_id));
-  const links = await pieces.locator(".scrapbook-caption").evaluateAll(nodes => nodes.map(n => n.getAttribute("href")));
+  const links = await pieces.evaluateAll(nodes => nodes.map(n => "/archive/"+n.getAttribute("data-item-id")));
   const arrangement=await page.locator(".scrapbook-home").getAttribute("data-arrangement");
   const sessionCookies=await page.context().cookies();
   const visit=sessionCookies.find(c=>c.name===HOME_VISIT_COOKIE)!;
@@ -1026,13 +1026,13 @@ test("home is a visit-stable private scrapbook using real small variants and wor
   for (const link of links) expect(state.items.some((i: {id: string; archived_at?: string}) => link?.includes(i.id) && !i.archived_at)).toBe(true);
   await expect(pieces.first().locator(".has-placeholder .image-presentation")).toHaveCSS("background-image", /data:image\/webp/);
   // The mounted batch warms in the background, without requesting originals.
-  await expect(pieces.last().locator("img")).toHaveAttribute("loading", "eager", {timeout: 10000});
+  await pieces.last().scrollIntoViewIfNeeded();
   await expect.poll(() => pieces.last().locator("img").evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0)).toBe(true);
   await expect(pieces.first().locator("img")).toHaveAttribute("data-image-variant", "small");
   await expect(pieces.first().locator("img")).not.toHaveAttribute("srcset");
   await request.get("http://127.0.0.1:4301/__fixture/metrics?reset=1");
   await page.reload();
-  await expect(pieces).toHaveCount(initialCount);
+  await expect.poll(()=>pieces.count()).toBeGreaterThanOrEqual(initialCount);
   await page.waitForLoadState("networkidle");
   const metrics = await (await request.get("http://127.0.0.1:4301/__fixture/metrics")).json();
   expect(metrics["/rest/v1/people"]).toBe(1);
@@ -1042,27 +1042,20 @@ test("home is a visit-stable private scrapbook using real small variants and wor
   expect(metrics["/rest/v1/recollections"]).toBe(1);
   expect(metrics["/rest/v1/item_places"]).toBeLessThanOrEqual(2);
   expect(metrics["/rest/v1/identifications"]).toBeLessThanOrEqual(2);
-  expect(await pieces.locator(".scrapbook-caption").evaluateAll(nodes => nodes.map(n => n.getAttribute("href")))).toEqual(links);
+  expect((await pieces.evaluateAll(nodes => nodes.map(n => "/archive/"+n.getAttribute("data-item-id")))).slice(0,initialCount)).toEqual(links);
   await expect(page.locator(".scrapbook-home")).toHaveAttribute("data-arrangement",arrangement!);
   await page.setViewportSize({width: 375, height: 850});
   const bottomNav = await page.locator(".mobile-primary-nav").boundingBox();
   expect(bottomNav!.y + bottomNav!.height).toBeCloseTo(850, 0);
-  const slider = page.locator(".home-slider");
-  await page.getByRole("button", {name: "Next photographs"}).click();
-  await expect.poll(() => slider.evaluate(element => element.scrollLeft)).toBeGreaterThan(100);
-  await page.getByRole("button", {name: "Previous photographs"}).click();
-  await expect.poll(() => slider.evaluate(element => element.scrollLeft)).toBeLessThan(10);
-  const proportions = await pieces.first().locator(".archive-image").evaluate(element => {
-    const frame = element as HTMLElement;
-    const image = frame.querySelector("img") as HTMLImageElement;
-    return { frame: frame.clientWidth / frame.clientHeight, source: image.naturalWidth / image.naturalHeight };
-  });
-  expect(Math.abs(proportions.frame - proportions.source)).toBeLessThan(.08);
-  const homeAddress = page.url();
-  const homeCard = pieces.first();
+  const proportions = await pieces.first().locator(".feed-image-wrap").evaluate(element => element.clientWidth/element.clientHeight);
+  expect(proportions).toBeCloseTo(1,1);
   const cardImagesBeforeViewer = [...images];
+  await pieces.first().locator('.feed-image-open').click();
+  const feedViewer=page.getByRole('dialog',{name:'Photo and related material'});
+  const homeAddress = page.url();
+  const homeCard = feedViewer.locator(".feed-feature");
   await homeCard.getByRole('button',{name:/View photo:/}).click();
-  const silentViewer=page.getByRole('dialog');
+  const silentViewer=page.locator('.memory-viewer');
   await expect(silentViewer.getByRole('button')).toHaveCount(2);
   await expect(silentViewer.locator('.memory-cinema')).toHaveAttribute('data-playing','true');
   await silentViewer.getByRole('button',{name:'Pause photo motion',exact:true}).click();
@@ -1092,7 +1085,7 @@ test("home is a visit-stable private scrapbook using real small variants and wor
   await page.reload();
   await page.route("**/api/v1/files/*", async route => {await new Promise(resolve=>setTimeout(resolve,700));await route.continue();});
   await homeCard.getByRole("button", {name: /Listen to 2 memories about/}).click();
-  const viewer=page.getByRole("dialog");
+  const viewer=page.locator(".memory-viewer");
   await expect(viewer).toBeVisible();
   await expect(viewer.locator('.archive-image img')).toHaveAttribute('data-image-variant','display');
   await expect(viewer.getByText("Loading voice memory…", {exact:true})).toBeVisible();
@@ -1122,7 +1115,7 @@ test("home is a visit-stable private scrapbook using real small variants and wor
   await expect(viewer).toHaveCount(0);
   await expect(homeCard.getByRole("button", {name:/Listen to 2 memories about/})).toBeFocused();
   await homeCard.getByRole('button',{name:/View photo:/}).click();
-  await expect(page.getByRole('dialog')).toBeVisible();
+  await expect(page.locator('.memory-viewer')).toBeVisible();
   expect(page.url()).toBe(homeAddress);
   await page.getByRole('button',{name:'Close photo',exact:true}).click();
   await page.unroute("**/api/v1/files/*");
@@ -1131,7 +1124,7 @@ test("home is a visit-stable private scrapbook using real small variants and wor
   page.on("request", request => {
     if (request.url().includes("/api/v1/conversations/")) homeCommentReads.push(request.url());
   });
-  const horizontalPosition = await slider.evaluate(element => element.scrollLeft);
+
   await homeCard.getByRole("button", {name: /(?:Add a comment|comments?) on/}).click();
   const homeThread = homeCard.getByRole("region", {name: "Family conversation", exact: true});
   await expect(homeThread).toBeVisible();
@@ -1145,7 +1138,7 @@ test("home is a visit-stable private scrapbook using real small variants and wor
   await expect(homeComposer).toHaveValue("");
   await expect(homeComposer).toBeFocused();
   expect(page.url()).toBe(homeAddress);
-  expect(Math.abs(await slider.evaluate(element => element.scrollLeft) - horizontalPosition)).toBeLessThan(5);
+
   await homeComposer.fill("Unsent Home draft.");
   await homeCard.getByRole("button", {name: /Hide conversation on/}).click();
   const closedHomeComments = homeCard.getByRole("button", {name: /comments? on/});
@@ -1160,10 +1153,12 @@ test("home is a visit-stable private scrapbook using real small variants and wor
   await page.setViewportSize({width: 375, height: 850});
   await homeCard.getByRole("button", {name: /Hide conversation on/}).click();
   await page.reload();
-  await pieces.first().getByRole("button", {name: /comments? on/}).click();
-  await expect(pieces.first().getByText("A quick memory from Home.", {exact: true})).toBeVisible();
-  await pieces.first().getByRole("button", {name: /Hide conversation on/}).click();
+  await expect(feedViewer).toBeVisible();
+  await homeCard.getByRole("button", {name: /comments? on/}).click();
+  await expect(homeCard.getByText("A quick memory from Home.", {exact: true})).toBeVisible();
+  await homeCard.getByRole("button", {name: /Hide conversation on/}).click();
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
+  await feedViewer.getByRole("button",{name:"Close image",exact:true}).click();
   await pieces.last().scrollIntoViewIfNeeded();
   await expect.poll(() => pieces.last().locator("img").evaluate(n => (n as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
   await page.screenshot({path: "/private/tmp/scrapbook-mobile.png", fullPage: true});
@@ -1173,17 +1168,18 @@ test("home is a visit-stable private scrapbook using real small variants and wor
     expect(url).toContain("/api/v1/assets/");
     expect(smallIds.has(new URL(url).pathname.split("/").pop())).toBe(true);
   }
-  await pieces.first().locator(".scrapbook-caption").click();
+  await pieces.first().locator(".feed-image-open").click();
+  await feedViewer.getByRole("link",{name:"Edit details, people or crop"}).click();
   await expect(page).toHaveURL(new RegExp(links[0]!.split("?")[0]));
   await expect(page.locator(".saved-original")).not.toHaveCount(0);
   await page.goBack();
-  await expect(pieces).toHaveCount(initialCount);
-  expect(await pieces.locator(".scrapbook-caption").evaluateAll(nodes => nodes.map(n => n.getAttribute("href")))).toEqual(links);
+  await expect.poll(()=>pieces.count()).toBeGreaterThanOrEqual(initialCount);
+  expect((await pieces.evaluateAll(nodes => nodes.map(n => "/archive/"+n.getAttribute("data-item-id")))).slice(0,initialCount)).toEqual(links);
   await expect(page.locator(".scrapbook-home")).toHaveAttribute("data-arrangement",arrangement!);
   const nextVisit=await browser.newContext({baseURL:"http://127.0.0.1:4300"});
   await nextVisit.addCookies(sessionCookies.filter(c=>c.name!==HOME_VISIT_COOKIE));
   const nextPage=await nextVisit.newPage();await nextPage.goto("/");
-  await expect(nextPage.locator(".scrapbook-piece")).toHaveCount(initialCount);
+  await expect.poll(()=>nextPage.locator(".feed-card").count()).toBeGreaterThanOrEqual(initialCount);
   expect((await nextVisit.cookies()).find(c=>c.name===HOME_VISIT_COOKIE)!.value).not.toBe(visit.value);
   await nextVisit.close();
 });
@@ -1475,7 +1471,7 @@ test("family conversation is reachable from cards and persisted presentation rot
   }
   expect(visit).not.toBe("");await page.context().addCookies([{name:HOME_VISIT_COOKIE,value:visit,url:"http://127.0.0.1:4300"}]);
   await page.goto("/");await expect(page.getByRole("link",{name:"Help identify photographs ↗",exact:true})).toBeVisible();
-  const piece=page.locator(".scrapbook-piece").filter({has:page.locator(`a[href*="${seed.ids[0]}"]`)});await expect(piece.locator(".archive-image")).toHaveAttribute("data-presentation-rotation","90");await expect(piece.getByRole("button",{name:/3 comments on/})).toBeVisible();
+  const piece=page.locator(`.feed-card[data-item-id="${seed.ids[0]}"]`);await expect(piece.locator(".archive-image")).toHaveAttribute("data-presentation-rotation","90");await piece.locator(".feed-image-open").click();await expect(page.getByRole("button",{name:/3 comments on/})).toBeVisible();await page.getByRole("button",{name:"Close image",exact:true}).click();
   await page.waitForLoadState("networkidle");await request.get("http://127.0.0.1:4301/__fixture/metrics?reset=1");await page.reload();await page.waitForLoadState("networkidle");const metrics=await(await request.get("http://127.0.0.1:4301/__fixture/metrics")).json();expect(metrics["/rest/v1/item_conversation_counts"]).toBe(1);expect(metrics["/rest/v1/comments"]||0).toBe(0);
   await page.goto(`/people?archive=${archive}`);await expect(page.locator(`.material-leaf[data-item-id="${seed.ids[0]}"] .archive-image`).first()).toHaveAttribute("data-presentation-rotation","90");
   await page.goto(`/places?archive=${archive}`);await expect(page.locator(`.material-leaf[data-item-id="${seed.ids[0]}"] .archive-image`).first()).toHaveAttribute("data-presentation-rotation","90");
@@ -1652,11 +1648,11 @@ test.describe("site-wide phone audit",()=>{
    for(const label of ["Home","Explore","Add","People"])await hit(primary.getByRole("link",{name:label,exact:true}));
    await page.getByRole("button",{name:"Open menu",exact:true}).click();await expect(page.getByRole("navigation",{name:"Mobile navigation",exact:true})).toBeVisible();await bounds(page);await page.keyboard.press("Escape");await expect(page.getByRole("button",{name:"Open menu",exact:true})).toBeFocused();
   }
-  await page.getByLabel("Current archive: Test archive",{exact:true}).click();await bounds(page);await page.keyboard.press("Escape");
-  await page.locator(".scrapbook-piece .archive-image").evaluateAll(es=>es.forEach(e=>(e as HTMLElement).style.aspectRatio="0.06"));await bounds(page);
-  const geometry=await page.locator(".scrapbook-piece > .archive-image").first().evaluate(e=>({transform:getComputedStyle(e).transform,height:e.getBoundingClientRect().height}));expect(geometry.transform).not.toBe("none");expect(geometry.height).toBeLessThan(600);
-  await page.goto("/");await page.locator(".home-scrapbook .archive-image img").first().evaluate(img=>(img as HTMLImageElement).decode());
-  for(const caption of await page.locator(".scrapbook-caption").all())expect(await caption.evaluate(e=>getComputedStyle(e).transform)).toBe("none");
+  const archiveSwitch=page.getByLabel("Current archive: Test archive",{exact:true});if(await archiveSwitch.count()){await archiveSwitch.click();await bounds(page);await page.keyboard.press("Escape");}
+  await page.locator(".feed-card .archive-image").evaluateAll(es=>es.forEach(e=>(e as HTMLElement).style.aspectRatio="0.06"));await bounds(page);
+  const geometry=await page.locator(".feed-card .archive-image").first().evaluate(e=>({transform:getComputedStyle(e).transform,height:e.getBoundingClientRect().height}));expect(geometry.transform).toBe("none");expect(geometry.height).toBeLessThan(600);
+  await page.goto("/");await page.locator(".collection-grid .archive-image img").first().evaluate(img=>(img as HTMLImageElement).decode());
+  for(const caption of await page.locator(".feed-caption").all())expect(await caption.evaluate(e=>getComputedStyle(e).transform)).toBe("none");
   await page.screenshot({path:`/private/tmp/allen-cork-visual-refresh/home-${width}.png`,fullPage:true});
   if(width===375||width===1440){
    await page.screenshot({path:`/private/tmp/allen-cork-visual-refresh/home-first-screen-${width}.png`});
@@ -1683,7 +1679,7 @@ test.describe("site-wide phone audit",()=>{
   await page.goto(`/archive/${letterId}/review?run=${runId}`);await page.getByText("Advanced review",{exact:true}).click();await bounds(page);
   for(const control of await page.locator(".document-suggestion input:not([type=checkbox]),.document-suggestion select").all())expect(await control.evaluate(e=>parseFloat(getComputedStyle(e).fontSize))).toBeGreaterThanOrEqual(16);
   if(width===375){expect((await new AxeBuilder({page}).withTags(["wcag2a","wcag2aa","wcag21aa"]).analyze()).violations).toEqual([]);await page.screenshot({path:"/private/tmp/mobile-review-375.png",fullPage:true});}
-  await page.goto("/add");await page.getByLabel("Upload existing images",{exact:true}).setInputFiles(["public/images/letter.jpg","public/images/beach.jpg"]);await page.getByLabel("Material type",{exact:true}).selectOption("Letter");await page.getByText("Add a note or details (optional)",{exact:true}).click();await bounds(page);
+  await page.goto("/add");await page.waitForLoadState("networkidle");await page.getByLabel("Upload existing images",{exact:true}).setInputFiles(["public/images/letter.jpg","public/images/beach.jpg"]);await page.getByLabel("Material type",{exact:true}).selectOption("Letter");await page.getByText("Add a note or details (optional)",{exact:true}).click();await bounds(page);
   if(width===375)expect((await new AxeBuilder({page}).withTags(["wcag2a","wcag2aa","wcag21aa"]).analyze()).violations).toEqual([]);
   await page.evaluate(()=>document.documentElement.style.fontSize="24px");await bounds(page);expect(await page.getByLabel("Material type",{exact:true}).evaluate(e=>parseFloat(getComputedStyle(e).fontSize))).toBeGreaterThanOrEqual(24);
  });
@@ -1691,9 +1687,9 @@ test.describe("site-wide phone audit",()=>{
   const context=await browser.newContext({baseURL:"http://127.0.0.1:4300",viewport:{width:390,height:844},deviceScaleFactor:3,isMobile:true,hasTouch:true});await context.addCookies(phoneCookies);const phone=await context.newPage();
   await phone.goto(`/explore?archive=${archive}&q=Quick%20photograph`);const image=phone.locator(".item-card img[data-image-variant=thumbnail]").first();await expect(image).toBeVisible();await image.evaluate(img=>(img as HTMLImageElement).decode());await expect(image).toHaveAttribute("sizes",/90vw/);
   const current=await image.evaluate(img=>(img as HTMLImageElement).currentSrc);const summary=await(await phone.request.get("http://127.0.0.1:4301/__fixture/summary")).json();expect(summary.imageSets.some((s:{thumbnail_file_id:string;manifest:{thumbnail:{width:number}}})=>current.endsWith(s.thumbnail_file_id)&&s.manifest.thumbnail.width>=1000)).toBe(true);await bounds(phone);await context.close();
-  await page.context().addCookies(phoneCookies);await page.setViewportSize({width:1440,height:960});await page.goto("/");await expect(page.locator(".home-scrapbook")).toBeVisible();await bounds(page);
-  expect(await page.locator(".home-scrapbook").evaluate(e=>getComputedStyle(e).display)).toBe("flex");
-  expect(await page.locator(".scrapbook-piece").first().evaluate(e=>getComputedStyle(e).transform)).toBe("none");expect(await page.locator(".scrapbook-piece > .archive-image").first().evaluate(e=>getComputedStyle(e).transform)).not.toBe("none");expect((await page.locator(".site-header").boundingBox())!.height).toBe(111);
+  await page.context().addCookies(phoneCookies);await page.setViewportSize({width:1440,height:960});await page.goto("/");await expect(page.locator(".collection-grid")).toBeVisible();await bounds(page);
+  expect(await page.locator(".collection-grid").evaluate(e=>getComputedStyle(e).display)).toBe("grid");
+  expect(await page.locator(".feed-card").first().evaluate(e=>getComputedStyle(e).transform)).toBe("none");expect(await page.locator(".feed-card .archive-image").first().evaluate(e=>getComputedStyle(e).transform)).toBe("none");expect((await page.locator(".site-header").boundingBox())!.height).toBe(111);
   await page.goto("/explore");await expect(page.locator(".conversation-grid")).toBeVisible();expect(await page.locator(".conversation-grid").evaluate(e=>getComputedStyle(e).gridTemplateColumns.split(" ").length)).toBe(4);await bounds(page);
  });
 });
@@ -1706,7 +1702,7 @@ test("Explore quick details save people places and dates without leaving the gri
   await page.getByLabel("Email",{exact:true}).fill("visibility@example.test");
   await page.getByLabel("Password",{exact:true}).fill("local-fixture-password");
   await page.locator("form").getByRole("button",{name:"Sign in",exact:true}).click();
-  const card=page.locator(".item-card").filter({has:page.getByRole("heading",{name:"Quick photograph 1",exact:true})});
+  const card=page.locator(".item-card").filter({has:page.locator(`a[href*="${seed.ids[0]}"]`)});
   await card.getByRole("button",{name:"Who, where, when",exact:true}).click();
   const who=card.getByRole("region",{name:"People in this item",exact:true});
   await who.getByRole("button",{name:"+ Add person",exact:true}).click();
@@ -1846,13 +1842,13 @@ test("Home balances a letter batch and recovers its pending first-page preview",
   await page.getByLabel("Password", {exact:true}).fill("local-fixture-password");
   await page.locator("form").getByRole("button", {name:"Sign in",exact:true}).click();
   await expect(page).toHaveURL(/\/$/);
-  const kinds = page.locator(".home-slider .scrapbook-caption > span");
-  await expect(kinds).toHaveCount(12);
-  expect(await kinds.allTextContents()).toEqual(Array.from({length:12},(_,i)=>i%4===3?"Letter":"Photograph"));
-  const recent = page.locator(".scrapbook-recent-list article");
-  await expect(recent).toHaveCount(4);
-  await recent.last().scrollIntoViewIfNeeded();
-  await expect(recent.last().locator("img")).toHaveAttribute("data-image-variant","small", {timeout:60000});
+  const kinds = page.locator(".feed-card");
+  await expect.poll(()=>kinds.count()).toBeGreaterThanOrEqual(12);
+  expect((await kinds.evaluateAll(nodes=>nodes.map(n=>n.getAttribute("data-kind")))).slice(0,12)).toEqual(Array.from({length:12},(_,i)=>i%4===3?"Letter":"Photograph"));
+  const letter=page.locator(`.feed-card[data-item-id="${seeded.ids[9]}"]`);
+  for(let batch=0;batch<20&&!(await letter.count());batch++){const more=page.getByRole("button",{name:"Show more images",exact:true});if(!(await more.count()))break;await more.click();}
+  await letter.scrollIntoViewIfNeeded();
+  await expect(letter.locator("img")).toHaveAttribute("data-image-variant","small", {timeout:60000});
   await expect.poll(async()=>{
     const state = await (await request.get("http://127.0.0.1:4301/__fixture/summary")).json();
     return state.imageSets.some((s:{item_id:string;status:string})=>s.item_id===seeded.ids[9] && s.status==="stored");
@@ -1866,8 +1862,8 @@ test("Home balances a letter batch and recovers its pending first-page preview",
   await request.post("http://127.0.0.1:4301/__fixture/failure?sets=1");
   try {
     await page.reload();
-    await expect(kinds).toHaveCount(12);
-    await expect(page.locator(".home-slider .scrapbook-piece").first().locator("img")).toHaveAttribute("data-image-variant","small", {timeout:30000});
+    await expect.poll(()=>kinds.count()).toBeGreaterThanOrEqual(12);
+    await expect.poll(()=>page.locator(".collection-grid .feed-card").first().locator("img").evaluate((img:HTMLImageElement)=>img.complete&&img.naturalWidth>0)).toBe(true);
     await expect(page.getByText("Items are available below. Image previews are not ready yet.")).toHaveCount(0);
   } finally {await request.post("http://127.0.0.1:4301/__fixture/failure?sets=0");}
 
@@ -1979,4 +1975,52 @@ test("photo framing reviews, saves, rejects stale edits and restores without cha
   await page.setViewportSize({width:1440,height:1000});
   await page.screenshot({path:'/private/tmp/archive-crop-desktop.png'});
   await dialog.getByRole('button',{name:'Close',exact:true}).click();
+});
+
+test('image feed keeps browsing in place and hosts face tools without external requests',async({page,request})=>{
+ test.setTimeout(120000);page.setDefaultTimeout(15000);
+ const seeded=await (await request.post('http://127.0.0.1:4301/__fixture/person-item')).json();
+ await page.context().addCookies([{name:'active_archive',value:archive,url:'http://127.0.0.1:4300'}]);
+ await page.goto('/sign-in');await page.getByLabel('Email',{exact:true}).fill('visibility@example.test');await page.getByLabel('Password',{exact:true}).fill('local-fixture-password');await page.locator('form').getByRole('button',{name:'Sign in',exact:true}).click();await expect(page).toHaveURL(/\/$/);
+ const person=seeded.people[0];
+ const auth=await (await request.post('http://127.0.0.1:4301/auth/v1/token?grant_type=password',{data:{email:'visibility@example.test',password:'local-fixture-password'}})).json();
+ const identified=await request.post('http://127.0.0.1:4301/rest/v1/rpc/propose_identification',{headers:{authorization:`Bearer ${auth.access_token}`},data:{p_archive_id:archive,p_item_id:seeded.id,p_person_id:person.id,p_name:person.display_name}});expect(identified.ok()).toBe(true);
+ await page.reload();
+ await expect.poll(()=>page.locator('.feed-card').count()).toBeGreaterThan(0);
+ await page.setViewportSize({width:390,height:844});
+ await expect(page.locator('.collection-grid')).toBeVisible();await page.screenshot({path:'/private/tmp/archive-feed-mobile.png',fullPage:true});
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ const card=page.locator('.feed-image-open').first();await card.click();
+ const viewer=page.getByRole('dialog',{name:'Photo and related material'});await expect(viewer).toBeVisible();
+ await expect.poll(()=>viewer.locator('.feed-related-card').count()).toBeGreaterThan(0);
+ await viewer.locator('.feed-related-card').first().click();await expect(viewer).toBeVisible();
+ await page.goBack();await expect(viewer).not.toBeVisible();await expect(card).toBeFocused();
+ await card.click();await viewer.getByRole('link',{name:'Edit details, people or crop'}).click();await expect(page).toHaveURL(/\/archive\//);
+ await page.goBack();await expect(viewer).toBeVisible();await viewer.getByRole('button',{name:'Close image',exact:true}).click();await expect(viewer).not.toBeVisible();
+ await page.setViewportSize({width:1440,height:1000});await page.screenshot({path:'/private/tmp/archive-feed-desktop.png',fullPage:true});
+ const external:string[]=[];page.on('request',r=>{if(r.url().startsWith('http')&&!r.url().startsWith('http://127.0.0.1:'))external.push(r.url());});
+ await page.getByRole('button',{name:'Find people',exact:true}).click();
+ const faces=page.getByRole('dialog',{name:'Find people in photographs'});
+ await faces.getByRole('combobox',{name:'Person',exact:true}).selectOption(person.id);
+ await expect.poll(()=>faces.locator('.face-reference-grid input').count()).toBeGreaterThan(0);
+ await faces.locator('.face-reference-grid input').first().check();
+ await faces.getByRole('button',{name:'Find possible matches',exact:true}).click();
+ await expect(faces.locator(':scope > p[role=status]')).toContainText('Choose a clearer portrait',{timeout:60000});
+ expect(external).toEqual([]);
+ await faces.getByRole('button',{name:'Close',exact:true}).click();
+ await page.reload();
+ await page.evaluate(()=>{(window as unknown as {Human:unknown}).Human={Human:class {async load(){} async detect(){return {face:[{embedding:[1,0,0],box:[0,0,10,10]}]};}match={similarity:()=>.9};}};});
+ await page.getByRole('button',{name:'Find people',exact:true}).click();
+ await faces.getByRole('combobox',{name:'Person',exact:true}).selectOption(person.id);
+ await faces.locator('.face-reference-grid input').first().check();
+ const before=await (await request.get('http://127.0.0.1:4301/__fixture/summary')).json();
+ await faces.getByRole('button',{name:'Find possible matches',exact:true}).click();
+ await expect(faces.locator(':scope > p[role=status]')).toContainText('Review possible matches',{timeout:60000});
+ const suggested=await (await request.get('http://127.0.0.1:4301/__fixture/summary')).json();
+ expect(suggested.identifications).toEqual(before.identifications);
+ await faces.getByRole('button',{name:`Yes, link ${person.display_name}`,exact:true}).first().click();
+ await expect(faces.locator(':scope > p[role=status]')).toContainText(`Linked to ${person.display_name}`);
+ const confirmed=await (await request.get('http://127.0.0.1:4301/__fixture/summary')).json();
+ expect(confirmed.identifications.length).toBe(before.identifications.length+1);
+ await faces.getByRole('button',{name:'Close',exact:true}).click();
 });

@@ -9,7 +9,7 @@ import { ArchiveImage } from "../archive-image";
 import { MemoryViewer } from "./memory-viewer";
 import type { RecordingView } from "@/lib/audio/repository";
 import type { ArchiveItem } from "@/lib/types";
-export function PhotoMemories({ item, recordings, priority, eager = false, children }: { item: ArchiveItem; recordings: RecordingView[]; priority: boolean; eager?: boolean; children: ReactNode }) {
+export function PhotoMemories({ item, recordings, priority, eager = false, variant = "small", children }: { item: ArchiveItem; recordings: RecordingView[]; priority: boolean; eager?: boolean; variant?: "small" | "thumbnail"; children: ReactNode }) {
   const workspace = useWorkspace();
   const root = useRef<HTMLDivElement>(null);
   const [prepared, setPrepared] = useState<ImageSet>();
@@ -32,7 +32,7 @@ export function PhotoMemories({ item, recordings, priority, eager = false, child
   const [mode, setMode] = useState<"listen" | "record" | null>(null);
   return <div className="photo-memories" ref={root}>
     <button type="button" className="photo-open" aria-label={`View photo: ${item.title}`} aria-haspopup="dialog" onClick={() => setMode("listen")}>
-      <ArchiveImage key={displayItem.imageSet?.id || item.image} src={item.image} alt={item.title} imageSet={displayItem.imageSet} rotation={item.rotation} variant="small" autoPrepare={false} priority={priority} eager={eager} fetchPriority={priority ? "high" : "low"} fitFrame sizes="(max-width: 820px) 80vw, 400px" />
+      <ArchiveImage key={displayItem.imageSet?.id || item.image} src={item.image} alt={item.title} imageSet={displayItem.imageSet} rotation={item.rotation} variant={variant} autoPrepare={false} priority={priority} eager={eager} fetchPriority={priority ? "high" : "low"} fitFrame sizes="(max-width: 820px) 80vw, 400px" />
     </button>
     {previewError && !displayItem.imageSet && <button className="text-link" onClick={() => {setPreviewError(false); setRetry(n => n + 1);}}>Retry image preview</button>}
     {children}

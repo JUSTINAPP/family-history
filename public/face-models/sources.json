@@ -1,0 +1,47 @@
+[
+  {
+    "file": "human.js",
+    "source": "https://raw.githubusercontent.com/vladmandic/human/d0c4c83155fd2325dbb4725ffcaf0ed0109f319c/dist/human.js",
+    "sha256": "5f240e5d2d60459f07aaa7df2cb129fd3f954c78dd05581cf6f8a30646779013"
+  },
+  {
+    "file": "LICENSE-human.txt",
+    "source": "https://raw.githubusercontent.com/vladmandic/human/d0c4c83155fd2325dbb4725ffcaf0ed0109f319c/LICENSE",
+    "sha256": "9a3442b79acaf4fbc7c2e07b7e2d8f84af9bb3871bf08a69d80304ab00640e9a"
+  },
+  {
+    "file": "LICENSE-models.txt",
+    "source": "https://raw.githubusercontent.com/vladmandic/human-models/bc66dc53bac03c96d35a7e6daaf717e72f3985f5/LICENSE",
+    "sha256": "7374547e92f50989ae440189fd677bafc66ab5749b6507d84a058c207df5b2f6"
+  },
+  {
+    "file": "blazeface.json",
+    "source": "https://raw.githubusercontent.com/vladmandic/human/d0c4c83155fd2325dbb4725ffcaf0ed0109f319c/models/blazeface.json",
+    "sha256": "cd7bbfc078270572beb39f9e5ae67aadbd50b5e67cff37e6d4f6b3ea39312e5f"
+  },
+  {
+    "file": "blazeface.bin",
+    "source": "https://raw.githubusercontent.com/vladmandic/human/d0c4c83155fd2325dbb4725ffcaf0ed0109f319c/models/blazeface.bin",
+    "sha256": "dc9a97fdc50bc43216554bdd69aa3e7b9361a519ee7bdd996a2f69a98a6f9b72"
+  },
+  {
+    "file": "facemesh.json",
+    "source": "https://raw.githubusercontent.com/vladmandic/human/d0c4c83155fd2325dbb4725ffcaf0ed0109f319c/models/facemesh.json",
+    "sha256": "b60ca26f404724f43bd2b1575761d8265180e1f053cc0731caa68462927309e7"
+  },
+  {
+    "file": "facemesh.bin",
+    "source": "https://raw.githubusercontent.com/vladmandic/human/d0c4c83155fd2325dbb4725ffcaf0ed0109f319c/models/facemesh.bin",
+    "sha256": "3826da640b0a3021161605369ee6af293f75d518040355b960ec71a3390c1c0b"
+  },
+  {
+    "file": "mobileface.json",
+    "source": "https://raw.githubusercontent.com/vladmandic/human-models/bc66dc53bac03c96d35a7e6daaf717e72f3985f5/models/mobileface.json",
+    "sha256": "b62d89d9e1401a2572e011e8691699f2432c1a6f56cda0dad7ddbdecacf1bbab"
+  },
+  {
+    "file": "mobileface.bin",
+    "source": "https://raw.githubusercontent.com/vladmandic/human-models/bc66dc53bac03c96d35a7e6daaf717e72f3985f5/models/mobileface.bin",
+    "sha256": "403b53d95120c93c8417951b05d816197aa1794372b47e7629801156c701be5c"
+  }
+]

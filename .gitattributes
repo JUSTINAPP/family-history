@@ -1,0 +1,2 @@
+# Preserve pinned upstream model/library bytes and exclude vendor formatting checks.
+public/face-models/** -whitespace linguist-vendored
