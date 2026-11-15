@@ -193,7 +193,7 @@ const cachedWorkspace = cache(
                 .order("id")
                 .range(from, to)
                 .retry(false)
-                .abortSignal(AbortSignal.timeout(2500)),
+                .abortSignal(AbortSignal.timeout(8000)),
             (f) => f.id,
           ).catch(() => {
             warnings.push(
