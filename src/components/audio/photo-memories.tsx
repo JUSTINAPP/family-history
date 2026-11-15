@@ -9,7 +9,7 @@ import { ArchiveImage } from "../archive-image";
 import { MemoryViewer } from "./memory-viewer";
 import type { RecordingView } from "@/lib/audio/repository";
 import type { ArchiveItem } from "@/lib/types";
-export function PhotoMemories({ item, recordings, priority, eager = false, variant = "small", staticPhoto = false, children }: { item: ArchiveItem; recordings: RecordingView[]; priority: boolean; eager?: boolean; variant?: "small" | "thumbnail"; staticPhoto?: boolean; children: ReactNode }) {
+export function PhotoMemories({ item, recordings, priority, eager = false, variant = "small", staticPhoto = false, onPhotoClick, children }: { item: ArchiveItem; recordings: RecordingView[]; priority: boolean; eager?: boolean; variant?: "small" | "thumbnail"; staticPhoto?: boolean; onPhotoClick?: () => void; children: ReactNode }) {
   const workspace = useWorkspace();
   const root = useRef<HTMLDivElement>(null);
   const [prepared, setPrepared] = useState<ImageSet>();
@@ -31,7 +31,7 @@ export function PhotoMemories({ item, recordings, priority, eager = false, varia
   }, [item.image, item.imageSet, prepared, retry]);
   const [mode, setMode] = useState<"listen" | "record" | null>(null);
   return <div className="photo-memories" ref={root}>
-    {staticPhoto ? <div className="photo-open">      <ArchiveImage key={displayItem.imageSet?.id || item.image} src={item.image} alt={item.title} imageSet={displayItem.imageSet} rotation={item.rotation} variant={variant} autoPrepare={false} priority={priority} eager={eager} fetchPriority={priority ? "high" : "low"} fitFrame sizes="(max-width: 820px) 80vw, 400px" /></div> : <button type="button" className="photo-open" aria-label={`View photo: ${item.title}`} aria-haspopup="dialog" onClick={() => setMode("listen")}>
+    {onPhotoClick ? <button type="button" className="photo-open" aria-label="Show photo details and editing options" onClick={onPhotoClick}><ArchiveImage src={item.image} alt={item.title} imageSet={displayItem.imageSet} rotation={item.rotation} variant={variant} autoPrepare={false} priority={priority} fitFrame sizes="(max-width: 700px) 100vw, 700px" /></button> : staticPhoto ? <div className="photo-open">      <ArchiveImage key={displayItem.imageSet?.id || item.image} src={item.image} alt={item.title} imageSet={displayItem.imageSet} rotation={item.rotation} variant={variant} autoPrepare={false} priority={priority} eager={eager} fetchPriority={priority ? "high" : "low"} fitFrame sizes="(max-width: 820px) 80vw, 400px" /></div> : <button type="button" className="photo-open" aria-label={`View photo: ${item.title}`} aria-haspopup="dialog" onClick={() => setMode("listen")}>
       <ArchiveImage key={displayItem.imageSet?.id || item.image} src={item.image} alt={item.title} imageSet={displayItem.imageSet} rotation={item.rotation} variant={variant} autoPrepare={false} priority={priority} eager={eager} fetchPriority={priority ? "high" : "low"} fitFrame sizes="(max-width: 820px) 80vw, 400px" />
     </button>}
     {previewError && !displayItem.imageSet && <button className="text-link" onClick={() => {setPreviewError(false); setRetry(n => n + 1);}}>Retry image preview</button>}

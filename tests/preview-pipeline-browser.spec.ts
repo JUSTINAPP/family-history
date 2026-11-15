@@ -2208,3 +2208,33 @@ test("account recovery magic link establishes website session without external r
   await expect(page).toHaveURL(/\/add$/);
   await expect(page.getByRole("link", { name: "Forgot password?" })).toHaveCount(0);
 });
+
+test('mobile photo view reveals editing only on a second tap', async ({page,request}) => {
+ await page.context().addCookies([{name:'active_archive',value:archive,url:'http://127.0.0.1:4300'}]);
+ await request.post('http://127.0.0.1:4301/__fixture/quick-photos');
+ await page.setViewportSize({width:375,height:812});
+ await page.goto('/sign-in');
+ await page.getByLabel('Email',{exact:true}).fill('visibility@example.test');
+ await page.getByLabel('Password',{exact:true}).fill('local-fixture-password');
+ await page.getByRole('button',{name:'Sign in',exact:true}).click();
+ await page.locator('.feed-image-open').first().click();
+ const viewer=page.getByRole('dialog',{name:'Photo and related material'});
+ await expect(viewer).toBeVisible();
+ await expect(viewer.getByRole('link',{name:'Edit details, people or crop ↗'})).toBeHidden();
+ await expect(viewer.getByRole('button',{name:'Record a message',exact:true})).toBeHidden();
+ await expect(viewer.getByRole('button',{name:'Next image'})).toBeHidden();
+ await expect(viewer.getByRole('heading',{name:'More to explore'})).toBeVisible();
+ for(const width of [320,375,430]) {
+  await page.setViewportSize({width,height:812});
+  await expect.poll(()=>viewer.evaluate(el=>Math.abs(el.getBoundingClientRect().width-innerWidth)<2 && el.scrollWidth<=el.clientWidth)).toBe(true);
+ }
+ await page.setViewportSize({width:375,height:812});
+ await page.screenshot({path:'/private/tmp/mobile-photo-simple.png'});
+ await viewer.getByRole('button',{name:'Show photo details and editing options'}).click();
+ await expect(viewer.getByRole('link',{name:'Edit details, people or crop ↗'})).toBeVisible();
+ await expect(viewer.getByRole('button',{name:'Record a message',exact:true})).toBeVisible();
+ await viewer.getByRole('button',{name:'Back to collection'}).click();
+ await expect(viewer).toHaveCount(0);
+ await page.locator('.feed-image-open').first().click();
+ await expect(viewer.getByRole('link',{name:'Edit details, people or crop ↗'})).toBeHidden();
+});
