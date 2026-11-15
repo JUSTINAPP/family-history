@@ -1933,7 +1933,7 @@ test("photo framing reviews, saves, rejects stale edits and restores without cha
   const corrected=await correctedResponse.json();
   expect(corrected.framing.rotation).toBe(270);
   expect(corrected.framing.points[0][0]).toBe(.02);
-  const regenerated=await page.request.post(`/api/v1/previews/${sourceId}?regenerate=1`,{headers:{origin:'http://127.0.0.1:4300'}});
+  const regenerated=await page.request.post(`/api/v1/previews/${sources[0]}?regenerate=1`,{headers:{origin:'http://127.0.0.1:4300'}});
   expect(regenerated.ok(),await regenerated.text()).toBe(true);
   expect((await (await page.request.get(`/api/v1/image-framing/${sources[0]}`)).json()).framing).toEqual(corrected.framing);
   const stale=await page.request.post(`/api/v1/previews/${sources[0]}`,{headers:{origin:'http://127.0.0.1:4300'},data:{framing:old.framing,expectedSet:old.expectedSet,expectedRotation:old.expectedRotation}});
