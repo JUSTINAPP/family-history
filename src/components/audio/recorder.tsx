@@ -67,7 +67,7 @@ export function AudioRecorder({
         audio: {
           echoCancellation: { ideal: false },
           noiseSuppression: { ideal: false },
-          autoGainControl: { ideal: false },
+          autoGainControl: { ideal: true },
         },
       });
       if (!alive.current) {

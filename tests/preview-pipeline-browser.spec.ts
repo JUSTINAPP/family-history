@@ -2067,6 +2067,7 @@ test('feed memories use one playback button and open photo details directly',asy
  await expect(card.locator('.feed-listen-icon .memory-spinner')).toBeVisible();
  await expect(page.getByRole('dialog')).toHaveCount(0);
  await expect(card.locator('.feed-memory-image')).toHaveAttribute('data-playing','true');
+ await expect.poll(()=>card.locator('audio').evaluate((el:HTMLAudioElement)=>el.volume===1 && !el.muted && el.crossOrigin==='anonymous')).toBe(true);
  await expect(card.getByRole('button',{name:'Pause memory',exact:true})).toHaveClass('feed-listen-icon');
  await expect(card.locator('.feed-memory-control')).toHaveCount(0);
  const motion=card.locator('.feed-memory-image');

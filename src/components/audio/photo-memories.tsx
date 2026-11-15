@@ -1,4 +1,5 @@
 "use client";
+import {prepareVoicePlayback} from "@/lib/audio/playback";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { prepareDisplay } from "@/lib/preview/client";
 import type { ImageSet } from "@/lib/preview/types";
@@ -31,14 +32,14 @@ export function PhotoMemories({ item, recordings, priority, eager = false, varia
   }, [item.image, item.imageSet, prepared, retry]);
   const [mode, setMode] = useState<"listen" | "record" | null>(null);
   return <div className="photo-memories" ref={root}>
-    {onPhotoClick ? <button type="button" className="photo-open" aria-label="Show photo details and editing options" onClick={onPhotoClick}><ArchiveImage src={item.image} alt={item.title} imageSet={displayItem.imageSet} rotation={item.rotation} variant={variant} autoPrepare={false} priority={priority} fitFrame sizes="(max-width: 700px) 100vw, 700px" /></button> : staticPhoto ? <div className="photo-open">      <ArchiveImage key={displayItem.imageSet?.id || item.image} src={item.image} alt={item.title} imageSet={displayItem.imageSet} rotation={item.rotation} variant={variant} autoPrepare={false} priority={priority} eager={eager} fetchPriority={priority ? "high" : "low"} fitFrame sizes="(max-width: 820px) 80vw, 400px" /></div> : <button type="button" className="photo-open" aria-label={`View photo: ${item.title}`} aria-haspopup="dialog" onClick={() => setMode("listen")}>
+    {onPhotoClick ? <button type="button" className="photo-open" aria-label="Show photo details and editing options" onClick={onPhotoClick}><ArchiveImage src={item.image} alt={item.title} imageSet={displayItem.imageSet} rotation={item.rotation} variant={variant} autoPrepare={false} priority={priority} fitFrame sizes="(max-width: 700px) 100vw, 700px" /></button> : staticPhoto ? <div className="photo-open">      <ArchiveImage key={displayItem.imageSet?.id || item.image} src={item.image} alt={item.title} imageSet={displayItem.imageSet} rotation={item.rotation} variant={variant} autoPrepare={false} priority={priority} eager={eager} fetchPriority={priority ? "high" : "low"} fitFrame sizes="(max-width: 820px) 80vw, 400px" /></div> : <button type="button" className="photo-open" aria-label={`View photo: ${item.title}`} aria-haspopup="dialog" onClick={() => {prepareVoicePlayback();setMode("listen");}}>
       <ArchiveImage key={displayItem.imageSet?.id || item.image} src={item.image} alt={item.title} imageSet={displayItem.imageSet} rotation={item.rotation} variant={variant} autoPrepare={false} priority={priority} eager={eager} fetchPriority={priority ? "high" : "low"} fitFrame sizes="(max-width: 820px) 80vw, 400px" />
     </button>}
     {previewError && !displayItem.imageSet && <button className="text-link" onClick={() => {setPreviewError(false); setRetry(n => n + 1);}}>Retry image preview</button>}
     {children}
     <div className="memory-actions">
       {can(workspace.role, "contributor") && <button type="button" className="memory-button" aria-haspopup="dialog" onClick={() => setMode("record")}><Mic size={18} aria-hidden="true" />Record a message</button>}
-      {!!recordings.length && <button type="button" className="memory-button listen-badge" aria-label={`Listen to ${recordings.length} ${recordings.length === 1 ? "memory" : "memories"} about ${item.title}`} aria-haspopup="dialog" onClick={() => setMode("listen")}><Headphones size={18} aria-hidden="true" />Listen{recordings.length > 1 ? ` (${recordings.length})` : ""}</button>}
+      {!!recordings.length && <button type="button" className="memory-button listen-badge" aria-label={`Listen to ${recordings.length} ${recordings.length === 1 ? "memory" : "memories"} about ${item.title}`} aria-haspopup="dialog" onClick={() => {prepareVoicePlayback();setMode("listen");}}><Headphones size={18} aria-hidden="true" />Listen{recordings.length > 1 ? ` (${recordings.length})` : ""}</button>}
     </div>
     {mode && <MemoryViewer item={displayItem} recordings={recordings} initialMode={mode} onClose={() => setMode(null)} />}
   </div>;
