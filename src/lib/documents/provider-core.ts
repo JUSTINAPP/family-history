@@ -1,3 +1,4 @@
+import { framingPrompt, framingSchema } from "../preview/framing";
 import type { DocumentProvider, DocumentOperation, PageReading, DocumentExtraction, DocumentSuggestion } from "./types";
 const kinds = ["person","place","date","sender","recipient","summary","topic"];
 const string = {type:"string"};
@@ -53,6 +54,7 @@ export function createOpenAIProvider({key, model, fetcher = fetch}: {key: string
   }
   return {
     name:"openai", model,
+    async frameImage(image) { return (await response(framingPrompt, framingSchema, image)).parsed; },
     async readPage({image,operation,sourceText}: {image:string;operation:DocumentOperation;sourceText?:string}) {
       const result=await response(pagePrompt(operation,sourceText),pageSchema,image);
       return {...validateReading(result.parsed),receipt:result.receipt};

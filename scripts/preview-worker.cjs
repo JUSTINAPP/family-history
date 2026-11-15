@@ -40,6 +40,13 @@ let stage = "decode";
     pipeline = sharp(source, { limitInputPixels: 60000000 }).autoOrient();
   }
   stage = "render";
+  if (workerData.framing) {
+    const raw = await pipeline.clone().resize({width:2400,height:2400,fit:"inside",withoutEnlargement:true})
+      .flatten({background:"#ffffff"}).toColourspace("srgb").removeAlpha().raw().toBuffer({resolveWithObject:true});
+    const {perspective} = require("./perspective.cjs");
+    const crop=perspective(raw.data,raw.info.width,raw.info.height,workerData.framing.points);
+    pipeline=sharp(crop.data,{raw:{width:crop.width,height:crop.height,channels:3}}).rotate(workerData.framing.rotation);
+  }
   const result = await pipeline
     .clone()
     .resize({

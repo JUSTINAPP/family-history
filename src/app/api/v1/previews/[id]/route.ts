@@ -1,3 +1,5 @@
+import { validateFraming } from "@/lib/preview/framing";
+import { revalidatePath } from "next/cache";
 import type { NextRequest } from "next/server";
 import { requireSession } from "@/lib/backend/repository";
 import { BackendError, safeError } from "@/lib/backend/errors";
@@ -188,6 +190,18 @@ export async function POST(request: NextRequest, context: Context) {
       );
     loaded = await source(context);
     const { client, original } = loaded;
+    let correction: {frame: ReturnType<typeof validateFraming>; expectedSet: string | null; expectedRotation: number} | undefined;
+    if (request.headers.get("content-type")?.includes("application/json")) {
+      const raw = await request.text();
+      if(raw.length>4096) throw new BackendError(400,"Correction is too large.");
+      try {
+        const body=JSON.parse(raw);
+        if(body.framing) {
+          if(!(body.expectedSet===null || (typeof body.expectedSet==="string" && UUID_PATTERN.test(body.expectedSet))) || ![0,90,180,270].includes(body.expectedRotation)) throw Error();
+          correction={frame:validateFraming(body.framing),expectedSet:body.expectedSet,expectedRotation:body.expectedRotation};
+        }
+      } catch {throw new BackendError(400,"Invalid crop or rotation. Please review the corners.");}
+    }
     const regenerate = request.nextUrl.searchParams.get("regenerate") === "1";
     if (regenerate) {
       const { data } = await client.rpc("can_access_archive", {
@@ -215,7 +229,11 @@ export async function POST(request: NextRequest, context: Context) {
         "preview_schema_unavailable",
         "Image processing is unavailable. Check migration 009.",
       );
-    if (existing && !regenerate)
+    if (regenerate && !correction && existing?.manifest?.framing) {
+      const saved = existing.manifest.framing;
+      correction = {frame: validateFraming({...saved, rotation: (saved.rotation + (original.presentation_rotation || 0) - saved.baseRotation + 360) % 360}), expectedSet: existing.id, expectedRotation: original.presentation_rotation || 0};
+    }
+    if (existing && !regenerate && !correction)
       return Response.json(
         {
           id: existing.display_file_id,
@@ -236,6 +254,12 @@ export async function POST(request: NextRequest, context: Context) {
         leaseError?.code === "55P03" ? 429 : 403,
       );
     attemptId = lease;
+    if(correction) {
+      const latest=await client.from("image_sets").select("id").eq("original_file_id",original.id).eq("status","stored").order("created_at",{ascending:false}).limit(1).maybeSingle();
+      if(latest.error) throw new BackendError(503,"Cannot check the current image. Try again.");
+      if((latest.data?.id || null)!==correction.expectedSet || (original.presentation_rotation||0)!==correction.expectedRotation)
+        throw new BackendError(409,"This image changed. Close and reopen the crop editor before saving.");
+    }
     if (Number(original.byte_size) > 30 * 1024 * 1024)
       throw new PreviewError(
         "source_size_limit",
@@ -273,7 +297,7 @@ export async function POST(request: NextRequest, context: Context) {
         "processing_timeout",
         "Not enough processing time remains; retry is available.",
       );
-    const rendered = await convertPreview(bytes, budget);
+    const rendered = await convertPreview(bytes, budget, correction?.frame);
     const variants = {
       display: {
         bytes: rendered.bytes,
@@ -301,7 +325,7 @@ export async function POST(request: NextRequest, context: Context) {
     const { data: setId, error: reserveError } = await client
       .rpc("reserve_image_set", {
         p_source_id: original.id,
-        p_manifest: manifest,
+        p_manifest: {...manifest, ...(correction ? {framing:{...correction.frame,baseRotation:original.presentation_rotation||0}} : {})},
         p_placeholder: rendered.placeholder,
       })
       .retry(false)
@@ -381,6 +405,7 @@ export async function POST(request: NextRequest, context: Context) {
         "Image receipt pending. Retry to recover it.",
       );
     await record();
+    if(correction) revalidatePath("/","layout");
     console.info(
       JSON.stringify({
         event: "preview_complete",

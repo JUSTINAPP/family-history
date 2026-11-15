@@ -18,6 +18,7 @@ export interface PageReading {
 }
 export interface DocumentExtraction {suggestions: DocumentSuggestion[]; receipt?: ProviderReceipt; rawResponse?: Record<string,unknown>;}
 export interface DocumentProvider {
+  frameImage?(image: string): Promise<unknown>;
   name: string;
   model: string;
   readPage(input: {image: string; operation: DocumentOperation; sourceText?: string}): Promise<PageReading>;

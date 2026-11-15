@@ -1,3 +1,4 @@
+import type { Framing } from "./framing";
 import { Worker } from "node:worker_threads";
 import path from "node:path";
 import { BackendError } from "../backend/errors";
@@ -16,6 +17,7 @@ export class PreviewConversionError extends BackendError {
 export async function convertPreview(
   source: Uint8Array,
   timeoutMs = 35000,
+  framing?: Framing,
 ): Promise<{
   bytes: Uint8Array;
   width: number;
@@ -35,7 +37,7 @@ export async function convertPreview(
         // Turbopack augments workerData via object spread. A bare Uint8Array loses its
         // prototype/length in production; a named property survives structured cloning.
         {
-          workerData: { source },
+          workerData: { source, framing },
           resourceLimits: { maxOldGenerationSizeMb: 256 },
         },
       );

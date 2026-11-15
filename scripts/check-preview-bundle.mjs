@@ -13,7 +13,7 @@ import { join, resolve, relative, dirname } from "node:path";
 import { tmpdir } from "node:os";
 import { Worker } from "node:worker_threads";
 import assert from "node:assert/strict";
-export async function checkPreviewBundle(dist, fixture) {
+export async function checkPreviewBundle(dist, fixture, framing) {
   const project = process.cwd();
   const tracePath = resolve(
     dist,
@@ -44,7 +44,7 @@ export async function checkPreviewBundle(dist, fixture) {
     assert(worker, "Production trace must include the decoder worker chunk");
     const result = await new Promise((resolve, reject) => {
       const thread = new Worker(worker, {
-        workerData: { source: new Uint8Array(fixture) },
+        workerData: { source: new Uint8Array(fixture), framing },
       });
       const timer = setTimeout(() => {
         void thread.terminate();

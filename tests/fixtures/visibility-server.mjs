@@ -75,6 +75,7 @@ export async function fixtureServer(
     reported_place: "",
     people_text: "",
     evidence_status: "family_reported",
+    lifecycle: "active",
     ingestion_status: index === 1 ? "failed" : "ready",
     contributed_by: USER,
     catalogued_at: null,

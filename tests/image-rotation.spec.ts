@@ -1,10 +1,18 @@
 import {test,expect} from "@playwright/test";
 import {imageSet,presentationRatio,type ImageSetRow} from "../src/lib/preview/types";
 test("source presentation rotation flows through every responsive image variant without changing derivative receipts",()=>{
- const row={id:"set",original_file_id:"source",item_id:"item",display_file_id:"display",thumbnail_file_id:"thumbnail",small_file_id:"small",placeholder:"data:image/webp;base64,AA==",created_at:"2026-01-01",manifest:Object.fromEntries(["display","thumbnail","small"].map(k=>[k,{width:600,height:400,size:120,mime:"image/webp"}]))} as ImageSetRow;
+ const row={id:"set",original_file_id:"source",item_id:"item",display_file_id:"display",thumbnail_file_id:"thumbnail",small_file_id:"small",placeholder:"data:image/webp;base64,AA==",created_at:"2026-01-01",manifest:Object.fromEntries(["display","thumbnail","small"].map(k=>[k,{width:600,height:400,size:120,mime:"image/webp"}]))} as unknown as ImageSetRow;
  for(const angle of [0,90,180,270]){
   const set=imageSet({...row,presentation_rotation:angle});expect(set.rotation).toBe(angle);
   for(const variant of ["display","thumbnail","small"] as const){expect(presentationRatio(set,variant)).toBe(angle%180?2/3:1.5);expect(set[variant].width).toBe(600);expect(set[variant].height).toBe(400);}
   expect(set.placeholder).toBe(row.placeholder);expect(set.small.id).toBe("small");
  }
+});
+
+test("baked crop rotation is not doubled and later rotation remains reversible",()=>{
+ const variant={width:400,height:600,size:120,mime:"image/webp",sha256:"hash"};
+ const row={id:"set",original_file_id:"source",item_id:"item",display_file_id:"display",thumbnail_file_id:"thumbnail",small_file_id:"small",placeholder:"",created_at:"",manifest:{display:variant,thumbnail:variant,small:variant,framing:{points:[[0,0],[1,0],[1,1],[0,1]],rotation:90,baseRotation:90}}} as ImageSetRow;
+ expect(imageSet({...row,presentation_rotation:90}).rotation).toBe(0);
+ expect(imageSet({...row,presentation_rotation:180}).rotation).toBe(90);
+ expect(imageSet({...row,presentation_rotation:0}).rotation).toBe(270);
 });

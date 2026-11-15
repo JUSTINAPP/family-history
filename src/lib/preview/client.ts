@@ -32,3 +32,7 @@ export function prepareDisplay(
   void task.catch(() => {if (pending.get(url) === task) pending.delete(url);});
   return task;
 }
+
+export function rememberPrepared(url: string, set: ImageSet) {
+  pending.set(url.split("?")[0], Promise.resolve(set));
+}

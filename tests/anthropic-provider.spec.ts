@@ -105,3 +105,13 @@ test("external image URLs, malformed base64 and oversize image payloads are reje
   for(const image of ["","https://private.example/original.jpg","data:image/heic;base64,QQ==","data:image/jpeg;base64,QQ=","data:image/png;base64,"+"A".repeat(10*1024*1024+4)])await expect(provider.readPage({operation:"transcribe",image})).rejects.toThrow("invalid_document_image");
   expect(calls).toBe(0);
 });
+
+test("photo framing uses the same private Messages image transport",async()=>{
+ const frame={points:[[0,0],[1,0],[1,1],[0,1]],rotation:270,confidence:.95,needsReview:false,reason:"Sideways print"};
+ const provider=createAnthropicProvider({key,model:"fixture",fetcher:async(_url,init)=>{
+  const body=JSON.parse(String(init!.body));expect(body.messages[0].content[0].type).toBe("image");
+  expect(body.output_config.format.schema.required).toContain("points");
+  return Response.json(message(frame));
+ }});
+ expect(await provider.frameImage!("data:image/webp;base64,QQ==")).toEqual(frame);
+});

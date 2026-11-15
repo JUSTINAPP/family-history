@@ -23,7 +23,7 @@ export interface ImageSetRow {
   thumbnail_file_id: string;
   small_file_id: string;
   placeholder: string;
-  manifest: Record<"display" | "thumbnail" | "small", Omit<ImageVariant, "id">>;
+  manifest: Record<"display" | "thumbnail" | "small", Omit<ImageVariant, "id">> & {framing?: {points: number[][]; rotation: number; baseRotation: number}};
   created_at: string;
 }
 export function imageSet(row: ImageSetRow): ImageSet {
@@ -33,7 +33,7 @@ export function imageSet(row: ImageSetRow): ImageSet {
   }
   return {
     id: row.id,
-    rotation: row.presentation_rotation || 0,
+    rotation: ((row.presentation_rotation || 0) - (row.manifest.framing?.baseRotation || 0) + 360) % 360,
     originalId: row.original_file_id,
     placeholder: row.placeholder,
     display: variant("display", row.display_file_id),

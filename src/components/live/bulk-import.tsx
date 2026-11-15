@@ -1,4 +1,5 @@
 "use client";
+import { BulkFraming } from "../bulk-framing";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -38,6 +39,8 @@ export function BulkImport({initialFiles,initialContext="",embedded=false,onStar
     selection = useImportSelection(),
     router = useRouter(),
     params = useSearchParams();
+  const [reviewFraming,setReviewFraming]=useState(true);
+  const [reviewReady,setReviewReady]=useState(false);
   const [initialId] = useState(() => embedded ? null : params.get("batch"));
   const [batchId] = useState(() => initialId || crypto.randomUUID());
   const [entries, setEntries] = useState<ImportEntry[]>(() =>
@@ -204,7 +207,8 @@ export function BulkImport({initialFiles,initialContext="",embedded=false,onStar
       if (client) {
         const updated = await readImportBatch(client, batchId);
         if (updated) setSnapshot(updated);
-        completed.forEach((entry) => {
+        setReviewReady(true);
+        if(!reviewFraming) completed.forEach((entry) => {
           void client
             .from("archive_item_files")
             .select("id")
@@ -432,6 +436,8 @@ export function BulkImport({initialFiles,initialContext="",embedded=false,onStar
             </ul>
           </>
         )}
+        {!started && workspace.mode === "live" && <label className="checkbox-row"><input type="checkbox" checked={reviewFraming} onChange={e=>setReviewFraming(e.target.checked)}/> Suggest rotation and crop after upload (review before applying)</label>}
+        {complete && workspace.mode === "live" && <BulkFraming key={batchId} itemIds={imported.map(e=>e.itemId!).filter(Boolean)} automatic={reviewFraming && reviewReady}/>}
         {error && (
           <p className="notice" role="alert">
             {error}

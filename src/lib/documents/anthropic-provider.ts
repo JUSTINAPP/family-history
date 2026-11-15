@@ -1,3 +1,4 @@
+import { framingPrompt, framingSchema } from "../preview/framing";
 import type { DocumentProvider } from "./types";
 import { pagePrompt,extractionPrompt,pageSchema,extractionSchema,validateReading,validateExtraction } from "./provider-core";
 const apiVersion="2026-10-21";
@@ -43,6 +44,7 @@ export function createAnthropicProvider({key,model,fetcher=fetch}:{key:string;mo
   }
   return {
     name:"anthropic",model,
+    async frameImage(image) { return (await response(framingPrompt, framingSchema, image)).parsed; },
     async readPage({image,operation,sourceText}) {
       if(operation==="transcribe" && !image)throw new Error("invalid_document_image");
       if(operation==="translate" && typeof sourceText!=="string")throw new Error("source_transcription_required");
