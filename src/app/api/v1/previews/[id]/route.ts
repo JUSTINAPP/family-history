@@ -149,15 +149,18 @@ export async function POST(request: NextRequest, context: Context) {
       })
       .retry(false)
       .abortSignal(AbortSignal.timeout(3000));
-    if (error)
-      console.error(
-        JSON.stringify({
-          event: "preview_state_unavailable",
-          requestId,
-          stage,
-          code: error.code,
-        }),
+    if (error) {
+      // A superseded lease must never continue rendering or updating another job.
+      attemptId = undefined;
+      throw new PreviewError(
+        error.code === "40001" ? "preview_superseded" : "preview_state_unavailable",
+        error.code === "40001"
+          ? "A newer image preview has taken over. Reload to see its result."
+          : "Could not confirm image processing state. Please try again later.",
+        error.code === "40001" ? 409 : 503,
       );
+    }
+
   }
   async function bounded<T>(task: PromiseLike<T>): Promise<T> {
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -394,7 +397,6 @@ export async function POST(request: NextRequest, context: Context) {
       }
     }
     stage = "complete";
-    await record();
     const { error: completeError } = await client
       .rpc("complete_image_set", { p_set_id: set.id })
       .retry(false)

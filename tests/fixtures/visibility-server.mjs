@@ -103,6 +103,8 @@ export async function fixtureServer(
     })),
   );
   let fixtureAdmin = false;
+  let stalePreview = false;
+  let staleCalls = 0;
   const imageSets = [];
   let quickSeedCount=0;
   const currentSets = () => [
@@ -464,6 +466,7 @@ export async function fixtureServer(
       return send(200,{ids,people,places});
     }
     if (address.pathname === "/__fixture/failure") {
+      stalePreview = address.searchParams.get("stale") === "1";
       failList = address.searchParams.get("list") === "1";
       failSets = address.searchParams.get("sets") === "1";
       failPreview = address.searchParams.get("preview") === "1";
@@ -575,6 +578,7 @@ export async function fixtureServer(
     }
     if (address.pathname === "/__fixture/summary")
       return send(200, {
+        staleCalls,
         count: rows.length,
         originalHash: hash,
         attempts: [...attempts.values()],
@@ -1243,6 +1247,7 @@ export async function fixtureServer(
         return send(200, a.attempt_id);
       }
       if (rpc === "record_preview_attempt") {
+        if(stalePreview){staleCalls++;return send(409,{code:"40001",message:"stale_preview_attempt"});}
         const a = attempts.get(body.p_source_id);
         Object.assign(a, {
           stage: body.p_stage,

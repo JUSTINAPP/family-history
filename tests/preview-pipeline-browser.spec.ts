@@ -1933,7 +1933,7 @@ test("photo framing reviews, saves, rejects stale edits and restores without cha
   const corrected=await correctedResponse.json();
   expect(corrected.framing.rotation).toBe(270);
   expect(corrected.framing.points[0][0]).toBe(.02);
-  const regenerated=await page.request.post(`/api/v1/previews/${sources[0]}?regenerate=1`,{headers:{origin:'http://127.0.0.1:4300'}});
+  const regenerated=await page.request.post(`/api/v1/previews/${sourceId}?regenerate=1`,{headers:{origin:'http://127.0.0.1:4300'}});
   expect(regenerated.ok(),await regenerated.text()).toBe(true);
   expect((await (await page.request.get(`/api/v1/image-framing/${sources[0]}`)).json()).framing).toEqual(corrected.framing);
   const stale=await page.request.post(`/api/v1/previews/${sources[0]}`,{headers:{origin:'http://127.0.0.1:4300'},data:{framing:old.framing,expectedSet:old.expectedSet,expectedRotation:old.expectedRotation}});
@@ -2266,6 +2266,13 @@ test('unified editor saves artwork, accepts existing audio, and starts recording
  await photo.getByRole('button',{name:'Edit details',exact:true}).click();
  const editor=page.getByRole('dialog',{name:'Details & memories',exact:true});
  await expect(editor.getByLabel('Title / caption')).toBeVisible();
+ await editor.getByText('Image options',{exact:true}).first().click();
+ const imageOptions=editor.locator('.image-options').first();
+ await imageOptions.getByRole('button',{name:'Rotate right',exact:true}).click();
+ await expect(imageOptions.getByRole('status')).toHaveText('Image rotated. Original unchanged.');
+ await imageOptions.getByRole('button',{name:'Rotate left',exact:true}).click();
+ await expect(imageOptions.getByRole('status')).toHaveText('Image rotated. Original unchanged.');
+
  await expect(editor.getByRole('button',{name:'Record a message',exact:true})).toHaveCount(0);
  await expect(editor.getByRole('link',{name:/Open photo details|Back to item/})).toHaveCount(0);
  await editor.getByText('Change item type',{exact:true}).click();
@@ -2350,4 +2357,24 @@ test('quick rotation saves from the first enlarged view on desktop and mobile', 
  await expect(viewer).toHaveCount(0);
  await card.getByRole('button',{name:'View Quick photograph 1',exact:true}).click();
  await expect(rotation.getByRole('button',{name:'Rotate right',exact:true})).toBeVisible();
+});
+
+
+test('superseded preview stops before creating derivatives and does not repeat its error',async({page,request})=>{
+ await page.goto('/sign-in');
+ await page.getByLabel('Email',{exact:true}).fill('visibility@example.test');
+ await page.getByLabel('Password',{exact:true}).fill('local-fixture-password');
+ await page.getByRole('button',{name:'Sign in',exact:true}).click();
+ await expect(page).not.toHaveURL(/sign-in/);
+ const before=await(await request.get('http://127.0.0.1:4301/__fixture/summary')).json();
+ const sourceId=before.files.find((f:{purpose:string;status:string})=>f.purpose==='original'&&f.status==='stored').id;
+ await request.post('http://127.0.0.1:4301/__fixture/failure?stale=1');
+ try {
+  const response=await page.request.post(`/api/v1/previews/${sourceId}?regenerate=1`,{headers:{origin:'http://127.0.0.1:4300'}});
+  expect(response.status()).toBe(409);
+  expect(await response.json()).toMatchObject({code:'preview_superseded'});
+  const after=await(await request.get('http://127.0.0.1:4301/__fixture/summary')).json();
+  expect(after.staleCalls-before.staleCalls).toBe(1);
+  expect(after.imageSets.length).toBe(before.imageSets.length);
+ } finally {await request.post('http://127.0.0.1:4301/__fixture/failure');}
 });
