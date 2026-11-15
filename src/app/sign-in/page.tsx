@@ -6,7 +6,7 @@ export const metadata = { title: "Sign in to your archive" };
 export default async function SignInPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string }>;
+  searchParams: Promise<{ next?: string; error?: string }>;
 }) {
   const query = await searchParams;
   const configured = !!supabaseConfig();
@@ -24,6 +24,7 @@ export default async function SignInPage({
           See docs/supabase-setup.md.
         </p>
       )}
+      {query.error === "confirmation" && <p className="notice" role="status">This email link has expired or could not be verified. Use the newest link, or choose Forgot password below to request another.</p>}
       <AuthForm configured={configured} next={safeNext(query.next || null)} />
     </div>
   );

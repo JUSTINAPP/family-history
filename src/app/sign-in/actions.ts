@@ -10,7 +10,7 @@ export async function signIn(_previous: { message: string }, form: FormData) {
       message:
         "Save the Supabase URL and publishable key in .env.local, then restart the development server.",
     };
-  const email = String(form.get("email") || "").trim();
+  const email = String(form.get("email") || "").trim().toLowerCase();
   const password = String(form.get("password") || "");
   if (!email || !password) return { message: "Enter your email and password." };
   try {

@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useActionState, useState } from "react";
 import { signIn } from "@/app/sign-in/actions";
 export function AuthForm({ next, configured }: { next: string; configured: boolean }) {
@@ -15,6 +16,7 @@ export function AuthForm({ next, configured }: { next: string; configured: boole
       {state.message && <p className="notice" role="status">{state.message}</p>}
       <button className="button" disabled={pending || !configured}>{pending ? "Signing in…" : "Sign in"}</button>
     </form>
+    <p className="help-line"><Link href="/auth/password">Forgot password?</Link></p>
     <p className="help-line">Use your email and password. Joining for the first time? Open the invitation link sent to you.</p>
   </div>;
 }

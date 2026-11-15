@@ -12,6 +12,7 @@ export async function fixtureServer(
   port = 4301,
   { previewFile, management = false } = {},
 ) {
+  let recoveredPassword = null;
   const original = await readFile(previewFile || "public/images/beach.jpg"),
     hash = createHash("sha256").update(original).digest("hex");
   const now = Math.floor(Date.now() / 1000),
@@ -605,11 +606,28 @@ export async function fixtureServer(
           .filter((r) => r.path.startsWith("/rest/v1/archive_items"))
           .slice(-30),
       });
+    if (address.pathname === "/auth/v1/recover") return send(200, {});
+    if (address.pathname === "/auth/v1/verify") {
+      const chunks = [];
+      for await (const chunk of req) chunks.push(chunk);
+      const body = JSON.parse(Buffer.concat(chunks).toString() || "{}");
+      if (body.token_hash !== "synthetic-valid-link") return send(403, { code: "otp_expired", message: "Expired link" });
+      return send(200, { access_token: token, refresh_token: "fixture-refresh", expires_in: 3600, token_type: "bearer", user });
+    }
+    if (address.pathname === "/auth/v1/user" && req.method === "PUT") {
+      if (req.headers.authorization !== `Bearer ${token}`) return send(401, { message: "Not signed in" });
+      const chunks = [];
+      for await (const chunk of req) chunks.push(chunk);
+      const body = JSON.parse(Buffer.concat(chunks).toString() || "{}");
+      if (typeof body.password !== "string" || body.password.length < 8) return send(422, { message: "Weak password" });
+      recoveredPassword = body.password;
+      return send(200, user);
+    }
     if (address.pathname === "/auth/v1/token") {
       const chunks = [];
       for await (const chunk of req) chunks.push(chunk);
       const credentials = JSON.parse(Buffer.concat(chunks).toString() || "{}");
-      if (credentials.password === "synthetic-wrong-password")
+      if (credentials.password === "synthetic-wrong-password" || (credentials.email === "recovery@example.test" && credentials.password !== recoveredPassword))
         return send(400, { code: "invalid_credentials", message: "Invalid login credentials" });
       return send(200, {
         access_token: token,

@@ -20,18 +20,16 @@ export async function GET(request: NextRequest) {
       const { error } = await (
         await serverSupabase()
       ).auth.verifyOtp({ token_hash, type: type as EmailOtpType });
-      if (!error)
-        return NextResponse.redirect(
-          new URL(
-            safeNext(request.nextUrl.searchParams.get("next")),
-            request.url,
-          ),
-        );
+      if (!error) {
+        const destination = type === "recovery"
+          ? "/auth/reset-password"
+          : safeNext(request.nextUrl.searchParams.get("next"));
+        // Stay on the browser's origin, including behind a reverse proxy.
+        return new NextResponse(null, { status: 303, headers: { Location: destination } });
+      }
     } catch {
       /* Do not log tokens or raw provider errors. */
     }
   }
-  return NextResponse.redirect(
-    new URL("/sign-in?error=confirmation", request.url),
-  );
+  return new NextResponse(null, { status: 303, headers: { Location: "/sign-in?error=confirmation" } });
 }

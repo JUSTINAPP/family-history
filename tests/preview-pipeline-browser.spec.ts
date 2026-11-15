@@ -2169,3 +2169,42 @@ test('unified browsing retains search and uses compact directories and menu', as
  await expect(page.locator('.feed-card').first()).toBeVisible();
  await page.screenshot({path:'/private/tmp/unified-search-1440.png'});
 });
+
+
+test("account recovery requests a link and rejects expired or missing sessions", async ({ page }) => {
+  await page.goto("/auth/reset-password");
+  await expect(page.getByRole("button", { name: "Save new password" })).toHaveCount(0);
+  await expect(page.getByText("Open the newest reset link", { exact: false })).toBeVisible();
+  await page.goto("/auth/confirm?token_hash=expired&type=recovery");
+  await expect(page).toHaveURL(/sign-in\?error=confirmation/);
+  await expect(page.getByRole("status")).toContainText("expired");
+  await page.getByRole("link", { name: "Forgot password?" }).click();
+  await page.getByLabel("Email", { exact: true }).fill("recovery@example.test");
+  await page.getByRole("button", { name: "Send reset link" }).click();
+  await expect(page.getByRole("status")).toContainText("If this email has an account");
+});
+
+test("account recovery verifies link, saves password, then signs in with it", async ({ page, context }) => {
+  await page.goto("/auth/confirm?token_hash=synthetic-valid-link&type=recovery&next=https://example.com");
+  await expect(page).toHaveURL(/\/auth\/reset-password$/);
+  await page.getByLabel("New password", { exact: true }).fill("new-synthetic-password");
+  await page.getByLabel("Confirm new password", { exact: true }).fill("different-synthetic-password");
+  await page.getByRole("button", { name: "Save new password" }).click();
+  await expect(page.getByRole("status")).toContainText("do not match");
+  await page.getByLabel("New password", { exact: true }).fill("new-synthetic-password");
+  await page.getByLabel("Confirm new password", { exact: true }).fill("new-synthetic-password");
+  await page.getByRole("button", { name: "Save new password" }).click();
+  await expect(page.getByRole("heading", { name: "Password saved" })).toBeVisible();
+  await context.clearCookies();
+  await page.goto("/sign-in?next=/add");
+  await page.getByLabel("Email", { exact: true }).fill("recovery@example.test");
+  await page.getByLabel("Password", { exact: true }).fill("new-synthetic-password");
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(page).toHaveURL(/\/add$/);
+});
+
+test("account recovery magic link establishes website session without external redirects", async ({ page }) => {
+  await page.goto("/auth/confirm?token_hash=synthetic-valid-link&type=magiclink&next=/add");
+  await expect(page).toHaveURL(/\/add$/);
+  await expect(page.getByRole("link", { name: "Forgot password?" })).toHaveCount(0);
+});
