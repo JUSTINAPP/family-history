@@ -111,6 +111,7 @@ test("photo framing uses the same private Messages image transport",async()=>{
  const provider=createAnthropicProvider({key,model:"fixture",fetcher:async(_url,init)=>{
   const body=JSON.parse(String(init!.body));expect(body.messages[0].content[0].type).toBe("image");
   expect(body.output_config.format.schema.required).toContain("points");
+  expect(JSON.stringify(body.output_config.format.schema)).not.toMatch(/minItems|maxItems/);
   return Response.json(message(frame));
  }});
  expect(await provider.frameImage!("data:image/webp;base64,QQ==")).toEqual(frame);
