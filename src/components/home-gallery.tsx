@@ -24,6 +24,7 @@ export function HomeGallery({items,recordings=[],archiveId,showControls=true}:{i
  const [listening,setListening]=useState<string|null>(null);
  const [faceSearch,setFaceSearch]=useState(false);
  const router=useRouter(),[visible,setVisible]=useState(24),[filter,setFilter]=useState('All'),[query,setQuery]=useState(''),[selected,setSelected]=useState<string|null>(null);
+ const [instantPreview,setInstantPreview]=useState<{src:string;width:number;height:number}|undefined>();
  const scrollPosition=useRef(0),grid=useRef<HTMLElement>(null);
  const more=useRef<HTMLDivElement>(null),ownHistory=useRef(false),returnFocus=useRef<HTMLElement|null>(null);
  const available=items.filter(item=>!item.archivedAt && (!archiveId || item.archiveId===archiveId));
@@ -53,10 +54,13 @@ export function HomeGallery({items,recordings=[],archiveId,showControls=true}:{i
  useEffect(()=>{
    const connection=(navigator as Navigator & {connection?:{saveData?:boolean}}).connection;
    if(connection?.saveData)return;
-   const timer=setTimeout(()=>{if(document.visibilityState==='visible')router.prefetch('/explore');},3500);
-   return()=>clearTimeout(timer);
+   const timers=['/explore','/people'].map((path,index)=>setTimeout(()=>{if(document.visibilityState==='visible')router.prefetch(path);},3500+index*3000));
+   return()=>timers.forEach(clearTimeout);
  },[router]);
  function open(id:string) {
+   const card=Array.from(grid.current?.querySelectorAll<HTMLElement>('[data-item-id]')||[]).find(node=>node.dataset.itemId===id);
+   const image=card?.querySelector<HTMLImageElement>('img');
+   setInstantPreview(image?.complete && image.naturalWidth ? {src:image.currentSrc||image.src,width:image.naturalWidth,height:image.naturalHeight}:undefined);
    setListening(null);
    if(!selected){returnFocus.current=document.activeElement as HTMLElement;scrollPosition.current=window.scrollY;history.pushState({...history.state,archiveFeedPhoto:id,feedScroll:window.scrollY,feedVisible:visible,feedFilter:filter,feedQuery:query},'',`${location.pathname}${location.search}#photo=${id}`);ownHistory.current=true;}
    else history.replaceState({...history.state,archiveFeedPhoto:id},'',`${location.pathname}${location.search}#photo=${id}`);
@@ -78,12 +82,12 @@ export function HomeGallery({items,recordings=[],archiveId,showControls=true}:{i
   {!filtered.length&&<p className="notice">No matching images. Try another search or material type.</p>}
   {visible<filtered.length&&<div ref={more} className="feed-more"><button className="subtle-button" onClick={()=>setVisible(n=>n+24)}>Show more images</button></div>}
   {faceSearch&&<FaceSuggestions items={available} onClose={()=>setFaceSearch(false)}/>}
-  {active&&<FeedViewer item={active} related={relatedMaterial(active,available)} recordings={memories(active)} onOpen={open} onClose={close}
+  {active&&<FeedViewer instantPreview={instantPreview} item={active} related={relatedMaterial(active,available)} recordings={memories(active)} onOpen={open} onClose={close}
    onPrevious={()=>open(available[(available.findIndex(i=>i.id===active.id)-1+available.length)%available.length].id)}
    onNext={()=>open(available[(available.findIndex(i=>i.id===active.id)+1)%available.length].id)}/>}
  </div>;
 }
-function FeedViewer({item,related,recordings,onOpen,onClose,onPrevious,onNext}:{item:ArchiveItem;related:ReturnType<typeof relatedMaterial>;recordings:RecordingView[];onOpen:(id:string)=>void;onClose:()=>void;onPrevious:()=>void;onNext:()=>void}) {
+function FeedViewer({instantPreview,item,related,recordings,onOpen,onClose,onPrevious,onNext}:{instantPreview?:{src:string;width:number;height:number};item:ArchiveItem;related:ReturnType<typeof relatedMaterial>;recordings:RecordingView[];onOpen:(id:string)=>void;onClose:()=>void;onPrevious:()=>void;onNext:()=>void}) {
  const workspace=useWorkspace();
  const dialog=useRef<HTMLDialogElement>(null);
  const [detailsFor,setDetailsFor]=useState<string|null>(null);
@@ -92,7 +96,7 @@ function FeedViewer({item,related,recordings,onOpen,onClose,onPrevious,onNext}:{
  return <dialog ref={dialog} className={`feed-viewer ${detailsFor===item.id ? "feed-viewer-details" : "feed-viewer-simple"}`} aria-label="Photo and related material" onCancel={e=>{if(e.target!==e.currentTarget)return;e.preventDefault();onClose();}}>
   <header className="feed-viewer-top"><button type="button" className="memory-button" aria-label="Back to collection" onClick={onClose}><ArrowLeft size={18}/><span>Back to collection</span></button><div><button className="icon-button" aria-label="Previous image" onClick={onPrevious}><ArrowLeft/></button><button className="icon-button" aria-label="Next image" onClick={onNext}><ArrowRight/></button><button className="icon-button" aria-label="Close image" onClick={onClose}><X/></button></div></header>
   <div className="feed-viewer-layout"><section className="feed-feature" key={item.id}>
-   <PhotoMemories item={item} recordings={recordings} priority variant="small" staticPhoto onPhotoClick={()=>setDetailsFor(item.id)}>
+   <PhotoMemories instantPreview={instantPreview} item={item} recordings={recordings} priority variant="thumbnail" staticPhoto onPhotoClick={()=>setDetailsFor(item.id)}>
     <div className="feed-photo-details">
     {feedCaption(item,workspace.historicalPeople)&&<h2>{feedCaption(item,workspace.historicalPeople)}</h2>}
     <InlineConversation item={item}/>

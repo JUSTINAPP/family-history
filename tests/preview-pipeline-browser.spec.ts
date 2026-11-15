@@ -700,13 +700,13 @@ test("People use real archival stacks, small private thumbnails, batched reads a
   const first = await page.request.get(firstUrl!);
   expect(first.status()).toBe(200);
   expect(first.headers()["cache-control"]).toBe(
-    "private, no-cache, must-revalidate",
+    "private, max-age=60, must-revalidate",
   );
   await request.get("http://127.0.0.1:4301/__fixture/metrics?reset=1");
   const cached = await page.request.get(firstUrl!, {
     headers: { "If-None-Match": first.headers().etag },
   });
-  expect(cached.status()).toBe(304);expect(cached.headers()["cache-control"]).toBe("private, no-cache, must-revalidate");
+  expect(cached.status()).toBe(304);expect(cached.headers()["cache-control"]).toBe("private, max-age=60, must-revalidate");
   const counts = await (
     await request.get("http://127.0.0.1:4301/__fixture/metrics")
   ).json();
@@ -1582,7 +1582,7 @@ test("correspondence review links a sender, keeps a recipient as reviewed text a
  expect(await reader.locator("[data-document-source]").count()).toBeLessThanOrEqual(3);
  const afterNav=await metrics();expect(afterNav["/rest/v1/transcriptions"]).toBe(initialMetrics["/rest/v1/transcriptions"]);
  expect(allRequests.filter(url=>url.startsWith("/api/v1/files/"))).toEqual([]);
- const derivative=await page.request.get(urls[0]);expect(derivative.headers()["cache-control"]).toBe("private, no-cache, must-revalidate");
+ const derivative=await page.request.get(urls[0]);expect(derivative.headers()["cache-control"]).toBe("private, max-age=60, must-revalidate");
  const before304=await metrics();const conditional=await page.request.get(urls[0],{headers:{"if-none-match":derivative.headers().etag}});expect(conditional.status()).toBe(304);
  const after304=await metrics();expect(Object.entries(after304).filter(([key])=>key.startsWith("/storage/"))).toEqual(Object.entries(before304).filter(([key])=>key.startsWith("/storage/")));
  const fallback=await page.request.get(`/api/v1/previews/${seed.sourceIds[0]}`);expect(fallback.status()).toBe(200);expect(fallback.headers().etag).toBeTruthy();expect(fallback.headers()["cache-control"]).toBe("private, no-cache, must-revalidate");
@@ -2218,9 +2218,15 @@ test('mobile photo view reveals editing only on a second tap', async ({page,requ
  await page.getByLabel('Email',{exact:true}).fill('visibility@example.test');
  await page.getByLabel('Password',{exact:true}).fill('local-fixture-password');
  await page.getByRole('button',{name:'Sign in',exact:true}).click();
+ await page.locator('.feed-image-wrap img').first().evaluate(img=>(img as HTMLImageElement).decode());
+ const navigationCount=await page.evaluate(()=>performance.getEntriesByType('navigation').length);
  await page.locator('.feed-image-open').first().click();
  const viewer=page.getByRole('dialog',{name:'Photo and related material'});
  await expect(viewer).toBeVisible();
+ expect(await page.evaluate(()=>performance.getEntriesByType('navigation').length)).toBe(navigationCount);
+ await expect(viewer.locator('.photo-open .image-presentation')).toHaveCSS('background-image',/api\/v1\/assets/);
+ await expect.poll(()=>viewer.locator('.photo-open').evaluate(el=>el.getBoundingClientRect().height)).toBeGreaterThan(150);
+ await expect.poll(()=>viewer.locator('.photo-open').evaluate(el=>el.getBoundingClientRect().top)).toBeLessThan(100);
  await expect(viewer.getByRole('link',{name:'Edit details, people or crop ↗'})).toBeHidden();
  await expect(viewer.getByRole('button',{name:'Record a message',exact:true})).toBeHidden();
  await expect(viewer.getByRole('button',{name:'Next image'})).toBeHidden();

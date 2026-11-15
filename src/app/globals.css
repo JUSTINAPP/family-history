@@ -5674,3 +5674,6 @@ h1, h2, h3 { font-weight: 500; }
  .feed-viewer-simple .feed-photo-details,.feed-viewer-simple .photo-memories>.memory-actions{display:none}
  .feed-viewer .feed-related{padding:0 4px}
 }
+
+.feed-feature .photo-open { display: block; }
+.feed-feature .photo-open > .archive-image { flex: none; }

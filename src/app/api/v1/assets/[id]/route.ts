@@ -45,13 +45,14 @@ export async function GET(
         },
       });
     const queried = performance.now();
-    // Always authenticate and enforce file RLS before permitting browser-byte reuse.
+    // Authenticate every network request. Immutable derivative IDs can be reused
+    // privately for one minute; Cookie/Authorization partition the browser cache.
     const etag = /^[a-f0-9]{64}$/.test(file.sha256 || "")
       ? `"${file.sha256}"`
       : undefined;
     const privateHeaders = {
       ...headers,
-      "Cache-Control": "private, no-cache, must-revalidate",
+      "Cache-Control": "private, max-age=60, must-revalidate",
       Vary: "Cookie, Authorization",
       "X-Archive-Variant": ["small", "thumbnail", "display"].includes(
         file.variant?.split(":").pop(),

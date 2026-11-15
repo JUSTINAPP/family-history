@@ -16,6 +16,6 @@ const config: NextConfig = {
   },
   distDir: process.env.ARCHIVE_BUILD_DIR || ".next",
   allowedDevOrigins: ["127.0.0.1"],
-  experimental: { proxyClientMaxBodySize: "90mb" },
+  experimental: { proxyClientMaxBodySize: "90mb", staleTimes: { dynamic: 60, static: 180 } },
 };
 export default config;

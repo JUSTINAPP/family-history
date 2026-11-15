@@ -22,6 +22,7 @@ export function ArchiveImage({
   fetchPriority,
   fitFrame = false,
   eager = false,
+  instantPreview,
 }: {
   src: string;
   alt: string;
@@ -39,6 +40,7 @@ export function ArchiveImage({
   fetchPriority?: "high" | "low" | "auto";
   fitFrame?: boolean;
   eager?: boolean;
+  instantPreview?: {src: string; width: number; height: number};
 }) {
   const variant = src.includes("variant=thumbnail")
     ? "thumbnail"
@@ -72,7 +74,7 @@ export function ArchiveImage({
         setNearby(true);
         observer.disconnect();
       }
-    }, {root: slider, rootMargin: slider ? "0px 100%" : "800px 0px"});
+    }, {root: slider, rootMargin: slider ? "0px 100%" : "300px 0px"});
     observer.observe(element);
     return () => observer.disconnect();
   }, [priority, eager]);
@@ -82,7 +84,10 @@ export function ArchiveImage({
     const observer=new ResizeObserver(([entry])=>setBox({width:entry.contentRect.width,height:entry.contentRect.height}));
     observer.observe(frame.current);return ()=>observer.disconnect();
   },[rotation]);
+  const [natural, setNatural] = useState<{width:number;height:number}|null>(null);
   const primary = set ? set[variant] : null;
+  const dimensions = primary || instantPreview || natural;
+  const ratio = dimensions ? (quarter ? dimensions.height / dimensions.width : dimensions.width / dimensions.height) : 1;
   const delivery = primary
     ? assetUrl(primary.id)
     : src.startsWith("/api/v1/previews/")
@@ -151,15 +156,10 @@ export function ArchiveImage({
       ref={frame}
       data-presentation-rotation={rotation}
       className={`archive-image ${className} ${set ? "has-placeholder" : ""}`}
-      style={
-        set
-          ? {
-              aspectRatio: quarter ? `${set[variant].height}/${set[variant].width}` : `${set[variant].width}/${set[variant].height}`,
-              height: "auto",
-              ...(fitFrame ? { width: `min(100%, calc(var(--archive-frame-height, 440px) * ${quarter ? set[variant].height / set[variant].width : set[variant].width / set[variant].height}))`, maxHeight: "var(--archive-frame-height, 440px)" } : {}),
-            }
-          : undefined
-      }
+      style={{
+        ...(set || fitFrame ? {aspectRatio: String(ratio), height: "auto"} : {}),
+        ...(fitFrame ? {width: `min(100%, calc(var(--archive-frame-height, 440px) * ${ratio}))`, maxHeight: "var(--archive-frame-height, 440px)", flexShrink: 0} : {}),
+      }}
     >
       {failed === src ? (
         <div className="image-unavailable">
@@ -200,7 +200,7 @@ export function ArchiveImage({
             width:quarter && box.height ? box.height : "100%",
             height:quarter && box.width ? box.width : "100%",
             transform:`translate(-50%,-50%) rotate(${rotation}deg)`,
-            ...(set ? {backgroundImage:`url("${set.placeholder}")`,backgroundSize:"contain",backgroundPosition:"center",backgroundRepeat:"no-repeat"} : {}),
+            ...((instantPreview || set) ? {backgroundImage:`url("${instantPreview?.src || set?.placeholder}")`,backgroundSize:"contain",backgroundPosition:"center",backgroundRepeat:"no-repeat"} : {}),
           }}>
           {derived && set ? (
             // Authenticated responsive variants are already optimized; bypass Next's shared optimizer cache.
@@ -251,7 +251,7 @@ export function ArchiveImage({
               loading={priority || eager || nearby ? "eager" : "lazy"}
               fetchPriority={fetchPriority || (priority ? "high" : undefined)}
               unoptimized={local || src.startsWith("/api/v1/")}
-              onLoad={()=>setLoaded(delivery)}
+              onLoad={(event)=>{setNatural({width:event.currentTarget.naturalWidth,height:event.currentTarget.naturalHeight});setLoaded(delivery);}}
               onError={() => {
                 if (derived && attempted.current.has(src))
                   setMessage(
