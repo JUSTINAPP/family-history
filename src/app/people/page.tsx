@@ -26,7 +26,6 @@ export default async function PeoplePage({
     reportRender("people");
     return (
       <>
-        <PeopleTools />
         <PeopleOverview
           people={data.people.map(({ id, slug, name, lifespan, category }) => ({
             id,

@@ -135,7 +135,7 @@ test("production build retrospectively converts two preserved HEICs and privatel
   await expect
     .poll(() =>
       page
-        .locator(".item-card img")
+        .locator(".feed-card img")
         .evaluateAll(
           (nodes) =>
             nodes.length === 1 &&
@@ -143,7 +143,7 @@ test("production build retrospectively converts two preserved HEICs and privatel
         ),
     )
     .toBe(true);
-  const gridImage = page.locator(".item-card img").first();
+  const gridImage = page.locator(".feed-card img").first();
   await expect(gridImage).toHaveAttribute("loading", "eager");
   await expect(gridImage).toHaveAttribute("srcset", / \d+w/);
   await expect(gridImage).toHaveAttribute("sizes", /vw/);
@@ -153,7 +153,7 @@ test("production build retrospectively converts two preserved HEICs and privatel
   expect(await gridImage.getAttribute("srcset")).not.toContain(
     summary.imageSets[0].display_file_id,
   );
-  await expect(page.locator(".item-card .has-placeholder .image-presentation")).toHaveCSS(
+  await expect(page.locator(".feed-card .has-placeholder .image-presentation")).toHaveCSS(
     "background-image",
     /data:image\/webp/,
   );
@@ -171,7 +171,7 @@ test("production build retrospectively converts two preserved HEICs and privatel
     page.getByRole("button", { name: "Restore archived item", exact: true }),
   ).toBeVisible();
   await page.goto(`/explore?archive=${archive}`);
-  await expect(page.locator(".item-card")).toHaveCount(0);
+  await expect(page.locator(".feed-card")).toHaveCount(0);
   await page.goto(`/explore?archive=${archive}&state=archived`);
   await expect(page.locator(".item-card")).toHaveCount(1);
   await page.goto(`/archive/${item}/manage`);
@@ -209,7 +209,7 @@ test("production build retrospectively converts two preserved HEICs and privatel
       ),
     ).toHaveLength(1);
   await page.goto(`/explore?archive=${archive}`);
-  await expect(page.locator(".item-card")).toHaveCount(2);
+  await expect(page.locator(".feed-card")).toHaveCount(2);
   await page.goto(`/archive/${children[0].id}/manage`);
   await page.getByRole("button", { name: "Archive item", exact: true }).click();
   await expect(
@@ -257,7 +257,7 @@ test("production build retrospectively converts two preserved HEICs and privatel
     .getByRole("button", { name: "Confirm permanent deletion", exact: true })
     .click();
   await expect(page).toHaveURL(new RegExp(`/explore\\?archive=${archive}`));
-  await expect(page.locator(".item-card")).toHaveCount(1);
+  await expect(page.locator(".feed-card")).toHaveCount(1);
   await request.post("http://127.0.0.1:4301/__fixture/many");
   const imageRequests = new Set<string>();
   page.on("request", (r) => {
@@ -265,17 +265,17 @@ test("production build retrospectively converts two preserved HEICs and privatel
       imageRequests.add(new URL(r.url()).pathname);
   });
   await page.goto(`/explore?archive=${archive}`);
-  await expect(page.locator(".item-card")).toHaveCount(97);
+  await expect(page.locator(".feed-card")).toHaveCount(24);
   await expect
     .poll(() =>
       page
-        .locator(".item-card img")
+        .locator(".feed-card img")
         .first()
         .evaluate((n) => (n as HTMLImageElement).naturalWidth),
     )
     .toBeGreaterThan(0);
   expect(imageRequests.size).toBeLessThan(97);
-  const lastImage = page.locator(".item-card img").last();
+  const lastImage = page.locator(".feed-card img").last();
   await expect(lastImage).toHaveAttribute("loading", "lazy");
   expect(
     await lastImage.evaluate((n) => (n as HTMLImageElement).naturalWidth),
@@ -2130,4 +2130,42 @@ test('archive rotation review preserves crop and skips uncertain suggestions',as
  await page.getByRole('button',{name:'Check images',exact:true}).click();
  await expect(page.getByRole('button',{name:'Accept 1 confident suggestions'})).toBeEnabled({timeout:30000});await page.getByRole('button',{name:'Accept 1 confident suggestions'}).click();
  await expect.poll(()=>saved).toEqual({points:crop,rotation:90,confidence:.99,needsReview:false,reason:'Test rotation'});
+});
+
+test('unified browsing retains search and uses compact directories and menu', async ({page})=>{
+ test.setTimeout(120000);
+ await page.context().addCookies([{name:'active_archive',value:archive,url:'http://127.0.0.1:4300'}]);
+ await page.goto('/sign-in?next=/explore');
+ await page.getByLabel('Email',{exact:true}).fill('visibility@example.test');
+ await page.getByLabel('Password',{exact:true}).fill('local-fixture-password');
+ await page.getByRole('button',{name:'Sign in',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'Search the collection'})).toBeVisible();
+ await expect(page.locator('.collection-grid .feed-card').first()).toBeVisible();
+ await page.getByRole('button',{name:'Open menu',exact:true}).click();
+ const menu=page.getByRole('navigation',{name:'Archive menu',exact:true});
+ await expect(menu.getByRole('link')).toHaveText(['Collection','People','Places','Stories','Invite someone']);
+ await page.getByRole('button',{name:'Close menu',exact:true}).click();
+ await page.getByLabel('Search the archive',{exact:true}).fill('no-match-unique');
+ await expect(page.getByText('No items match these details.',{exact:false})).toBeVisible();
+ await page.getByRole('button',{name:'Clear filters',exact:true}).click();
+ await page.locator('.feed-image-open').first().click();
+ await expect(page.getByRole('dialog',{name:'Photo and related material'})).toBeVisible();
+ await page.getByRole('button',{name:'Back to collection',exact:true}).click();
+ await expect(page.getByRole('dialog',{name:'Photo and related material'})).toHaveCount(0);
+ for(const width of [375,1440]){
+  await page.setViewportSize({width,height:900});
+  await page.goto('/people');
+  await expect(page.getByLabel('Search people')).toBeVisible();
+  await expect(page.locator('.directory-page .person-card').first()).toBeVisible();
+  expect(await page.locator('.archival-people-grid').evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(' ').length)).toBe(width===375?2:4);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+  await page.screenshot({path:`/private/tmp/unified-people-${width}.png`});
+  await page.goto('/places');
+  await expect(page.getByLabel('Search places')).toBeVisible();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+  await page.screenshot({path:`/private/tmp/unified-places-${width}.png`});
+ }
+ await page.goto('/explore');
+ await expect(page.locator('.feed-card').first()).toBeVisible();
+ await page.screenshot({path:'/private/tmp/unified-search-1440.png'});
 });

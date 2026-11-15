@@ -49,3 +49,11 @@ Home is the collection and no longer shows an Explore-the-collection gateway. Op
 ## Bulk orientation review — 15 November 2026
 
 Admins can open Correct photo orientation from the archive menu to check existing photographs. The batch accepts only changed rotations with confidence at least 0.9 and no review flag, preserves existing crop points and original files, and checks for concurrent framing edits before saving. Uncertain results remain for individual review. No migration is required. Production build and two focused browser checks passed, including preservation of crop points and exclusion of uncertain suggestions. The fixture admin endpoint is local test infrastructure only.
+
+## Unified browsing — 15 November 2026
+
+- Main menu: Collection, People, Places, Stories and Invite someone. Maintenance tools remain in the account menu; photo corrections remain admin-only under Manage archive. Mobile Explore is labelled Search.
+- Search retains its detailed filters and archived-item management while active results use the Home masonry feed and expanded viewer. Recording, comments, quick metadata and transcription links remain available in the viewer.
+- People and Places use compact headings, name search, rounded image piles, image-backed entries first and compact initials for empty entries. Directories have two columns on mobile and four on wide desktops.
+- Existing permissions and original media are unchanged. No database migration.
+- Validation: production build, lint, TypeScript and whitespace checks passed. Focused production browser checks passed for retrospective HEIC conversion, private assets/sign-out, lazy loading, archival/deletion fixture flows and unified browsing. Directory checks cover 375px and 1440px; screenshots use synthetic fixtures. Older browser tests that assert the retired Explore card markup require updating before running the entire historical suite.

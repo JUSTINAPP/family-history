@@ -66,11 +66,11 @@ export function PersonMaterialStack({
         ))
       ) : (
         <div className="person-material-empty">
-          <span aria-hidden="true">↗</span>
+          <span aria-hidden="true">{name.split(" ").map(part=>part[0]).slice(0,2).join("")}</span>
           <p>
             {count
               ? `${count} linked ${count === 1 ? "item" : "items"} · previews pending`
-              : "A story still to gather"}
+              : "No linked images yet"}
           </p>
         </div>
       )}

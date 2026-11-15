@@ -6,7 +6,6 @@ import { loadWorkspace } from "@/lib/backend/repository";
 import { loadPlaceData } from "@/lib/backend/places";
 import { placeMaterials } from "@/lib/places";
 import { PlacesOverview } from "@/components/live/places-overview";
-import { PlaceEditor } from "@/components/live/place-editor";
 import { can } from "@/lib/permissions";
 import { notFound } from "next/navigation";
 import { reportRender } from "@/lib/backend/performance";
@@ -45,14 +44,7 @@ export default async function Places({
     reportRender("places");
     return (
       <>
-        {can(role, "editor") && (
-          <div
-            className="page-shell"
-            style={{ paddingBottom: 0, paddingTop: 25 }}
-          >
-            <PlaceEditor archiveId={snapshot.archive.id} />
-          </div>
-        )}
+
         {(!snapshot.catalogueAvailable ||
           snapshot.peopleLinksAvailable === false) && (
           <p className="notice">
@@ -60,6 +52,7 @@ export default async function Places({
           </p>
         )}
         <PlacesOverview
+          editable={can(role,"editor")}
           places={data.places}
           materials={materials}
           archiveId={snapshot.archive.id}

@@ -12,7 +12,7 @@ import { PlacePicker } from "./place-picker";
 import { QuickField } from "./quick-field";
 
 type Details = NonNullable<Awaited<ReturnType<typeof loadCardDetails>>["data"]>;
-export function CardDetails({item}: {item: ArchiveItem}) {
+export function CardDetails({item,showRecorder=true}: {item: ArchiveItem;showRecorder?:boolean}) {
   const workspace = useWorkspace(), id = useId();
   const [open, setOpen] = useState(false), [record, setRecord] = useState(false);
   const [data, setData] = useState<Details | null>(null), [error, setError] = useState("");
@@ -32,7 +32,7 @@ export function CardDetails({item}: {item: ArchiveItem}) {
   if (workspace.mode !== "live" || item.archivedAt || item.ingestionStatus !== "ready" || !can(workspace.role, "commenter")) return null;
   return <div className="card-quick-actions">
     <div className="card-quick-buttons">
-      {can(workspace.role,"contributor") && <button className="memory-button" aria-haspopup="dialog" onClick={() => setRecord(true)}><Mic size={18} aria-hidden="true"/>Record a memory</button>}
+      {showRecorder && can(workspace.role,"contributor") && <button className="memory-button" aria-haspopup="dialog" onClick={() => setRecord(true)}><Mic size={18} aria-hidden="true"/>Record a memory</button>}
       <button className="memory-button" aria-expanded={open} aria-controls={id} onClick={() => setOpen(!open)}><PencilLine size={18} aria-hidden="true"/>{open ? "Hide quick details" : "Who, where, when"}</button>
     </div>
     {busy && <p role="status"><LoaderCircle className="memory-spinner" size={18} aria-hidden="true"/> Loading details…</p>}

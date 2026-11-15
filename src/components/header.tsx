@@ -8,8 +8,7 @@ import { useWorkspace } from "./workspace-provider";
 import { Search, Plus, Menu, X, ArrowUpRight, LockKeyhole, House, Users } from "lucide-react";
 import { can } from "@/lib/permissions";
 const nav = [
-  ["Home", "/"],
-  ["Explore", "/explore"],
+  ["Collection", "/"],
   ["People", "/people"],
   ["Places", "/places"],
   ["Stories", "/stories"],
@@ -64,9 +63,8 @@ export function Header() {
                     ? `${profileEmail} · ${role} in this archive`
                     : `You are exploring as a demo ${role}. Sign-in is represented; this demo is not a private vault.`}
                 </p>
-                <Link href="/admin" onClick={() => setProfile(false)}>
-                  Archive administration <ArrowUpRight size={15} />
-                </Link>
+                {can(role,"admin") && <Link href="/admin" onClick={() => setProfile(false)}>Manage archive <ArrowUpRight size={15} /></Link>}
+                {can(role,"editor") && <Link href="/quick-catalogue" onClick={() => setProfile(false)}>Quick catalogue <ArrowUpRight size={15} /></Link>}
                 {mode === "live" && can(role, "contributor") && <Link href="/invite" onClick={() => setProfile(false)}>Invite someone <ArrowUpRight size={15} /></Link>}
                 {mode === "live" && can(role, "editor") && <>
                   <Link href="/explore?state=archived" onClick={() => setProfile(false)}>Archived items <ArrowUpRight size={15} /></Link>
@@ -98,7 +96,7 @@ export function Header() {
           </button>
         </div>
         <nav className="mobile-primary-nav" aria-label="Primary mobile navigation">
-          {([["Home", "/", House], ["Explore", "/explore", Search], ["Add", "/add", Plus], ["People", "/people", Users]] as const).map(([label, href, Icon]) => (
+          {([["Home", "/", House], ["Search", "/explore", Search], ["Add", "/add", Plus], ["People", "/people", Users]] as const).map(([label, href, Icon]) => (
             <Link prefetch={false} key={href} href={href} aria-current={path === href || (href !== "/" && path.startsWith(href)) ? "page" : undefined} onClick={() => {setOpen(false);setProfile(false);}}>
               <Icon size={21} aria-hidden="true" /><span>{label}</span>
             </Link>
@@ -112,18 +110,12 @@ export function Header() {
                 <ArrowUpRight size={20} />
               </Link>
             ))}
-            <Link prefetch={false} href="/quick-catalogue" >Quick catalogue <ArrowUpRight size={20} /></Link>
+
             {mode === "live" && can(role, "contributor") && <Link prefetch={false} href="/invite" >Invite someone <ArrowUpRight size={20} /></Link>}
-            <Link prefetch={false} href="/add/bulk" >Bulk upload <ArrowUpRight size={20} /></Link>
-            <Link prefetch={false} href="/admin" >
-              Admin
-              <ArrowUpRight size={20} />
-            </Link>
-            {mode === "live" && can(role,"admin") && <Link prefetch={false} href="/admin/photo-corrections">Correct photo orientation <ArrowUpRight size={20}/></Link>}
-            <Link prefetch={false} href="/tree" >
-              Family tree
-              <ArrowUpRight size={20} />
-            </Link>
+
+
+
+
           </nav>
         )}
       </header>

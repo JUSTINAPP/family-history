@@ -63,6 +63,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         <nav className="admin-nav" aria-label="Archive administration">
           {[
             ...links,
+            ...(can(role,"admin") ? [["Photo corrections", "/admin/photo-corrections"]] : []),
             ...(mode === "live" && can(role, "editor")
               ? [
                   [

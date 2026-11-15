@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useWorkspace } from "../workspace-provider";
 import { can } from "@/lib/permissions";
 import { savePersonAction } from "@/lib/backend/actions";
-export function PeopleTools() {
+export function PeopleTools({compact=false}:{compact?:boolean}) {
   const { archive, role } = useWorkspace();
   const dialog = useRef<HTMLDialogElement>(null);
   const router = useRouter();
@@ -12,7 +12,7 @@ export function PeopleTools() {
   const [busy, setBusy] = useState(false);
   if (!can(role, "editor")) return null;
   return (
-    <div className="page-shell" style={{ paddingBottom: 0, paddingTop: 25 }}>
+    <div className={compact ? "directory-add" : "page-shell"} style={compact ? undefined : { paddingBottom: 0, paddingTop: 25 }}>
       <button
         className="button button-light"
         onClick={() => dialog.current?.showModal()}

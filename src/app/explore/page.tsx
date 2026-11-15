@@ -1,5 +1,7 @@
 import { completedTranscriptions, reviewedDocumentSearch } from "@/lib/documents/repository";
 import { notFound } from "next/navigation";
+import { loadRecordings, type RecordingView } from "@/lib/audio/repository";
+import { requireSession } from "@/lib/backend/repository";
 import { loadWorkspace } from "@/lib/backend/repository";
 import { LiveWorkspaceProvider } from "@/components/live/live-workspace";
 import { isDemoMode } from "@/lib/supabase/config";
@@ -65,6 +67,11 @@ export default async function ExplorePage({
       snapshot = {...snapshot, resourceWarnings: [...snapshot.resourceWarnings, "Transcription status could not load. Open a letter to check its transcription."]};
     }
   }
+  let recordings: RecordingView[] = [];
+  if(snapshot) {
+    try { const {client}=await requireSession(); recordings=await loadRecordings(client,snapshot.archive.id); }
+    catch { snapshot={...snapshot,resourceWarnings:[...snapshot.resourceWarnings,"Voice memories could not load. Refresh to try again."]}; }
+  }
   const filterKey = JSON.stringify(params);
   return (
     <Suspense
@@ -79,10 +86,10 @@ export default async function ExplorePage({
           key={`${snapshot.archive.id}:${snapshot.catalogueBatchId || "all"}`}
           snapshot={snapshot}
         >
-          <Explore key={filterKey} />
+          <Explore key={filterKey} recordings={recordings} />
         </LiveWorkspaceProvider>
       ) : (
-        <Explore key={filterKey} />
+        <Explore key={filterKey} recordings={recordings} />
       )}
     </Suspense>
   );

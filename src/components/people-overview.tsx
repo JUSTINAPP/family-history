@@ -1,7 +1,9 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { ArchiveImage, PageIntro, TextLink } from "./ui";
+import { ArchiveImage, TextLink } from "./ui";
+import {PeopleTools} from "./live/people-tools";
+import {Search} from "lucide-react";
 import type { Person } from "@/lib/types";
 import type { PersonMaterial } from "@/lib/people-material";
 import { PersonMaterialStack } from "./person-material-stack";
@@ -24,16 +26,12 @@ export function PeopleOverview({
   mode?: "live" | "demo";
 }) {
   const [filter, setFilter] = useState("All");
+  const [query,setQuery]=useState("");
   return (
-    <div className="page-shell">
-      <PageIntro
-        eyebrow="PEOPLE IN THE COLLECTION"
-        title="People"
-        description="Browse people and the material linked to them."
-      >
-        <TextLink href="/tree">See family connections</TextLink>
-      </PageIntro>
-      <div className="filter-tabs" aria-label="People categories">
+    <div className="page-shell directory-page">
+      <div className="directory-heading"><h1>People</h1><div className="directory-actions"><TextLink href="/tree">Family connections</TextLink>{mode==="live"&&<PeopleTools compact/>}</div></div>
+      <label className="feed-search"><Search size={20} aria-hidden="true"/><input type="search" aria-label="Search people" placeholder="Find someone in the archive" value={query} onChange={e=>setQuery(e.target.value)}/></label>
+      <div className="feed-filters" aria-label="People categories">
         {["All", "Family", "Friends", "Other", "Unidentified"].map((f) => (
           <button
             className={filter === f ? "selected" : ""}
@@ -55,13 +53,14 @@ export function PeopleOverview({
         className={`people-grid ${mode === "live" ? "archival-people-grid" : ""}`}
       >
         {people
-          .filter((p) => filter === "All" || p.category === filter)
+          .filter((p) => (filter === "All" || p.category === filter) && p.name.toLowerCase().includes(query.toLowerCase().trim()))
+          .sort((a,b)=>Number(!!materials[b.id]?.items.length)-Number(!!materials[a.id]?.items.length))
           .map((p) => (
             <Link
               prefetch={false}
               key={p.id}
               href={`/people/${p.slug}${archiveId ? `?archive=${archiveId}` : ""}`}
-              className="person-card"
+              className={`person-card ${mode==="live"&&!materials[p.id]?.items.length ? "directory-card-empty" : ""}`}
             >
               {mode === "live" ? (
                 <PersonMaterialStack
@@ -78,7 +77,7 @@ export function PeopleOverview({
               )}
               <h2>{p.name}</h2>
               <div className="person-meta">
-                <span>{p.lifespan}</span>
+                {p.lifespan && !/not yet known/i.test(p.lifespan) && <span>{p.lifespan}</span>}
                 <span>{p.category}</span>
               </div>
               {mode === "live" && (

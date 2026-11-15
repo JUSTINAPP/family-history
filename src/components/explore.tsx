@@ -6,6 +6,8 @@ import Link from "next/link";
 import { transcriptionPages } from "@/lib/data";
 import { useWorkspace } from "./workspace-provider";
 import { useCatalogue } from "./catalogue";
+import { HomeGallery } from "./home-gallery";
+import type { RecordingView } from "@/lib/audio/repository";
 import { PageIntro, ItemCard } from "./ui";
 const kinds = [
   "All",
@@ -22,7 +24,7 @@ const typeMap: Record<string, string> = {
   Objects: "Object",
   Documents: "Document",
 };
-export function Explore() {
+export function Explore({recordings=[]}: {recordings?:RecordingView[]}) {
   const { items, people, places } = useCatalogue();
   const workspace = useWorkspace();
   const params = useSearchParams();
@@ -156,11 +158,11 @@ export function Explore() {
         </p>
       )}
       <div className="explore-heading">
-        <h1>Explore</h1>
+        <h1>Search the collection</h1>
         {workspace.mode === "live" && <Link prefetch={false} className="text-link" href={`/quick-catalogue?archive=${workspace.archive.id}`}>Quick catalogue ↗</Link>}
       </div>
       <div className="archive-controls">
-        {workspace.resourceWarnings?.filter(w => w.startsWith("Transcription status")).map(w => <p className="notice" key={w} role="status">{w}</p>)}
+        {workspace.resourceWarnings?.filter(w => w.startsWith("Transcription status") || w.startsWith("Voice memories")).map(w => <p className="notice" key={w} role="status">{w}</p>)}
         <div className="search-field">
           <Search size={20} />
           <input
@@ -238,7 +240,7 @@ export function Explore() {
             <span className="sr-only">Date</span>
             <select value={date} onChange={(e) => setDate(e.target.value)}>
               <option value="">Date</option>
-              {[1920, 1930, 1950, 1960].map((y) => (
+              {[...new Set(items.filter(i=>i.year).map(i=>Math.floor(i.year!/10)*10))].sort((a,b)=>a-b).map((y) => (
                 <option key={y} value={y}>
                   {y}s
                 </option>
@@ -285,7 +287,7 @@ export function Explore() {
         </button>
       </div>
       {filtered.length ? (
-        <div className={`masonry ${workspace.mode === "live" ? "conversation-grid" : ""}`}>
+        workspace.mode === "live" && params.get("state") !== "archived" ? <HomeGallery items={filtered} archiveId={workspace.archive.id} recordings={recordings} showControls={false}/> : <div className={`masonry ${workspace.mode === "live" ? "conversation-grid" : ""}`}>
           {filtered.map((item, i) => (
             <ItemCard key={item.id} item={item} index={i} inlineConversation={workspace.mode === "live"} imageSizes={workspace.mode === "live"?"(max-width: 600px) 90vw, (max-width: 820px) 44vw, (max-width: 1100px) 29vw, (max-width: 1800px) 22vw, 385px":undefined} />
           ))}
