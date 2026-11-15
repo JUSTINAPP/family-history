@@ -5708,3 +5708,13 @@ h1, h2, h3 { font-weight: 500; }
 .memory-viewer[data-mode="record"] .memory-stage { top:85px; }
 .memory-actions .record-primary { background:var(--forest, #355544); color:#fff; border-color:var(--forest, #355544); }
 @media(max-width:700px) { .memory-viewer[data-mode="record"] .memory-stage { top:auto; } }
+
+/* Direct image corrections stay visible in the first enlarged view. */
+.feed-feature { position:relative; }
+.quick-rotate { position:absolute; top:12px; right:12px; z-index:1; display:flex; flex-direction:column; align-items:flex-end; gap:6px; max-width:220px; }
+.quick-rotate-buttons { display:flex; gap:6px; }
+.quick-rotate button { display:grid; place-items:center; width:44px; height:44px; border-radius:50%; border:1px solid #bdc8b8; color:#284e3b; background:#fffef5f2; box-shadow:0 2px 8px #0002; cursor:pointer; }
+.quick-rotate button:hover { background:#e5ecdf; }
+.quick-rotate button:focus-visible { outline:3px solid #355544; outline-offset:2px; }
+.quick-rotate button:disabled { cursor:wait; opacity:.65; }
+.quick-rotate [role=status]:not(:empty) { display:flex; gap:4px; align-items:center; background:#fffef5f2; color:#284e3b; border-radius:8px; padding:6px 9px; font-size:13px; }

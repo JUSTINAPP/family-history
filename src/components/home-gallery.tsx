@@ -1,5 +1,6 @@
 "use client";
 import Link from 'next/link';
+import {QuickRotate} from './live/quick-rotate';
 import {PhotoLoadingStatus} from './photo-loading-status';
 import {FeedMemory} from './audio/feed-memory';
 import {FaceSuggestions} from './face-suggestions';
@@ -65,7 +66,7 @@ export function HomeGallery({items,recordings=[],archiveId,showControls=true}:{i
    else history.replaceState({...history.state,archiveFeedPhoto:id},'',`${location.pathname}${location.search}#photo=${id}`);
    setSelected(id);
  }
- function close(){if(ownHistory.current){history.back();}else{setSelected(null);returnFocus.current?.focus({preventScroll:true});}}
+ function close(){if(ownHistory.current && history.state?.archiveFeedPhoto===selected){history.back();}else{ownHistory.current=false;setSelected(null);requestAnimationFrame(()=>{window.scrollTo(0,scrollPosition.current);returnFocus.current?.focus({preventScroll:true});});}}
  return <div className="home-gallery collection-feed">
   {filtered.slice(0,4).some(item=>!readyImages.has(item.id))&&<PhotoLoadingStatus names={workspace.historicalPeople.filter(person=>filtered.slice(0,4).some(item=>item.people.includes(person.id))).map(person=>person.name).slice(0,8)}/>}
   {showControls&&<><div className="feed-toolbar"><label className="feed-search"><Search size={20} aria-hidden="true"/><input aria-label="Search this collection" placeholder="Search photos, names, places or dates" value={query} onChange={e=>{setQuery(e.target.value);setVisible(24);}}/></label><Link href="/explore" className="text-link">All filters ↗</Link>{can(workspace.role,"commenter")&&<button className="subtle-button" onClick={()=>setFaceSearch(true)}>Find people</button>}</div>
@@ -90,12 +91,17 @@ function FeedViewer({instantPreview,item,related,recordings,onOpen,onClose,onPre
  const workspace=useWorkspace();
  const dialog=useRef<HTMLDialogElement>(null);
  const [detailsFor,setDetailsFor]=useState<string|null>(null);
+ const [rotationEdit,setRotationEdit]=useState<{sourceId:string;rotation:number}|null>(null);
+ const rotation=rotationEdit && rotationEdit.sourceId===item.originalId ? rotationEdit.rotation : item.rotation||0;
+ const displayedItem=rotation=== (item.rotation||0) ? item : {...item,rotation,imageSet:item.imageSet?{...item.imageSet,rotation:((item.imageSet.rotation||0)+rotation-(item.rotation||0)+360)%360}:undefined};
+ const rotatable=!!item.originalId && item.ingestionStatus==="ready" && !item.archivedAt && (can(workspace.role,"editor") || (workspace.role==="contributor" && item.contributedBy===workspace.profileId && item.certainty!=="verified"));
  useEffect(()=>{const node=dialog.current,overflow=document.body.style.overflow;node?.showModal();document.body.style.overflow='hidden';return()=>{node?.close();document.body.style.overflow=overflow;};},[]);
  useEffect(()=>{dialog.current?.scrollTo({top:0});},[item.id]);
  return <dialog ref={dialog} className={`feed-viewer ${detailsFor===item.id ? "feed-viewer-details" : "feed-viewer-simple"}`} aria-label="Photo and related material" onCancel={e=>{if(e.target!==e.currentTarget)return;e.preventDefault();onClose();}}>
   <header className="feed-viewer-top"><button type="button" className="memory-button" aria-label="Back to collection" onClick={onClose}><ArrowLeft size={18}/><span>Back to collection</span></button><div><button className="icon-button" aria-label="Previous image" onClick={onPrevious}><ArrowLeft/></button><button className="icon-button" aria-label="Next image" onClick={onNext}><ArrowRight/></button><button className="icon-button" aria-label="Close image" onClick={onClose}><X/></button></div></header>
   <div className="feed-viewer-layout"><section className="feed-feature" key={item.id}>
-   <PhotoMemories instantPreview={instantPreview} item={item} recordings={recordings} priority variant="thumbnail" staticPhoto showEditor onPhotoClick={()=>setDetailsFor(item.id)}>
+   {rotatable&&<QuickRotate key={item.originalId} sourceId={item.originalId!} rotation={rotation} onSaved={value=>setRotationEdit({sourceId:item.originalId!,rotation:value})}/>}
+   <PhotoMemories instantPreview={instantPreview} item={displayedItem} recordings={recordings} priority variant="thumbnail" staticPhoto showEditor onPhotoClick={()=>setDetailsFor(item.id)}>
     <div className="feed-photo-details">
     {feedCaption(item,workspace.historicalPeople)&&<h2>{feedCaption(item,workspace.historicalPeople)}</h2>}
     <InlineConversation item={item}/>

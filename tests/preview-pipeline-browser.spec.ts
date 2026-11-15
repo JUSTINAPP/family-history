@@ -2303,3 +2303,39 @@ test('unified editor saves artwork, accepts existing audio, and starts recording
  await editor.getByRole('button',{name:'Close photo',exact:true}).click();
  await expect(editor).toHaveCount(0);
 });
+
+
+test('quick rotation saves from the first enlarged view on desktop and mobile', async ({page,request}) => {
+ await page.context().addCookies([{name:'active_archive',value:archive,url:'http://127.0.0.1:4300'}]);
+ await request.post('http://127.0.0.1:4301/__fixture/quick-photos');
+ await page.goto('/sign-in');
+ await page.getByLabel('Email',{exact:true}).fill('visibility@example.test');
+ await page.getByLabel('Password',{exact:true}).fill('local-fixture-password');
+ await page.getByRole('button',{name:'Sign in',exact:true}).click();
+ await page.getByLabel('Search this collection').fill('Quick photograph 1');
+ const card=page.locator('.feed-card').filter({has:page.getByRole('button',{name:'View Quick photograph 1',exact:true})}).first();
+ const itemId=await card.getAttribute('data-item-id');
+ const before=await(await request.get('http://127.0.0.1:4301/__fixture/summary')).json();
+ const source=before.files.find((f:{item_id:string;purpose:string})=>f.item_id===itemId&&f.purpose==='original');
+ await card.getByRole('button',{name:'View Quick photograph 1',exact:true}).click();
+ const viewer=page.getByRole('dialog',{name:'Photo and related material'});
+ const rotation=viewer.getByRole('group',{name:'Rotate image'});
+ await expect(rotation.getByRole('button',{name:'Rotate right',exact:true})).toBeVisible();
+ await rotation.getByRole('button',{name:'Rotate right',exact:true}).click();
+ await expect(rotation.getByRole('status')).toHaveText('Rotation saved');
+ const readRotation=async()=>{const state=await(await request.get('http://127.0.0.1:4301/__fixture/summary')).json();return state.files.find((f:{id:string})=>f.id===source.id).presentation_rotation;};
+ await expect.poll(readRotation).toBe(((source.presentation_rotation||0)+90)%360);
+ await expect(viewer.locator('.photo-open [data-presentation-rotation]')).toHaveAttribute('data-presentation-rotation',String(((source.presentation_rotation||0)+90)%360));
+ await page.setViewportSize({width:375,height:812});
+ await expect(viewer.getByRole('button',{name:'Edit details',exact:true})).toBeHidden();
+ await expect(rotation.getByRole('button',{name:'Rotate left',exact:true})).toBeVisible();
+ await rotation.getByRole('button',{name:'Rotate left',exact:true}).click();
+ await expect(rotation.getByRole('status')).toHaveText('Rotation saved');
+ await expect.poll(readRotation).toBe(source.presentation_rotation||0);
+ await expect.poll(()=>viewer.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
+ await page.screenshot({path:'/private/tmp/quick-rotate-mobile.png'});
+ await viewer.getByRole('button',{name:'Back to collection'}).click();
+ await expect(viewer).toHaveCount(0);
+ await card.getByRole('button',{name:'View Quick photograph 1',exact:true}).click();
+ await expect(rotation.getByRole('button',{name:'Rotate right',exact:true})).toBeVisible();
+});
