@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useId, useRef, useState } from "react";
+import {useItemPages} from "../item-pages";
 import { X, LoaderCircle, Play, Pause } from "lucide-react";
 import {DocumentReadingPanel} from "../live/document-reading-panel";
 import { ItemDetailsPanel } from "../live/item-details-panel";
@@ -10,6 +11,8 @@ import type { ArchiveItem } from "@/lib/types";
 import type { RecordingView } from "@/lib/audio/repository";
 export function MemoryViewer({item, recordings, initialMode, onClose}: {item: ArchiveItem; recordings: RecordingView[]; initialMode: "listen" | "record" | "edit"; onClose: () => void}) {
   const workspace = useWorkspace(), dialog = useRef<HTMLDialogElement>(null), id = useId();
+  const savedPages=useItemPages(item,workspace.mode==="live" && initialMode!=="listen");
+  const pageItem=savedPages.item;
   const [mode] = useState(initialMode), [selected, setSelected] = useState(recordings[0]?.id), [playing, setPlaying] = useState(false);
   const [imageReady, setImageReady] = useState(false), [imageFailed, setImageFailed] = useState(false), [still, setStill] = useState(false);
   const [reading,setReading]=useState(false);
@@ -28,8 +31,9 @@ export function MemoryViewer({item, recordings, initialMode, onClose}: {item: Ar
     <header className="memory-viewer-header"><h2 id={`${id}-title`}>{reading ? "Letter transcription" : mode === "listen" ? item.title : "Details & memories"}</h2><button type="button" className="memory-button" aria-label="Close photo" disabled={saving} onClick={close}><X aria-hidden="true" /></button></header>
     {reading ? <div className="memory-reading"><button className="subtle-button" disabled={saving} onClick={()=>{if(mayLeave()){setDirty(false);setReading(false);}}}>Back to details & memories</button><DocumentReadingPanel itemId={item.id} onDirtyChange={setDirty} onSavingChange={setSaving}/></div> : <div className="memory-viewer-body" data-mode={mode === "listen" ? "listen" : "record"}>
       <div className="memory-stage">
+        {savedPages.navigation}
         <div className="memory-cinema" data-playing={mode==="listen" && (current ? playing : imageReady && !still)} onErrorCapture={()=>setImageFailed(true)}>
-          <ArchiveImage src={item.image} alt={item.title} imageSet={item.imageSet} rotation={item.rotation} variant="display" autoPrepare={false} priority fitFrame sizes="(max-width: 820px) 95vw, 70vw" onReady={()=>setImageReady(true)} />
+          <ArchiveImage key={pageItem.originalId||pageItem.image} src={pageItem.image} alt={item.title} imageSet={pageItem.imageSet} rotation={pageItem.rotation} variant="display" autoPrepare={false} priority fitFrame sizes="(max-width: 820px) 95vw, 70vw" onReady={()=>setImageReady(true)} />
         </div>
         {!imageReady && !imageFailed && <p className="memory-image-status" role="status"><LoaderCircle className="memory-spinner" aria-hidden="true" />Loading photo…</p>}
         {imageFailed && <p className="memory-image-status" role="status">Photo could not load. Close and reopen to retry.</p>}

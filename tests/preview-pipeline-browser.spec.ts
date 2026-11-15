@@ -2415,3 +2415,37 @@ test("letter transcription opens inside the editor and switches original/text on
  await expect(page.getByRole("dialog",{name:"Details & memories",exact:true})).toBeVisible();
  expect(seed.id).toBeTruthy();
 });
+
+test("saved letter pages remain grouped in feed and details on desktop and mobile", async ({page,request})=>{
+ test.setTimeout(120000);
+ await request.post("http://127.0.0.1:4301/__fixture/document-item");
+ await page.context().addCookies([{name:"active_archive",value:archive,url:"http://127.0.0.1:4300"}]);
+ await page.setViewportSize({width:1440,height:1000});
+ await page.goto("/sign-in");
+ await page.getByLabel("Email",{exact:true}).fill("visibility@example.test");
+ await page.getByLabel("Password",{exact:true}).fill("local-fixture-password");
+ await page.getByRole("button",{name:"Sign in",exact:true}).click();
+ await page.getByRole("button",{name:"View 4 pages of Fixture four-page letter",exact:true}).last().click();
+ const viewer=page.getByRole("dialog",{name:"Photo and related material"});
+ const pager=viewer.getByRole("navigation",{name:"Letter pages"});
+ await expect(pager).toContainText("1 of 4");
+ await expect(pager.getByRole("button",{name:"Previous page",exact:true})).toBeDisabled();
+ const url=page.url();
+ const first=await viewer.locator("img").first().getAttribute("src");
+ await pager.getByRole("button",{name:"Next page",exact:true}).click();
+ await expect(pager).toContainText("2 of 4");
+ await expect(viewer.locator("img").first()).not.toHaveAttribute("src",first!);
+ await viewer.getByRole("button",{name:"Edit details",exact:true}).click();
+ const editor=page.getByRole("dialog",{name:"Details & memories",exact:true});
+ const editPager=editor.getByRole("navigation",{name:"Letter pages"});
+ await expect(editPager).toContainText("2 of 4");
+ await page.setViewportSize({width:375,height:844});
+ await editPager.getByRole("button",{name:"Next page",exact:true}).click();
+ await expect(editPager).toContainText("3 of 4");
+ await editPager.getByRole("button",{name:"Next page",exact:true}).click();
+ await expect(editPager).toContainText("4 of 4");
+ await expect(editPager.getByRole("button",{name:"Next page",exact:true})).toBeDisabled();
+ await editPager.getByRole("button",{name:"Previous page",exact:true}).click();
+ await expect(editPager).toContainText("3 of 4");
+ expect(page.url()).toBe(url);
+});

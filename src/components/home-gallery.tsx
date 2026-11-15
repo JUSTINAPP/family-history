@@ -1,4 +1,5 @@
 "use client";
+import {useItemPages} from "./item-pages";
 import Link from 'next/link';
 import {QuickRotate} from './live/quick-rotate';
 import {PhotoLoadingStatus} from './photo-loading-status';
@@ -75,6 +76,7 @@ export function HomeGallery({items,recordings=[],archiveId,showControls=true}:{i
    {filtered.slice(0,visible).map((item,index)=><article className="feed-card" data-item-id={item.id} data-kind={item.kind} key={item.id}>
     <div className="feed-image-wrap" style={{backgroundColor:feedColour(item.id),aspectRatio:item.imageSet?presentationRatio(item.imageSet):item.aspect==='portrait'?.75:item.aspect==='landscape'?1.4:1}} onLoadCapture={e=>{const image=e.target as HTMLImageElement;if(image.tagName==='IMG'&&image.naturalWidth){const quarter=(item.imageSet?.rotation??item.rotation??0)%180;e.currentTarget.style.aspectRatio=String(quarter?image.naturalHeight/image.naturalWidth:image.naturalWidth/image.naturalHeight);}}}>{memories(item).length>0?<FeedMemory item={item} recordings={memories(item)} active={listening===item.id} onActivate={()=>setListening(item.id)} onDetails={()=>open(item.id)}><ArchiveImage onReady={()=>setReadyImages(old=>old.has(item.id)?old:new Set([...old,item.id]))} src={item.image} imageSet={item.imageSet} rotation={item.rotation} variant="thumbnail" priority={index<4} alt={item.alt||item.title} sizes="(max-width:700px) 46vw, (max-width:1100px) 30vw, 24vw"/></FeedMemory>:<><button type="button" className="feed-image-open" aria-label={`View ${item.title}`} aria-haspopup="dialog" onClick={()=>open(item.id)}/>
      <ArchiveImage onReady={()=>setReadyImages(old=>old.has(item.id)?old:new Set([...old,item.id]))} src={item.image} imageSet={item.imageSet} rotation={item.rotation} variant="thumbnail" priority={index<4} alt={item.alt||item.title} sizes="(max-width:700px) 46vw, (max-width:1100px) 30vw, 24vw"/></>}
+    {(item.sourceCount||0)>1&&<button className="feed-page-count" onClick={()=>open(item.id)} aria-label={`View ${item.sourceCount} pages of ${item.title}`}>{item.sourceCount} pages</button>}
     </div>
     {feedCaption(item,workspace.historicalPeople)&&<div className="feed-caption">{feedCaption(item,workspace.historicalPeople)&&<button type="button" onClick={()=>open(item.id)}>{feedCaption(item,workspace.historicalPeople)}</button>}</div>}
    </article>)}
@@ -89,19 +91,22 @@ export function HomeGallery({items,recordings=[],archiveId,showControls=true}:{i
 }
 function FeedViewer({instantPreview,item,related,recordings,onOpen,onClose,onPrevious,onNext}:{instantPreview?:{src:string;width:number;height:number};item:ArchiveItem;related:ReturnType<typeof relatedMaterial>;recordings:RecordingView[];onOpen:(id:string)=>void;onClose:()=>void;onPrevious:()=>void;onNext:()=>void}) {
  const workspace=useWorkspace();
+ const savedPages=useItemPages(item,workspace.mode==="live");
+ const pageItem=savedPages.item;
  const dialog=useRef<HTMLDialogElement>(null);
  const [detailsFor,setDetailsFor]=useState<string|null>(null);
  const [rotationEdit,setRotationEdit]=useState<{sourceId:string;rotation:number}|null>(null);
- const rotation=rotationEdit && rotationEdit.sourceId===item.originalId ? rotationEdit.rotation : item.rotation||0;
- const displayedItem=rotation=== (item.rotation||0) ? item : {...item,rotation,imageSet:item.imageSet?{...item.imageSet,rotation:((item.imageSet.rotation||0)+rotation-(item.rotation||0)+360)%360}:undefined};
- const rotatable=!!item.originalId && item.ingestionStatus==="ready" && !item.archivedAt && (can(workspace.role,"editor") || (workspace.role==="contributor" && item.contributedBy===workspace.profileId && item.certainty!=="verified"));
+ const rotation=rotationEdit && rotationEdit.sourceId===pageItem.originalId ? rotationEdit.rotation : pageItem.rotation||0;
+ const displayedItem=rotation=== (pageItem.rotation||0) ? pageItem : {...pageItem,rotation,imageSet:pageItem.imageSet?{...pageItem.imageSet,rotation:((pageItem.imageSet.rotation||0)+rotation-(pageItem.rotation||0)+360)%360}:undefined};
+ const rotatable=!!pageItem.originalId && pageItem.ingestionStatus==="ready" && !pageItem.archivedAt && (can(workspace.role,"editor") || (workspace.role==="contributor" && pageItem.contributedBy===workspace.profileId && pageItem.certainty!=="verified"));
  useEffect(()=>{const node=dialog.current,overflow=document.body.style.overflow;node?.showModal();document.body.style.overflow='hidden';return()=>{node?.close();document.body.style.overflow=overflow;};},[]);
  useEffect(()=>{dialog.current?.scrollTo({top:0});},[item.id]);
  return <dialog ref={dialog} className={`feed-viewer ${detailsFor===item.id ? "feed-viewer-details" : "feed-viewer-simple"}`} aria-label="Photo and related material" onCancel={e=>{if(e.target!==e.currentTarget)return;e.preventDefault();onClose();}}>
   <header className="feed-viewer-top"><button type="button" className="memory-button" aria-label="Back to collection" onClick={onClose}><ArrowLeft size={18}/><span>Back to collection</span></button><div><button className="icon-button" aria-label="Previous image" onClick={onPrevious}><ArrowLeft/></button><button className="icon-button" aria-label="Next image" onClick={onNext}><ArrowRight/></button><button className="icon-button" aria-label="Close image" onClick={onClose}><X/></button></div></header>
   <div className="feed-viewer-layout"><section className="feed-feature" key={item.id}>
-   {rotatable&&<QuickRotate key={item.originalId} sourceId={item.originalId!} rotation={rotation} onSaved={value=>setRotationEdit({sourceId:item.originalId!,rotation:value})}/>}
-   <PhotoMemories instantPreview={instantPreview} item={displayedItem} recordings={recordings} priority variant="thumbnail" staticPhoto showEditor onPhotoClick={()=>setDetailsFor(item.id)}>
+   {savedPages.navigation}
+   {rotatable&&<QuickRotate key={pageItem.originalId} sourceId={pageItem.originalId!} rotation={rotation} onSaved={value=>setRotationEdit({sourceId:pageItem.originalId!,rotation:value})}/>}
+   <PhotoMemories key={pageItem.originalId||item.id} instantPreview={pageItem.originalId===item.originalId?instantPreview:undefined} item={displayedItem} recordings={recordings} priority variant="thumbnail" staticPhoto showEditor onPhotoClick={()=>setDetailsFor(item.id)}>
     <div className="feed-photo-details">
     {feedCaption(item,workspace.historicalPeople)&&<h2>{feedCaption(item,workspace.historicalPeople)}</h2>}
     <InlineConversation item={item}/>

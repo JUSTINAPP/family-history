@@ -5759,3 +5759,13 @@ select:disabled { cursor: default; }
  .document-review-grid[data-mobile-view="text"] > section:first-child,
  .document-review-grid[data-mobile-view="original"] > section:last-child { display:none; }
 }
+
+/* Saved document pages stay together in the collection and editor. */
+.item-page-navigation { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; padding:12px 0; }
+.item-page-navigation:empty { display:none; }
+.memory-stage:has(.item-page-navigation) { flex-direction:column; }
+.memory-stage .item-page-navigation { width:100%; color:#fff; }
+.feed-page-count { position:absolute; bottom:10px; right:10px; z-index:3; border:1px solid #c7cbbd; border-radius:16px; background:#fffdf4; color:#294738; padding:8px 12px; min-height:44px; }
+@media(max-width:700px) { .item-page-navigation { font-size:13px; gap:6px; } .item-page-navigation .memory-button { padding:10px 8px; font-size:13px; min-height:44px; } }
+.feed-feature:has(>.item-page-navigation:not(:empty))>.quick-rotate { top:84px; }
+@media(max-width:700px) { .feed-feature>.item-page-navigation:not(:empty) { margin-top:64px; } .feed-feature:has(>.item-page-navigation:not(:empty))>.quick-rotate { top:148px; } }
