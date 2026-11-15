@@ -83,18 +83,19 @@ export function HomeGallery({items,recordings=[],archiveId}:{items:ArchiveItem[]
  </div>;
 }
 function FeedViewer({item,related,recordings,onOpen,onClose,onPrevious,onNext}:{item:ArchiveItem;related:ReturnType<typeof relatedMaterial>;recordings:RecordingView[];onOpen:(id:string)=>void;onClose:()=>void;onPrevious:()=>void;onNext:()=>void}) {
+ const workspace=useWorkspace();
  const dialog=useRef<HTMLDialogElement>(null);
  useEffect(()=>{const node=dialog.current,overflow=document.body.style.overflow;node?.showModal();document.body.style.overflow='hidden';return()=>{node?.close();document.body.style.overflow=overflow;};},[]);
  useEffect(()=>{dialog.current?.scrollTo({top:0});},[item.id]);
  return <dialog ref={dialog} className="feed-viewer" aria-label="Photo and related material" onCancel={e=>{if(e.target!==e.currentTarget)return;e.preventDefault();onClose();}}>
   <header className="feed-viewer-top"><button type="button" className="memory-button" onClick={onClose}><ArrowLeft size={18}/>Back to collection</button><div><button className="icon-button" aria-label="Previous image" onClick={onPrevious}><ArrowLeft/></button><button className="icon-button" aria-label="Next image" onClick={onNext}><ArrowRight/></button><button className="icon-button" aria-label="Close image" onClick={onClose}><X/></button></div></header>
   <div className="feed-viewer-layout"><section className="feed-feature" key={item.id}>
-   <PhotoMemories item={item} recordings={recordings} priority variant="thumbnail">
-    <h2>{item.title}</h2><p className="muted-small">{[item.year,item.place].filter(Boolean).join(' · ')}</p>
+   <PhotoMemories item={item} recordings={recordings} priority variant="thumbnail" staticPhoto>
+    {feedCaption(item,workspace.historicalPeople)&&<h2>{feedCaption(item,workspace.historicalPeople)}</h2>}
     <InlineConversation item={item}/>
    </PhotoMemories>
    <Link className="text-link" href={item.href!}>Edit details, people or crop ↗</Link>
-  </section><aside className="feed-related"><h2>Keep exploring</h2><div className="feed-related-grid">{related.map(({item:other,reason})=><button type="button" key={other.id} onClick={()=>onOpen(other.id)} className="feed-related-card" style={{backgroundColor:feedColour(other.id)}}>
+  </section><aside className="feed-related"><h2>More to explore</h2><div className="feed-related-grid">{related.map(({item:other,reason})=><button type="button" key={other.id} onClick={()=>onOpen(other.id)} className="feed-related-card" style={{backgroundColor:feedColour(other.id)}}>
    <ArchiveImage src={other.image} imageSet={other.imageSet} rotation={other.rotation} variant="small" autoPrepare={false} alt={other.title}/><span>{reason}</span>
   </button>)}</div>{!related.length&&<p>More linked photos will appear here as the archive grows.</p>}</aside></div>
  </dialog>;

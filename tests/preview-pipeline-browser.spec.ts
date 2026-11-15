@@ -2097,3 +2097,23 @@ test('mobile feed keeps two columns while photos load and reports real progress'
  await expect(page.locator('.collection-feed .photo-loading-status')).toHaveCount(0,{timeout:15000});
  for(const width of [320,390,430]){await page.setViewportSize({width,height:844});await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await expect.poll(()=>page.locator('.collection-grid').evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(' ').length)).toBe(2);}
 });
+
+
+test('mobile collection expands into a scrollable photo and related grid',async({page,request})=>{
+ await request.post('http://127.0.0.1:4301/__fixture/quick-photos');
+ await page.setViewportSize({width:375,height:844});
+ await page.context().addCookies([{name:'active_archive',value:archive,url:'http://127.0.0.1:4300'}]);
+ await page.goto('/sign-in');await page.getByLabel('Email',{exact:true}).fill('visibility@example.test');await page.getByLabel('Password',{exact:true}).fill('local-fixture-password');await page.locator('form').getByRole('button',{name:'Sign in',exact:true}).click();await expect(page).toHaveURL(/\/$/);
+ await expect(page.getByRole('link',{name:'Explore the collection',exact:false})).toHaveCount(0);
+ await expect(page.locator('.collection-grid')).toBeVisible();
+ await page.locator('.feed-image-open').first().click();
+ const viewer=page.getByRole('dialog',{name:'Photo and related material'});
+ await expect(viewer).toBeVisible();
+ await expect(viewer.locator('button.photo-open')).toHaveCount(0);
+ await expect.poll(()=>viewer.locator('.feed-related-grid').evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(' ').length)).toBe(2);
+ const related=viewer.locator('.feed-related-card').first();await related.scrollIntoViewIfNeeded();await expect(related).toBeVisible();
+ await expect.poll(()=>viewer.evaluate(el=>el.scrollHeight>el.clientHeight)).toBe(true);
+ await related.click();await expect(viewer).toBeVisible();
+ await expect.poll(()=>viewer.evaluate(el=>el.scrollTop)).toBe(0);
+ await page.goBack();await expect(viewer).toHaveCount(0);await expect(page.locator('.collection-grid')).toBeVisible();
+});

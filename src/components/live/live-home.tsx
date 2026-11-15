@@ -31,10 +31,7 @@ export async function LiveHome() {
         {audio.unavailable && <p className="notice">Voice memories could not load. Refresh to try again.</p>}
         {!!gallery.length && <LiveWorkspaceProvider snapshot={workspace}><HomeGallery archiveId={workspace.archive.id} items={gallery} recordings={audio.recordings} /></LiveWorkspaceProvider>}
         {!gallery.length && <ArchiveLoading recover names={workspace.people.filter(person=>workspace.catalogue.some(item=>item.people.includes(person.id))).map(person=>person.name).slice(0,8)}/>}
-        <div className="home-browse-actions">
-          <Link prefetch={false} className="button" href={`/explore?archive=${workspace.archive.id}`}>Explore the collection <span aria-hidden="true">↗</span></Link>
-          <Link prefetch={false} className="text-link" href={`/quick-catalogue?archive=${workspace.archive.id}`}>Help identify photographs ↗</Link>
-        </div>
+
 
       </>}
     </div>

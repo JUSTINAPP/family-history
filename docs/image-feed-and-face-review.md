@@ -41,3 +41,7 @@ Photos with recordings show a single headphones button that changes to loading, 
 ## Mobile loading feedback — 15 November 2026
 
 Home now shows coloured two-column placeholders when preview references are unavailable, with three bounded refresh attempts and a manual retry after a prolonged wait. Loading copy uses only names linked to the pending material. The gallery reports initial image loading and clears that status once the first four images are ready. Mobile type filters scroll horizontally to keep the two-column feed near the top. Production build, lint, TypeScript and delayed-image browser checks passed, including widths 320/375/390/430. Persistent backend preview failures still require investigation; the status does not claim that failed previews are ready.
+
+## Expanded mobile discovery — 15 November 2026
+
+Home is the collection and no longer shows an Explore-the-collection gateway. Opening a tile shows a rounded enlarged photo, compact actions and a scrollable two-column More-to-explore grid. The enlarged photo does not open another cinema layer; Listen remains an explicit action. Related cards retain source proportions and selecting one resets the viewer scroll to the top. Browser Back returns to the collection. Production build and focused browser checks passed for direct collection entry, related browsing, Back and inline voice playback.
