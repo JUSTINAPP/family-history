@@ -2117,3 +2117,17 @@ test('mobile collection expands into a scrollable photo and related grid',async(
  await expect.poll(()=>viewer.evaluate(el=>el.scrollTop)).toBe(0);
  await page.goBack();await expect(viewer).toHaveCount(0);await expect(page.locator('.collection-grid')).toBeVisible();
 });
+
+
+test('archive rotation review preserves crop and skips uncertain suggestions',async({page,request})=>{
+ await request.post('http://127.0.0.1:4301/__fixture/admin');
+ await page.context().addCookies([{name:'active_archive',value:archive,url:'http://127.0.0.1:4300'}]);
+ await page.goto('/sign-in?next=/admin/photo-corrections');await page.getByLabel('Email',{exact:true}).fill('visibility@example.test');await page.getByLabel('Password',{exact:true}).fill('local-fixture-password');await page.locator('form').getByRole('button',{name:'Sign in',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'Correct sideways photographs'})).toBeVisible();
+ const crop=[[.1,.1],[.9,.1],[.9,.9],[.1,.9]];let checks=0;let saved:unknown;
+ await page.route('**/api/v1/image-framing/*',async route=>{const response=await page.request.get(route.request().url());const data=await response.json();await route.fulfill({json:{...data,framing:{points:crop,rotation:0},...(route.request().method()==='POST'?{suggestion:{points:[[0,0],[1,0],[1,1],[0,1]],rotation:90,confidence:++checks===1?.99:.3,needsReview:checks!==1,reason:'Test rotation'}}:{})}});});
+ await page.route('**/api/v1/previews/*',async route=>{if(route.request().method()!=='POST'||!route.request().postDataJSON()?.framing)return route.continue();saved=route.request().postDataJSON().framing;await route.fulfill({status:409,json:{error:'Test save intercepted'}});});
+ await page.getByRole('button',{name:'Check images',exact:true}).click();
+ await expect(page.getByRole('button',{name:'Accept 1 confident suggestions'})).toBeEnabled({timeout:30000});await page.getByRole('button',{name:'Accept 1 confident suggestions'}).click();
+ await expect.poll(()=>saved).toEqual({points:crop,rotation:90,confidence:.99,needsReview:false,reason:'Test rotation'});
+});

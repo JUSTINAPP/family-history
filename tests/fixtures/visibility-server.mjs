@@ -101,6 +101,7 @@ export async function fixtureServer(
       created_at: row.created_at,
     })),
   );
+  let fixtureAdmin = false;
   const imageSets = [];
   let quickSeedCount=0;
   const currentSets = () => [
@@ -157,6 +158,7 @@ export async function fixtureServer(
     res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
     if (req.method === "OPTIONS") { res.writeHead(204); res.end(); return; }
     const address = new URL(req.url, url);
+    if(address.pathname === "/__fixture/admin" && management){fixtureAdmin=true;res.writeHead(200,{"Content-Type":"application/json"});res.end("{}");return;}
     if (address.pathname === "/__fixture/fail-capture-once" && management) { failCaptureOnce = true; res.writeHead(200); res.end("{}"); return; }
     requests.push({
       path: address.pathname,
@@ -1297,7 +1299,7 @@ export async function fixtureServer(
                                     id: USER,
                                     archive_id: a.id,
                                     profile_id: USER,
-                                    role: management ? "editor" : "contributor",
+                                    role: fixtureAdmin ? "admin" : management ? "editor" : "contributor",
                                     status: "active",
                                     joined_at: a.created_at,
                                     profiles: {

@@ -45,3 +45,7 @@ Home now shows coloured two-column placeholders when preview references are unav
 ## Expanded mobile discovery — 15 November 2026
 
 Home is the collection and no longer shows an Explore-the-collection gateway. Opening a tile shows a rounded enlarged photo, compact actions and a scrollable two-column More-to-explore grid. The enlarged photo does not open another cinema layer; Listen remains an explicit action. Related cards retain source proportions and selecting one resets the viewer scroll to the top. Browser Back returns to the collection. Production build and focused browser checks passed for direct collection entry, related browsing, Back and inline voice playback.
+
+## Bulk orientation review — 15 November 2026
+
+Admins can open Correct photo orientation from the archive menu to check existing photographs. The batch accepts only changed rotations with confidence at least 0.9 and no review flag, preserves existing crop points and original files, and checks for concurrent framing edits before saving. Uncertain results remain for individual review. No migration is required. Production build and two focused browser checks passed, including preservation of crop points and exclusion of uncertain suggestions. The fixture admin endpoint is local test infrastructure only.

@@ -119,6 +119,7 @@ export function Header() {
               Admin
               <ArrowUpRight size={20} />
             </Link>
+            {mode === "live" && can(role,"admin") && <Link prefetch={false} href="/admin/photo-corrections">Correct photo orientation <ArrowUpRight size={20}/></Link>}
             <Link prefetch={false} href="/tree" >
               Family tree
               <ArrowUpRight size={20} />
