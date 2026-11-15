@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useId, useRef, useState } from "react";
 import { X, LoaderCircle, Play, Pause } from "lucide-react";
+import {DocumentReadingPanel} from "../live/document-reading-panel";
 import { ItemDetailsPanel } from "../live/item-details-panel";
 import { MemoryPlayback } from "./memory-playback";
 import { ArchiveImage } from "../archive-image";
@@ -11,6 +12,7 @@ export function MemoryViewer({item, recordings, initialMode, onClose}: {item: Ar
   const workspace = useWorkspace(), dialog = useRef<HTMLDialogElement>(null), id = useId();
   const [mode] = useState(initialMode), [selected, setSelected] = useState(recordings[0]?.id), [playing, setPlaying] = useState(false);
   const [imageReady, setImageReady] = useState(false), [imageFailed, setImageFailed] = useState(false), [still, setStill] = useState(false);
+  const [reading,setReading]=useState(false);
   const [dirty, setDirty] = useState(false), [saving, setSaving] = useState(false);
   useEffect(() => {
     const element=dialog.current, focused=document.activeElement as HTMLElement | null, overflow=document.body.style.overflow;
@@ -23,8 +25,8 @@ export function MemoryViewer({item, recordings, initialMode, onClose}: {item: Ar
   const current=recordings.find(r=>r.id===selected) || recordings[0];
   const speaker=(r: RecordingView) => r.metadata.speaker || workspace.historicalPeople.find(p=>p.id===r.metadata.speakerPersonId)?.name || "Voice memory";
   return <dialog ref={dialog} className="memory-viewer" data-mode={mode === "listen" ? "listen" : "record"} aria-labelledby={`${id}-title`} onCancel={e=>{e.preventDefault();close();}}>
-    <header className="memory-viewer-header"><h2 id={`${id}-title`}>{mode === "listen" ? item.title : "Details & memories"}</h2><button type="button" className="memory-button" aria-label="Close photo" disabled={saving} onClick={close}><X aria-hidden="true" /></button></header>
-    <div className="memory-viewer-body" data-mode={mode === "listen" ? "listen" : "record"}>
+    <header className="memory-viewer-header"><h2 id={`${id}-title`}>{reading ? "Letter transcription" : mode === "listen" ? item.title : "Details & memories"}</h2><button type="button" className="memory-button" aria-label="Close photo" disabled={saving} onClick={close}><X aria-hidden="true" /></button></header>
+    {reading ? <div className="memory-reading"><button className="subtle-button" disabled={saving} onClick={()=>{if(mayLeave()){setDirty(false);setReading(false);}}}>Back to details & memories</button><DocumentReadingPanel itemId={item.id} onDirtyChange={setDirty} onSavingChange={setSaving}/></div> : <div className="memory-viewer-body" data-mode={mode === "listen" ? "listen" : "record"}>
       <div className="memory-stage">
         <div className="memory-cinema" data-playing={mode==="listen" && (current ? playing : imageReady && !still)} onErrorCapture={()=>setImageFailed(true)}>
           <ArchiveImage src={item.image} alt={item.title} imageSet={item.imageSet} rotation={item.rotation} variant="display" autoPrepare={false} priority fitFrame sizes="(max-width: 820px) 95vw, 70vw" onReady={()=>setImageReady(true)} />
@@ -34,12 +36,12 @@ export function MemoryViewer({item, recordings, initialMode, onClose}: {item: Ar
         {mode==="listen" && !current && <button type="button" className="cinema-control cinema-photo-pause" aria-label={still ? "Play photo motion" : "Pause photo motion"} onClick={()=>setStill(!still)}>{still ? <Play aria-hidden="true" /> : <Pause aria-hidden="true" />}</button>}
       </div>
       <section className="memory-viewer-controls" aria-label={mode!=="listen" ? `Edit details and memories for ${item.title}` : `Voice memories about ${item.title}`}>
-        {mode!=="listen" ? <ItemDetailsPanel item={item} startRecording={mode==="record"} onDirtyChange={setDirty} onSavingChange={setSaving}/> : current ? <>
+        {mode!=="listen" ? <ItemDetailsPanel item={item} startRecording={mode==="record"} onDirtyChange={setDirty} onSavingChange={setSaving} onTranscription={()=>{if(mayLeave()){setDirty(false);setReading(true);}}}/> : current ? <>
           <span className="cinema-announcement" aria-live="polite">{speaker(current)}</span>
           <MemoryPlayback key={current.id} fileId={current.fileId} title={`${speaker(current)}'s memory`} onPlaying={setPlaying} onEnded={()=>{const next=recordings[recordings.findIndex(r=>r.id===current.id)+1];if(next)setSelected(next.id);}} />
         </> : null}
 
       </section>
-    </div>
+    </div>}
   </dialog>;
 }

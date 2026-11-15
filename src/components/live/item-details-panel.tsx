@@ -1,5 +1,6 @@
 "use client";
 import {useEffect, useRef, useState} from "react";
+import {documentKinds} from "@/lib/documents/types";
 import {LoaderCircle} from "lucide-react";
 import {loadCardDetails} from "@/lib/backend/card-details-action";
 import type {ArchiveItem} from "@/lib/types";
@@ -13,7 +14,7 @@ import {AudioCapture} from "../audio/audio-capture";
 import {PrivateAudio} from "../audio/private-player";
 
 type Details=NonNullable<Awaited<ReturnType<typeof loadCardDetails>>["data"]>;
-export function ItemDetailsPanel({item,startRecording=false,onDirtyChange,onSavingChange}:{item:ArchiveItem;startRecording?:boolean;onDirtyChange:(dirty:boolean)=>void;onSavingChange:(busy:boolean)=>void}) {
+export function ItemDetailsPanel({item,startRecording=false,onDirtyChange,onSavingChange,onTranscription}:{item:ArchiveItem;startRecording?:boolean;onTranscription?:()=>void;onDirtyChange:(dirty:boolean)=>void;onSavingChange:(busy:boolean)=>void}) {
  const workspace=useWorkspace();
  const root=useRef<HTMLDivElement>(null);
  const [data,setData]=useState<Details|null>(null),[error,setError]=useState(""),[retry,setRetry]=useState(0);
@@ -36,6 +37,7 @@ export function ItemDetailsPanel({item,startRecording=false,onDirtyChange,onSavi
  </section>;
  return <div className="unified-item-editor" ref={root}>
   <nav className="editor-section-nav" aria-label="Editor sections">{["Item details","People and places","Recordings","Image adjustments"].map(label=><button type="button" className="subtle-button" key={label} onClick={()=>{const section=Array.from(root.current?.querySelectorAll("section")||[]).find(el=>el.getAttribute("aria-label")===label);section?.scrollIntoView({block:"start",behavior:"smooth"});}}>{label}</button>)}</nav>
+  {documentKinds.includes(data?.item.kind||item.kind)&&onTranscription&&<section className="unified-section" aria-label="Transcription"><h3>Transcription</h3><p>Read this letter beside its original pages, create a text draft or correct an existing transcription.</p><button type="button" className="button" disabled={audioBusy||detailsBusy} onClick={onTranscription}>Read / transcribe {item.kind==="Letter"?"letter":"document"}</button><p className="help-line">Opening this view is free. AI processing only starts when you confirm.</p></section>}
   <p className="help-line">Save details and recordings in their own sections. </p>
   {startRecording&&audio}
   {!data&&!error&&<p role="status"><LoaderCircle className="memory-spinner" size={18}/> Loading item details…</p>}

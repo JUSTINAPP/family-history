@@ -7,7 +7,8 @@ import {reviewDocument} from "@/lib/documents/actions";
 import type {StoredDocumentSuggestion} from "@/lib/documents/repository";
 import type {Person} from "@/lib/types";
 import type {ArchivePlace} from "@/lib/places";
-export function DocumentReviewSummary({archiveId,itemId,runId,suggestions,people,places,editor,date,precision}:{
+export function DocumentReviewSummary({archiveId,itemId,runId,suggestions,people,places,editor,date,precision,onReload}:{
+  onReload?:()=>void;
   archiveId:string;itemId:string;runId:string;suggestions:StoredDocumentSuggestion[];people:Person[];places:ArchivePlace[];editor:boolean;date:string;precision:string;
 }) {
   const router=useRouter();
@@ -21,7 +22,7 @@ export function DocumentReviewSummary({archiveId,itemId,runId,suggestions,people
     }
     setBusy(true);setMessage("");const form=new FormData();const {selected,...decision}=choice;void selected;
     form.set("action","suggestions");form.set("runId",runId);form.set("selections",JSON.stringify([{...decision,action}]));form.set("expectedDate",JSON.stringify({value:date,precision}));
-    try{const result=await reviewDocument(archiveId,itemId,form);setMessage(result.error||"Review saved. Original AI wording retained.");if(!result.error)router.refresh();}
+    try{const result=await reviewDocument(archiveId,itemId,form);setMessage(result.error||"Review saved. Original AI wording retained.");if(!result.error){if(onReload)onReload();else router.refresh();}}
     catch{setMessage("Could not save. Your changes remain here; please retry.");}finally{setBusy(false);}
   }
   if(!suggestions.length)return null;

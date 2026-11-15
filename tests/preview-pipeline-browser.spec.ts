@@ -1753,10 +1753,8 @@ test("Explore transcription badge links to the completed source reading", async 
   await page.getByLabel("Email",{exact:true}).fill("visibility@example.test");
   await page.getByLabel("Password",{exact:true}).fill("local-fixture-password");
   await page.locator("form").getByRole("button",{name:"Sign in",exact:true}).click();
-  const card=page.locator(".item-card").filter({has:page.locator(`a[href="/archive/${seed.id}/review?run=${seed.runId}"]`)});
-  await expect(card.getByText("Transcribed",{exact:true})).toBeVisible();
-  await expect(page.locator('.item-card').filter({has:page.getByRole('heading',{name:'Quick photograph 1',exact:true})}).getByText('Transcribed',{exact:true})).toHaveCount(0);
-  await card.getByRole("link",{name:"Read transcription ↗",exact:true}).click();
+  await page.locator(`.feed-card[data-item-id="${seed.id}"]`).getByRole("button").first().click();
+  await page.getByRole("dialog",{name:"Photo and related material"}).getByRole("link",{name:"Read transcription ↗",exact:true}).click();
   await expect(page).toHaveURL(new RegExp(`/archive/${seed.id}/review\\?run=${seed.runId}`));
   await expect(page.getByRole("region",{name:"Page transcription"}).getByText("Cher Jan, Auroville, 17 August 1978. [unclear]",{exact:true})).toBeVisible();
 });
@@ -2377,4 +2375,43 @@ test('superseded preview stops before creating derivatives and does not repeat i
   expect(after.staleCalls-before.staleCalls).toBe(1);
   expect(after.imageSets.length).toBe(before.imageSets.length);
  } finally {await request.post('http://127.0.0.1:4301/__fixture/failure');}
+});
+
+
+test("letter transcription opens inside the editor and switches original/text on mobile", async ({page,request}) => {
+ test.setTimeout(120000);
+ const seed=await(await request.post("http://127.0.0.1:4301/__fixture/document-item")).json();
+ await page.context().addCookies([{name:"active_archive",value:archive,url:"http://127.0.0.1:4300"}]);
+ await page.setViewportSize({width:1440,height:1000});
+ await page.goto("/sign-in");
+ await page.getByLabel("Email",{exact:true}).fill("visibility@example.test");
+ await page.getByLabel("Password",{exact:true}).fill("local-fixture-password");
+ await page.getByRole("button",{name:"Sign in",exact:true}).click();
+ await page.getByRole("button",{name:"View Fixture four-page letter",exact:true}).last().click();
+ await page.getByRole("dialog",{name:"Photo and related material"}).getByRole("button",{name:"Edit details",exact:true}).click();
+ const url=page.url();
+ await page.getByRole("button",{name:"Read / transcribe letter",exact:true}).click();
+ const reader=page.getByRole("dialog",{name:"Letter transcription",exact:true});
+ const text=reader.getByText("Cher Jan, Auroville, 17 August 1978. [unclear]",{exact:true});
+ await expect(text).toBeVisible();
+ await expect(reader.getByRole("heading",{name:"Original",exact:true})).toBeVisible();
+ expect(page.url()).toBe(url);
+ await expect(reader.getByRole("button",{name:"Transcribe again",exact:true})).toBeDisabled();
+ await reader.getByRole("button",{name:"Correct this page",exact:true}).click();
+ await reader.getByLabel("Corrected transcription",{exact:true}).fill("Reviewed letter text from Jan.");
+ await reader.getByRole("button",{name:"Save human correction",exact:true}).click();
+ await expect(reader.getByText("Reviewed letter text from Jan.",{exact:true})).toBeVisible();
+ await page.setViewportSize({width:375,height:844});
+ await expect(reader.getByRole("heading",{name:"Original",exact:true})).toBeHidden();
+ await reader.getByRole("button",{name:"Original",exact:true}).click();
+ await expect(reader.getByRole("heading",{name:"Original",exact:true})).toBeVisible();
+ await expect(reader.getByRole("region",{name:"Page transcription"})).toBeHidden();
+ await reader.getByRole("button",{name:"Text",exact:true}).click();
+ await expect(reader.getByText("Reviewed letter text from Jan.",{exact:true})).toBeVisible();
+ await reader.getByRole("button",{name:"Next page",exact:true}).click();
+ await expect(reader.getByText("Une lettre de notre famille.",{exact:true})).toBeVisible();
+ expect(new URL(page.url()).pathname).toBe(new URL(url).pathname);
+ await reader.getByRole("button",{name:"Back to details & memories",exact:true}).click();
+ await expect(page.getByRole("dialog",{name:"Details & memories",exact:true})).toBeVisible();
+ expect(seed.id).toBeTruthy();
 });

@@ -9,7 +9,8 @@ import type { StoredDocumentSuggestion } from "@/lib/documents/repository";
 import {reviewChoice,type ReviewChoice as Choice} from "@/lib/documents/review-choice";
 import {DocumentReviewSummary} from "./document-review-summary";
 import { reviewDocument } from "@/lib/documents/actions";
-function DetailedDocumentSuggestions({archiveId,itemId,runId,suggestions,people,places,editor,date,precision}: {
+function DetailedDocumentSuggestions({archiveId,itemId,runId,suggestions,people,places,editor,date,precision,onReload}: {
+  onReload?:()=>void;
   archiveId:string;itemId:string;runId:string;suggestions:StoredDocumentSuggestion[];people:Person[];places:ArchivePlace[];editor:boolean;date:string;precision:string;
 }) {
   const router=useRouter();
@@ -25,7 +26,7 @@ function DetailedDocumentSuggestions({archiveId,itemId,runId,suggestions,people,
       const selected=choices.filter(c=>c.selected && suggestions.some(s=>s.id===c.id && s.status==="pending")).map(({selected,...c})=>{void selected;return c;});
       if(!selected.length){setMessage("Select at least one suggestion to review.");setBusy(false);return;}
       const form=new FormData();form.set("action","suggestions");form.set("runId",runId);form.set("selections",JSON.stringify(selected));form.set("expectedDate",JSON.stringify(expectedDate));
-      try {const result=await reviewDocument(archiveId,itemId,form);setMessage(result.error||"Selected suggestions reviewed. Original AI drafts are retained.");if(!result.error)router.refresh();}
+      try {const result=await reviewDocument(archiveId,itemId,form);setMessage(result.error||"Selected suggestions reviewed. Original AI drafts are retained.");if(!result.error){if(onReload)onReload();else router.refresh();}}
       catch {setMessage("Could not save your review. Please retry.");}finally{setBusy(false);}
     }}>
       {suggestions.map(s=>{
