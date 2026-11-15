@@ -1,5 +1,6 @@
 "use client";
 import Link from 'next/link';
+import {PhotoLoadingStatus} from './photo-loading-status';
 import {FeedMemory} from './audio/feed-memory';
 import {FaceSuggestions} from './face-suggestions';
 import {useWorkspace} from './workspace-provider';
@@ -18,6 +19,7 @@ import type {RecordingView} from '@/lib/audio/repository';
 
 export function HomeGallery({items,recordings=[],archiveId}:{items:ArchiveItem[];recordings?:RecordingView[];archiveId?:string}) {
  const workspace=useWorkspace();
+ const [readyImages,setReadyImages]=useState<Set<string>>(()=>new Set());
  const [listening,setListening]=useState<string|null>(null);
  const [faceSearch,setFaceSearch]=useState(false);
  const router=useRouter(),[visible,setVisible]=useState(24),[filter,setFilter]=useState('All'),[query,setQuery]=useState(''),[selected,setSelected]=useState<string|null>(null);
@@ -61,12 +63,13 @@ export function HomeGallery({items,recordings=[],archiveId}:{items:ArchiveItem[]
  }
  function close(){if(ownHistory.current){history.back();}else{setSelected(null);returnFocus.current?.focus({preventScroll:true});}}
  return <div className="home-gallery collection-feed">
+  {filtered.slice(0,4).some(item=>!readyImages.has(item.id))&&<PhotoLoadingStatus names={workspace.historicalPeople.filter(person=>filtered.slice(0,4).some(item=>item.people.includes(person.id))).map(person=>person.name).slice(0,8)}/>}
   <div className="feed-toolbar"><label className="feed-search"><Search size={20} aria-hidden="true"/><input aria-label="Search this collection" placeholder="Search photos, names, places or dates" value={query} onChange={e=>{setQuery(e.target.value);setVisible(24);}}/></label><Link href="/explore" className="text-link">All filters ↗</Link>{can(workspace.role,"commenter")&&<button className="subtle-button" onClick={()=>setFaceSearch(true)}>Find people</button>}</div>
   <div className="feed-filters" aria-label="Material type">{['All','Photograph','Letter','Document','Object'].map(kind=><button type="button" key={kind} aria-pressed={filter===kind} onClick={()=>{setFilter(kind);setVisible(24);}}>{kind==='All'?'Everything':`${kind}s`}</button>)}</div>
   <section ref={grid} className="collection-grid" aria-label="Material from your archive">
    {filtered.slice(0,visible).map((item,index)=><article className="feed-card" data-item-id={item.id} data-kind={item.kind} key={item.id}>
-    <div className="feed-image-wrap" style={{backgroundColor:feedColour(item.id),aspectRatio:item.imageSet?presentationRatio(item.imageSet):item.aspect==='portrait'?.75:item.aspect==='landscape'?1.4:1}} onLoadCapture={e=>{const image=e.target as HTMLImageElement;if(image.tagName==='IMG'&&image.naturalWidth){const quarter=(item.imageSet?.rotation??item.rotation??0)%180;e.currentTarget.style.aspectRatio=String(quarter?image.naturalHeight/image.naturalWidth:image.naturalWidth/image.naturalHeight);}}}>{memories(item).length>0?<FeedMemory item={item} recordings={memories(item)} active={listening===item.id} onActivate={()=>setListening(item.id)} onDetails={()=>open(item.id)}><ArchiveImage src={item.image} imageSet={item.imageSet} rotation={item.rotation} variant="small" priority={index<4} alt={item.alt||item.title} sizes="(max-width:700px) 46vw, (max-width:1100px) 30vw, 24vw"/></FeedMemory>:<><button type="button" className="feed-image-open" aria-label={`View ${item.title}`} aria-haspopup="dialog" onClick={()=>open(item.id)}/>
-     <ArchiveImage src={item.image} imageSet={item.imageSet} rotation={item.rotation} variant="small" priority={index<4} alt={item.alt||item.title} sizes="(max-width:700px) 46vw, (max-width:1100px) 30vw, 24vw"/></>}
+    <div className="feed-image-wrap" style={{backgroundColor:feedColour(item.id),aspectRatio:item.imageSet?presentationRatio(item.imageSet):item.aspect==='portrait'?.75:item.aspect==='landscape'?1.4:1}} onLoadCapture={e=>{const image=e.target as HTMLImageElement;if(image.tagName==='IMG'&&image.naturalWidth){const quarter=(item.imageSet?.rotation??item.rotation??0)%180;e.currentTarget.style.aspectRatio=String(quarter?image.naturalHeight/image.naturalWidth:image.naturalWidth/image.naturalHeight);}}}>{memories(item).length>0?<FeedMemory item={item} recordings={memories(item)} active={listening===item.id} onActivate={()=>setListening(item.id)} onDetails={()=>open(item.id)}><ArchiveImage onReady={()=>setReadyImages(old=>old.has(item.id)?old:new Set([...old,item.id]))} src={item.image} imageSet={item.imageSet} rotation={item.rotation} variant="small" priority={index<4} alt={item.alt||item.title} sizes="(max-width:700px) 46vw, (max-width:1100px) 30vw, 24vw"/></FeedMemory>:<><button type="button" className="feed-image-open" aria-label={`View ${item.title}`} aria-haspopup="dialog" onClick={()=>open(item.id)}/>
+     <ArchiveImage onReady={()=>setReadyImages(old=>old.has(item.id)?old:new Set([...old,item.id]))} src={item.image} imageSet={item.imageSet} rotation={item.rotation} variant="small" priority={index<4} alt={item.alt||item.title} sizes="(max-width:700px) 46vw, (max-width:1100px) 30vw, 24vw"/></>}
     </div>
     {feedCaption(item,workspace.historicalPeople)&&<div className="feed-caption">{feedCaption(item,workspace.historicalPeople)&&<button type="button" onClick={()=>open(item.id)}>{feedCaption(item,workspace.historicalPeople)}</button>}</div>}
    </article>)}

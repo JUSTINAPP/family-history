@@ -37,3 +37,7 @@ Home preserves image proportions in a measured masonry grid with rounded image c
 ## Inline voice memories — 15 November 2026
 
 Photos with recordings show a single headphones button that changes to loading, pause or play. It controls voice playback and a gentle 16-second pan/zoom inside the tile. Tapping the image opens the normal photo-details viewer immediately and stops inline audio; there is no intermediate fullscreen player. Motion pauses with audio and respects reduced-motion settings. Production browser checks cover icon state, actual changing transforms, pause/resume, direct details navigation, return and mobile bounds. Physical iPhone acceptance remains pending.
+
+## Mobile loading feedback — 15 November 2026
+
+Home now shows coloured two-column placeholders when preview references are unavailable, with three bounded refresh attempts and a manual retry after a prolonged wait. Loading copy uses only names linked to the pending material. The gallery reports initial image loading and clears that status once the first four images are ready. Mobile type filters scroll horizontally to keep the two-column feed near the top. Production build, lint, TypeScript and delayed-image browser checks passed, including widths 320/375/390/430. Persistent backend preview failures still require investigation; the status does not claim that failed previews are ready.

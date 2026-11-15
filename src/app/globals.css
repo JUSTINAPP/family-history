@@ -5596,3 +5596,7 @@ h1, h2, h3 { font-weight: 500; }
 .feed-memory-error{position:absolute;z-index:4;bottom:12px;left:12px;right:12px;background:#fffdf5;padding:8px;border-radius:8px;font-size:13px;color:#294e3a}
 @keyframes feed-memory-pan{from{transform:scale(1) translateX(0)}to{transform:scale(1.12) translateX(1.5%)}}
 @media(prefers-reduced-motion:reduce){.feed-memory-image{animation:none}}
+
+.photo-loading-status{min-height:44px;margin:0 0 16px;color:var(--muted);font-size:15px}.photo-loading-status p{margin:0 0 8px}
+.archive-loading .loading-photos{padding:0;align-items:start}.archive-loading .loading-photo{filter:none;opacity:.7;overflow:hidden;aspect-ratio:3/4}.archive-loading .loading-photo:nth-child(2n){aspect-ratio:1}.archive-loading .loading-photo>div,.archive-loading .loading-photo>span{display:none}
+@media(max-width:700px){.scrapbook-home .collection-grid,.archive-loading .loading-photos{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:10px}.scrapbook-home .feed-filters{flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px}.scrapbook-home .feed-filters button{flex:none}.scrapbook-home .archive-loading{padding-top:0}.archive-loading{padding-top:24px}}

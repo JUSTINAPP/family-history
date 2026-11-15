@@ -2085,3 +2085,15 @@ test('feed memories use one playback button and open photo details directly',asy
  await card.locator('.feed-listen-icon').click();await expect(motion).toHaveAttribute('data-playing','true');
  await page.setViewportSize({width:375,height:844});await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
+
+
+test('mobile feed keeps two columns while photos load and reports real progress',async({page})=>{
+ await page.setViewportSize({width:375,height:844});
+ await page.context().addCookies([{name:'active_archive',value:archive,url:'http://127.0.0.1:4300'}]);
+ await page.route('**/api/v1/assets/**',async route=>{await new Promise(r=>setTimeout(r,4500));await route.continue();});
+ await page.goto('/sign-in');await page.getByLabel('Email',{exact:true}).fill('visibility@example.test');await page.getByLabel('Password',{exact:true}).fill('local-fixture-password');await page.locator('form').getByRole('button',{name:'Sign in',exact:true}).click();await expect(page).toHaveURL(/\/$/);
+ await expect(page.locator('.collection-feed .photo-loading-status')).toContainText('Your photos are loading');
+ await expect.poll(()=>page.locator('.collection-grid').evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(' ').length)).toBe(2);
+ await expect(page.locator('.collection-feed .photo-loading-status')).toHaveCount(0,{timeout:15000});
+ for(const width of [320,390,430]){await page.setViewportSize({width,height:844});await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await expect.poll(()=>page.locator('.collection-grid').evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(' ').length)).toBe(2);}
+});
